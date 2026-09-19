@@ -32,6 +32,55 @@ local function CreateRelicSlot(parent, index, x, y)
     return slot
 end
 
+local GRID_WIDTH = 13
+local GRID_HEIGHT = 13
+local START_X = 7
+local START_Y = 7
+local EXIT_X = 12
+local EXIT_Y = 11
+
+local STATIC_WALLS = {
+    ["4:3"] = true, ["4:4"] = true, ["4:5"] = true,
+    ["9:2"] = true, ["9:3"] = true,
+    ["3:9"] = true, ["4:9"] = true, ["5:9"] = true,
+    ["10:8"] = true, ["10:9"] = true, ["10:10"] = true,
+}
+
+local STATIC_MARKERS = {
+    ["11:4"] = { text = "K", color = "red" },
+    ["3:6"] = { text = "S", color = "muted" },
+    ["9:11"] = { text = "$", color = "gold" },
+    ["12:11"] = { text = ">", color = "green" },
+}
+
+local function CellKey(x, y)
+    return tostring(x) .. ":" .. tostring(y)
+end
+
+local function IsDungeonWall(x, y)
+    if x < 1 or x > GRID_WIDTH or y < 1 or y > GRID_HEIGHT then
+        return true
+    end
+
+    if x == 1 or x == GRID_WIDTH or y == 1 or y == GRID_HEIGHT then
+        return true
+    end
+
+    return STATIC_WALLS[CellKey(x, y)] == true
+end
+
+local function CopyTable(value)
+    if type(value) ~= "table" then
+        return value
+    end
+
+    local copy = {}
+    for key, child in pairs(value) do
+        copy[key] = CopyTable(child)
+    end
+    return copy
+end
+
 local function CreateGrid(parent)
     local grid = CreateFrame("Frame", nil, parent, "BackdropTemplate")
     grid:SetSize(350, 350)
@@ -42,51 +91,29 @@ local function CreateGrid(parent)
     local gap = 1
     local stride = size + gap
 
-    local staticWalls = {
-        ["4:3"] = true, ["4:4"] = true, ["4:5"] = true,
-        ["9:2"] = true, ["9:3"] = true,
-        ["3:9"] = true, ["4:9"] = true, ["5:9"] = true,
-        ["10:8"] = true, ["10:9"] = true, ["10:10"] = true,
-    }
+    grid.cells = {}
 
-    for row = 1, 13 do
-        for col = 1, 13 do
+    for row = 1, GRID_HEIGHT do
+        for col = 1, GRID_WIDTH do
             local cell = CreateFrame("Frame", nil, grid, "BackdropTemplate")
             cell:SetSize(size, size)
             cell:SetPoint("TOPLEFT", (col - 1) * stride, -((row - 1) * stride))
 
-            local edge = row == 1 or row == 13 or col == 1 or col == 13
-            local wall = edge or staticWalls[col .. ":" .. row]
-
+            local wall = IsDungeonWall(col, row)
             if wall then
                 ApplyBackdrop(cell, { 0.12, 0.095, 0.06, 1 }, { 0.20, 0.16, 0.09, 1 })
             else
                 ApplyBackdrop(cell, { 0.055, 0.048, 0.038, 1 }, { 0.09, 0.075, 0.055, 1 })
             end
 
-            if col == 7 and row == 7 then
-                cell:SetBackdropColor(0.11, 0.20, 0.08, 1)
-                cell:SetBackdropBorderColor(COLORS.green[1], COLORS.green[2], COLORS.green[3], 1)
-                local marker = CreateText(cell, "GameFontNormalLarge", "@")
-                marker:SetPoint("CENTER", 0, 1)
-                marker:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
-            elseif col == 11 and row == 4 then
-                local marker = CreateText(cell, "GameFontNormal", "K")
-                marker:SetPoint("CENTER")
-                marker:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
-            elseif col == 3 and row == 6 then
-                local marker = CreateText(cell, "GameFontNormal", "S")
-                marker:SetPoint("CENTER")
-                marker:SetTextColor(0.72, 0.72, 0.70)
-            elseif col == 9 and row == 11 then
-                local marker = CreateText(cell, "GameFontNormal", "$")
-                marker:SetPoint("CENTER")
-                marker:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
-            elseif col == 12 and row == 11 then
-                local marker = CreateText(cell, "GameFontNormal", ">")
-                marker:SetPoint("CENTER")
-                marker:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
-            end
+            local marker = CreateText(cell, "GameFontNormal", "")
+            marker:SetPoint("CENTER")
+
+            grid.cells[CellKey(col, row)] = {
+                frame = cell,
+                marker = marker,
+                wall = wall,
+            }
         end
     end
 
@@ -102,7 +129,7 @@ function GA:CreateDungeonRunPage(parent)
     title:SetPoint("TOPLEFT", 18, -16)
     title:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
-    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  LAYOUT PROTOTYPE")
+    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  MOVEMENT PROTOTYPE")
     subtitle:SetPoint("TOPRIGHT", -18, -22)
     subtitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
@@ -231,14 +258,18 @@ function GA:CreateDungeonRunPage(parent)
     runTitle:SetPoint("TOPLEFT", 12, -228)
     runTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
-    CreateStatRow(right, "FLOOR", "1 / 9", -252)
-    CreateStatRow(right, "SCORE", "0", -276)
-    CreateStatRow(right, "TURNS", "0", -300)
+    self.DungeonFloorValue = CreateStatRow(right, "FLOOR", "1 / 9", -252)
+    self.DungeonScoreValue = CreateStatRow(right, "SCORE", "0", -276)
+    self.DungeonTurnsValue = CreateStatRow(right, "TURNS", "0", -300)
 
     local begin = CreateFlatButton(right, "BEGIN RUN", 114, 36)
     begin:SetPoint("BOTTOM", 0, 12)
     begin:SetEnabled(false)
     begin.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    begin:SetScript("OnClick", function()
+        GA:BeginDungeonRun()
+    end)
+    self.DungeonBeginButton = begin
 
     local center = CreateFrame("Frame", nil, body, "BackdropTemplate")
     center:SetPoint("TOPLEFT", left, "TOPRIGHT", 8, 0)
@@ -248,6 +279,7 @@ function GA:CreateDungeonRunPage(parent)
     local floor = CreateText(center, "GameFontNormalSmall", "FLOOR 1  -  THE TEST CELLAR")
     floor:SetPoint("TOP", 0, -10)
     floor:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    self.DungeonFloorTitle = floor
 
     self.DungeonGrid = CreateGrid(center)
 
@@ -279,10 +311,42 @@ function GA:CreateDungeonRunPage(parent)
         button.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
     end
 
-    local state = CreateText(actionBar, "GameFontDisableSmall", "NO ACTIVE RUN")
+    local state = CreateText(actionBar, "GameFontDisableSmall", "READY - BEGIN A RUN")
     state:SetPoint("RIGHT", -12, 0)
     state:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    self.DungeonRunStateText = state
 
+    page:EnableKeyboard(true)
+    if page.SetPropagateKeyboardInput then
+        page:SetPropagateKeyboardInput(true)
+    end
+
+    page:SetScript("OnKeyDown", function(pageFrame, key)
+        if pageFrame.SetPropagateKeyboardInput then
+            pageFrame:SetPropagateKeyboardInput(true)
+        end
+
+        local movement = {
+            W = { 0, -1 },
+            UP = { 0, -1 },
+            S = { 0, 1 },
+            DOWN = { 0, 1 },
+            A = { -1, 0 },
+            LEFT = { -1, 0 },
+            D = { 1, 0 },
+            RIGHT = { 1, 0 },
+        }
+
+        local delta = movement[key]
+        if delta and GA.RunState and GA.RunState.active then
+            if pageFrame.SetPropagateKeyboardInput then
+                pageFrame:SetPropagateKeyboardInput(false)
+            end
+            GA:MoveDungeonPlayer(delta[1], delta[2])
+        end
+    end)
+
+    self:RenderDungeonGrid()
     return page
 end
 
@@ -336,8 +400,12 @@ local function GetCompatItemInstant(itemInfo)
     return nil, nil, nil, nil
 end
 
-function GA:RefreshMainHandInfo()
+function GA:RefreshMainHandInfo(force)
     if not self.DungeonMainHandName then
+        return
+    end
+
+    if self.RunState and self.RunState.active and not force then
         return
     end
 
@@ -362,6 +430,12 @@ function GA:RefreshMainHandInfo()
         self.DungeonArcadeTraitDesc:SetText("")
         self.DungeonPower:SetText("--")
         self.ArcadeMainHand = nil
+
+        if self.DungeonBeginButton and not (self.RunState and self.RunState.active) then
+            self.DungeonBeginButton:SetEnabled(false)
+            self.DungeonBeginButton.label:SetText("BEGIN RUN")
+            self.DungeonBeginButton.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+        end
         return
     end
 
@@ -426,7 +500,195 @@ function GA:RefreshMainHandInfo()
                 self.DungeonArcadeTraitName:SetText("NO SIGNATURE TRAIT")
                 self.DungeonArcadeTraitDesc:SetText("Uncommon or better weapons unlock their archetype trait.")
             end
+
+            if self.DungeonBeginButton and not (self.RunState and self.RunState.active) then
+                self.DungeonBeginButton:SetEnabled(true)
+                self.DungeonBeginButton.label:SetText(self.RunState and self.RunState.completed and "BEGIN AGAIN" or "BEGIN RUN")
+                self.DungeonBeginButton.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+            end
         end
+    end
+end
+
+function GA:RenderDungeonGrid()
+    if not self.DungeonGrid or not self.DungeonGrid.cells then
+        return
+    end
+
+    for y = 1, GRID_HEIGHT do
+        for x = 1, GRID_WIDTH do
+            local entry = self.DungeonGrid.cells[CellKey(x, y)]
+            if entry then
+                if entry.wall then
+                    entry.frame:SetBackdropColor(0.12, 0.095, 0.06, 1)
+                    entry.frame:SetBackdropBorderColor(0.20, 0.16, 0.09, 1)
+                else
+                    entry.frame:SetBackdropColor(0.055, 0.048, 0.038, 1)
+                    entry.frame:SetBackdropBorderColor(0.09, 0.075, 0.055, 1)
+                end
+
+                entry.marker:SetText("")
+                local staticMarker = STATIC_MARKERS[CellKey(x, y)]
+                if staticMarker then
+                    entry.marker:SetText(staticMarker.text)
+
+                    if staticMarker.color == "red" then
+                        entry.marker:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+                    elseif staticMarker.color == "gold" then
+                        entry.marker:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+                    elseif staticMarker.color == "green" then
+                        entry.marker:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+                    else
+                        entry.marker:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+                    end
+                end
+            end
+        end
+    end
+
+    local run = self.RunState
+    local playerX = run and run.playerX or START_X
+    local playerY = run and run.playerY or START_Y
+    local playerCell = self.DungeonGrid.cells[CellKey(playerX, playerY)]
+
+    if playerCell then
+        playerCell.frame:SetBackdropColor(0.11, 0.20, 0.08, 1)
+        playerCell.frame:SetBackdropBorderColor(COLORS.green[1], COLORS.green[2], COLORS.green[3], 1)
+        playerCell.marker:SetText("@")
+        playerCell.marker:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+    end
+end
+
+function GA:RefreshRunCounters()
+    local run = self.RunState
+
+    if self.DungeonFloorValue then
+        self.DungeonFloorValue:SetText(string.format("%d / 9", run and run.floor or 1))
+    end
+    if self.DungeonScoreValue then
+        self.DungeonScoreValue:SetText(tostring(run and run.score or 0))
+    end
+    if self.DungeonTurnsValue then
+        self.DungeonTurnsValue:SetText(tostring(run and run.turns or 0))
+    end
+end
+
+function GA:BeginDungeonRun()
+    if self.RunState and self.RunState.active then
+        return
+    end
+
+    self:RefreshMainHandInfo(true)
+    if not self.ArcadeMainHand then
+        if self.DungeonRunStateText then
+            self.DungeonRunStateText:SetText("EQUIP A MAIN-HAND WEAPON")
+            self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+        end
+        return
+    end
+
+    local name = UnitName("player") or "Unknown"
+    local level = UnitLevel("player") or 0
+    local className = UnitClass("player") or "Adventurer"
+    local maxHealth = UnitHealthMax("player") or 0
+
+    self.RunState = {
+        active = true,
+        completed = false,
+        floor = 1,
+        score = 0,
+        turns = 0,
+        playerX = START_X,
+        playerY = START_Y,
+        snapshot = {
+            name = name,
+            level = level,
+            className = className,
+            maxHealth = maxHealth,
+            mainHandLink = self.DungeonMainHandLink,
+            weapon = CopyTable(self.ArcadeMainHand),
+        },
+    }
+
+    self.DungeonHealth:SetText(tostring(maxHealth))
+    self.DungeonPower:SetText(string.format("%d-%d", self.RunState.snapshot.weapon.damageMin, self.RunState.snapshot.weapon.damageMax))
+
+    if self.DungeonBeginButton then
+        self.DungeonBeginButton:SetEnabled(false)
+        self.DungeonBeginButton.label:SetText("RUNNING")
+        self.DungeonBeginButton.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    end
+
+    if self.DungeonFloorTitle then
+        self.DungeonFloorTitle:SetText("FLOOR 1  -  THE TEST CELLAR")
+    end
+
+    if self.DungeonRunStateText then
+        self.DungeonRunStateText:SetText("RUN ACTIVE - WASD / ARROWS")
+        self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+    end
+
+    self:RefreshRunCounters()
+    self:RenderDungeonGrid()
+end
+
+function GA:CompleteTestFloor()
+    local run = self.RunState
+    if not run or not run.active then
+        return
+    end
+
+    run.active = false
+    run.completed = true
+
+    if self.DungeonFloorTitle then
+        self.DungeonFloorTitle:SetText("FLOOR 1  -  CLEARED")
+    end
+
+    if self.DungeonRunStateText then
+        self.DungeonRunStateText:SetText(string.format("TEST FLOOR CLEARED - %d TURNS", run.turns))
+        self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+    end
+
+    if self.DungeonBeginButton then
+        self.DungeonBeginButton:SetEnabled(true)
+        self.DungeonBeginButton.label:SetText("BEGIN AGAIN")
+        self.DungeonBeginButton.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    end
+
+    self:RefreshRunCounters()
+    self:RenderDungeonGrid()
+end
+
+function GA:MoveDungeonPlayer(dx, dy)
+    local run = self.RunState
+    if not run or not run.active then
+        return
+    end
+
+    local nextX = run.playerX + dx
+    local nextY = run.playerY + dy
+
+    if IsDungeonWall(nextX, nextY) then
+        if self.DungeonRunStateText then
+            self.DungeonRunStateText:SetText("BLOCKED - WALL")
+            self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+        end
+        return
+    end
+
+    run.playerX = nextX
+    run.playerY = nextY
+    run.turns = run.turns + 1
+
+    self:RefreshRunCounters()
+    self:RenderDungeonGrid()
+
+    if nextX == EXIT_X and nextY == EXIT_Y then
+        self:CompleteTestFloor()
+    elseif self.DungeonRunStateText then
+        self.DungeonRunStateText:SetText("RUN ACTIVE - WASD / ARROWS")
+        self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
     end
 end
 
@@ -435,9 +697,24 @@ function GA:RefreshDungeonSummary()
         return
     end
 
+    if self.RunState and self.RunState.active and self.RunState.snapshot then
+        self.DungeonHealth:SetText(tostring(self.RunState.snapshot.maxHealth or 0))
+
+        local weapon = self.RunState.snapshot.weapon
+        if weapon then
+            self.DungeonPower:SetText(string.format("%d-%d", weapon.damageMin, weapon.damageMax))
+        end
+
+        self:RefreshRunCounters()
+        self:RenderDungeonGrid()
+        return
+    end
+
     local maxHealth = UnitHealthMax("player") or 0
     self.DungeonHealth:SetText(tostring(maxHealth))
     self:RefreshMainHandInfo()
+    self:RefreshRunCounters()
+    self:RenderDungeonGrid()
 end
 
 local itemEventFrame = CreateFrame("Frame")

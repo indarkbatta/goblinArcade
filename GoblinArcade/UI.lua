@@ -145,7 +145,7 @@ function GA:CreateHomePage(parent)
     gameDescription:SetJustifyV("TOP")
     gameDescription:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    local status = CreateText(card, "GameFontNormal", ">  DUNGEON LAYOUT READY")
+    local status = CreateText(card, "GameFontNormal", ">  MOVEMENT BUILD READY")
     status:SetPoint("BOTTOMLEFT", 22, 22)
     status:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
 
@@ -155,11 +155,11 @@ function GA:CreateHomePage(parent)
         GA:ShowPage("dungeon")
     end)
 
-    local coming = CreateText(page, "GameFontHighlightSmall", "The first playable cabinet is taking shape. Game logic comes next.")
+    local coming = CreateText(page, "GameFontHighlightSmall", "Begin a run, then move with WASD or the arrow keys. Combat comes next.")
     coming:SetPoint("TOPLEFT", card, "BOTTOMLEFT", 0, -18)
     coming:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    local version = CreateText(page, "GameFontDisableSmall", "GoblinArcade v" .. tostring(self.version or "0.2.0") .. "  -  WoW Forever")
+    local version = CreateText(page, "GameFontDisableSmall", "GoblinArcade v" .. tostring(self.version or "0.4.0") .. "  -  WoW Forever")
     version:SetPoint("BOTTOMRIGHT", -16, 12)
     version:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
