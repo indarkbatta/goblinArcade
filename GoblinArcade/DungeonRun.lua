@@ -503,7 +503,7 @@ local function GetEnemyDisplayName(enemy)
         return "Enemy"
     end
 
-    local name = GetEnemyDisplayName(enemy)
+    local name = enemy.name or "Enemy"
     local rank = enemy.rank or "normal"
 
     if rank == "veteran" then
@@ -1697,7 +1697,7 @@ function GA:PlayerAttackEnemy(targetEnemy)
             enemy.intent = "STAGGERED"
             staggered = true
             self:AddCombatLog(
-                string.format("STAGGER! The %s loses its next action.", enemy.name or "enemy"),
+                string.format("STAGGER! The %s loses its next action.", string.lower(GetEnemyDisplayName(enemy))),
                 "system"
             )
         end
@@ -1712,13 +1712,13 @@ function GA:PlayerAttackEnemy(targetEnemy)
         local scoreValue = enemy.scoreValue or 100
         run.score = (run.score or 0) + scoreValue
         self:AddCombatLog(
-            string.format("%s defeated. +%d score.", enemy.name or "Enemy", scoreValue),
+            string.format("%s defeated. +%d score.", GetEnemyDisplayName(enemy), scoreValue),
             "system"
         )
 
         if self.DungeonRunStateText then
             self.DungeonRunStateText:SetText(
-                "PLAYER TURN - " .. string.upper(enemy.name or "ENEMY") .. " DEFEATED"
+                "PLAYER TURN - " .. string.upper(GetEnemyDisplayName(enemy)) .. " DEFEATED"
             )
             self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
         end
@@ -1891,8 +1891,6 @@ function GA:RenderDungeonGrid()
                             entry.marker:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
                         end
                     end
-                elseif not enemy.alerted then
-                    enemy.intent = "IDLE"
                 end
             end
         end
@@ -2373,7 +2371,7 @@ function GA:RunEnemyTurn()
 
                 if self:IsDungeonCellVisible(enemy.x, enemy.y) then
                     self:AddCombatLog(
-                        "The staggered " .. string.lower(enemy.name or "enemy") .. " loses its turn.",
+                        "The staggered " .. string.lower(GetEnemyDisplayName(enemy)) .. " loses its turn.",
                         "enemy"
                     )
                 end
@@ -2392,7 +2390,7 @@ function GA:RunEnemyTurn()
 
                     if self:IsDungeonCellVisible(enemy.x, enemy.y) then
                         self:AddCombatLog(
-                            "The " .. string.lower(enemy.name or "enemy") .. " spots you!",
+                            "The " .. string.lower(GetEnemyDisplayName(enemy)) .. " spots you!",
                             "enemy"
                         )
                     end
@@ -2408,7 +2406,7 @@ function GA:RunEnemyTurn()
 
                     if dodged then
                         self:AddCombatLog(
-                            "You dodge the " .. string.lower(enemy.name or "enemy") .. "'s attack.",
+                            "You dodge the " .. string.lower(GetEnemyDisplayName(enemy)) .. "'s attack.",
                             "player"
                         )
                     else
@@ -2440,7 +2438,7 @@ function GA:RunEnemyTurn()
                             string.format(
                                 "%s%s hits you for %d damage. (%d/%d HP)",
                                 blocked and "BLOCK! " or "",
-                                enemy.name or "Enemy",
+                                GetEnemyDisplayName(enemy),
                                 damage,
                                 run.playerHealth,
                                 run.playerMaxHealth or run.playerHealth
@@ -2452,7 +2450,7 @@ function GA:RunEnemyTurn()
 
                         if run.playerHealth <= 0 then
                             self:FailDungeonRun(
-                                (enemy.name or "Enemy")
+                                GetEnemyDisplayName(enemy)
                                 .. " killed "
                                 .. (run.snapshot.name or "your hero")
                                 .. "."
@@ -2502,16 +2500,18 @@ function GA:RunEnemyTurn()
                     if movedSteps > 0 and visibleDuringMove then
                         if enemy.movementPattern == "quick" and movedSteps > 1 then
                             self:AddCombatLog(
-                                (enemy.name or "Enemy") .. " scuttles quickly closer.",
+                                GetEnemyDisplayName(enemy) .. " scuttles quickly closer.",
                                 "enemy"
                             )
                         else
                             self:AddCombatLog(
-                                (enemy.name or "Enemy") .. " moves closer.",
+                                GetEnemyDisplayName(enemy) .. " moves closer.",
                                 "enemy"
                             )
                         end
                     end
+                else
+                    enemy.intent = "IDLE"
                 end
             end
         end
@@ -2526,7 +2526,7 @@ function GA:RunEnemyTurn()
             self.DungeonRunStateText:SetText(
                 string.format(
                     "PLAYER TURN - %s %d/%d HP",
-                    string.upper(adjacent.name or "ENEMY"),
+                    string.upper(GetEnemyDisplayName(adjacent)),
                     adjacent.hp or 0,
                     adjacent.maxHp or 0
                 )

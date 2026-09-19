@@ -781,6 +781,7 @@ Recent gameplay foundation:
 - FloorGenerator v3 now creates bounded Normal / Veteran / Elite rank compositions without increasing enemy count
 - the target card prefixes Veteran / Elite ranks so stronger enemies are identifiable
 - enemy intent presentation is active on the right-side target card: WATCHING / ALERTED / MOVING / ATTACKING / STAGGERED
+- intent state is updated explicitly once per enemy phase; terrain rendering does not mutate enemy state
 - Spider/Skeleton custom target-card art now uses full-frame portrait coordinates instead of Blizzard-icon cropping
 
 ---
