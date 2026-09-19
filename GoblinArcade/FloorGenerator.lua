@@ -3,7 +3,7 @@ local _, GA = ...
 GA.FloorGenerator = GA.FloorGenerator or {}
 local FG = GA.FloorGenerator
 
-FG.VERSION = 2
+FG.VERSION = 3
 
 local DENSITY_PROFILES = {
     {
@@ -80,6 +80,60 @@ local ARCHETYPE_ORDER = {
     "skeleton",
 }
 
+local RANK_MIXES = {
+    {
+        minFloor = 1,
+        maxFloor = 2,
+        weights = {
+            normal = 100,
+            veteran = 0,
+            elite = 0,
+        },
+    },
+    {
+        minFloor = 3,
+        maxFloor = 4,
+        weights = {
+            normal = 85,
+            veteran = 15,
+            elite = 0,
+        },
+    },
+    {
+        minFloor = 5,
+        maxFloor = 6,
+        weights = {
+            normal = 70,
+            veteran = 25,
+            elite = 5,
+        },
+    },
+    {
+        minFloor = 7,
+        maxFloor = 8,
+        weights = {
+            normal = 55,
+            veteran = 30,
+            elite = 15,
+        },
+    },
+    {
+        minFloor = 9,
+        maxFloor = 9,
+        weights = {
+            normal = 40,
+            veteran = 35,
+            elite = 25,
+        },
+    },
+}
+
+local RANK_ORDER = {
+    "normal",
+    "veteran",
+    "elite",
+}
+
 local function Round(value)
     return math.floor(value + 0.5)
 end
@@ -101,6 +155,18 @@ local function GetMixForFloor(floor)
     end
 
     return ARCHETYPE_MIXES[#ARCHETYPE_MIXES].weights
+end
+
+local function GetRankMixForFloor(floor)
+    local floorNumber = math.max(1, tonumber(floor) or 1)
+
+    for _, mix in ipairs(RANK_MIXES) do
+        if floorNumber >= mix.minFloor and floorNumber <= mix.maxFloor then
+            return mix.weights
+        end
+    end
+
+    return RANK_MIXES[#RANK_MIXES].weights
 end
 
 function FG:RollDensityProfile()
@@ -196,6 +262,70 @@ function FG:CreateArchetypePlan(enemyCount, floor)
     for _, archetype in ipairs(ARCHETYPE_ORDER) do
         for _ = 1, counts[archetype] or 0 do
             plan[#plan + 1] = archetype
+        end
+    end
+
+    Shuffle(plan)
+    return plan, counts
+end
+
+
+function FG:GetRankWeights(floor)
+    local weights = GetRankMixForFloor(floor)
+
+    return {
+        normal = weights.normal or 0,
+        veteran = weights.veteran or 0,
+        elite = weights.elite or 0,
+    }
+end
+
+function FG:CreateRankPlan(enemyCount, floor)
+    local count = math.max(1, tonumber(enemyCount) or 1)
+    local weights = GetRankMixForFloor(floor)
+    local counts = {}
+    local remainders = {}
+    local assigned = 0
+
+    for orderIndex, rank in ipairs(RANK_ORDER) do
+        local raw = count * ((weights[rank] or 0) / 100)
+        local whole = math.floor(raw)
+
+        counts[rank] = whole
+        assigned = assigned + whole
+        remainders[#remainders + 1] = {
+            rank = rank,
+            orderIndex = orderIndex,
+            remainder = raw - whole,
+        }
+    end
+
+    table.sort(remainders, function(a, b)
+        if a.remainder == b.remainder then
+            return a.orderIndex < b.orderIndex
+        end
+        return a.remainder > b.remainder
+    end)
+
+    local remaining = count - assigned
+    local index = 1
+
+    while remaining > 0 do
+        local target = remainders[index]
+        counts[target.rank] = (counts[target.rank] or 0) + 1
+        remaining = remaining - 1
+        index = index + 1
+
+        if index > #remainders then
+            index = 1
+        end
+    end
+
+    local plan = {}
+
+    for _, rank in ipairs(RANK_ORDER) do
+        for _ = 1, counts[rank] or 0 do
+            plan[#plan + 1] = rank
         end
     end
 

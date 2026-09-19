@@ -378,7 +378,7 @@ local function IsTooCloseToSpawnedEnemy(enemies, x, y, minimumDistance)
     return false
 end
 
-local function CreateFloorEnemies(enemyGenerator, playerLevel, floor, gearPressure, archetypePlan)
+local function CreateFloorEnemies(enemyGenerator, playerLevel, floor, gearPressure, archetypePlan, rankPlan)
     local candidates = {}
 
     for y = 1, GRID_HEIGHT do
@@ -397,11 +397,12 @@ local function CreateFloorEnemies(enemyGenerator, playerLevel, floor, gearPressu
     local function AddEnemyAt(candidate)
         local nextIndex = #enemies + 1
         local archetype = archetypePlan[nextIndex] or "kobold"
+        local rank = rankPlan and rankPlan[nextIndex] or "normal"
         local visual = ENEMY_VISUALS[archetype] or ENEMY_VISUALS.kobold
 
         local enemy = enemyGenerator:CreateEnemy({
             archetype = archetype,
-            rank = "normal",
+            rank = rank,
             playerLevel = playerLevel,
             floor = floor,
             gearPressure = gearPressure,
@@ -481,6 +482,36 @@ local function BuildCompositionText(counts)
     )
 end
 
+local function BuildRankCompositionText(counts)
+    counts = counts or {}
+
+    return string.format(
+        "%d Normal / %d Veteran / %d Elite",
+        counts.normal or 0,
+        counts.veteran or 0,
+        counts.elite or 0
+    )
+end
+
+local function GetEnemyDisplayName(enemy)
+    if not enemy then
+        return "Enemy"
+    end
+
+    local name = enemy.name or "Enemy"
+    local rank = enemy.rank or "normal"
+
+    if rank == "veteran" then
+        return "Veteran " .. name
+    elseif rank == "elite" then
+        return "Elite " .. name
+    elseif rank == "boss" then
+        return "Boss " .. name
+    end
+
+    return name
+end
+
 local function GenerateFloorSetup(floorGenerator, enemyGenerator, playerLevel, floorNumber, gearPressure)
     local walkableTiles = CountWalkableTiles()
     local densityProfile = floorGenerator:RollDensityProfile()
@@ -494,13 +525,18 @@ local function GenerateFloorSetup(floorGenerator, enemyGenerator, playerLevel, f
         enemyCount,
         floorNumber
     )
+    local rankPlan, rankCounts = floorGenerator:CreateRankPlan(
+        enemyCount,
+        floorNumber
+    )
 
     local floorEnemies = CreateFloorEnemies(
         enemyGenerator,
         playerLevel,
         floorNumber,
         gearPressure,
-        archetypePlan
+        archetypePlan,
+        rankPlan
     )
 
     return {
@@ -509,6 +545,7 @@ local function GenerateFloorSetup(floorGenerator, enemyGenerator, playerLevel, f
         baseEnemyCount = baseEnemyCount,
         enemyCount = #floorEnemies,
         enemyComposition = archetypeCounts,
+        enemyRankComposition = rankCounts,
         enemies = floorEnemies,
     }
 end
@@ -1460,7 +1497,7 @@ function GA:RefreshEnemyCombatCard()
         if inCombat then
             self.DungeonEnemyCard:Show()
             self.DungeonEnemyName:SetText(
-                string.format("%s  Lv %d", enemy.name or "Enemy", enemy.level or 1)
+                string.format("%s  Lv %d", GetEnemyDisplayName(enemy), enemy.level or 1)
             )
             self.DungeonEnemyHealth:SetText(
                 string.format("%d / %d HP", enemy.hp or 0, enemy.maxHp or 0)
@@ -1821,7 +1858,6 @@ function GA:RenderDungeonGrid()
 
                 local enemyCell = self.DungeonGrid.cells[CellKey(enemyViewX, enemyViewY)]
                 if enemyCell and enemyCell.enemyIcon then
-                    enemyCell.frame:SetBackdropColor(0.16, 0.055, 0.045, 1)
                     enemyCell.frame:SetBackdropBorderColor(COLORS.red[1], COLORS.red[2], COLORS.red[3], 1)
                     enemyCell.marker:SetText("")
                     enemyCell.enemyIcon:SetTexture(enemy.texture or KOBOLD_TEXTURE)
@@ -1931,6 +1967,7 @@ function GA:BeginDungeonRun()
     local densityProfile = floorSetup.densityProfile
     local baseEnemyCount = floorSetup.baseEnemyCount
     local archetypeCounts = floorSetup.enemyComposition
+    local rankCounts = floorSetup.enemyRankComposition
     local floorEnemies = floorSetup.enemies
     local sampleEnemy = floorEnemies[1]
 
@@ -1956,6 +1993,7 @@ function GA:BeginDungeonRun()
         baseEnemyCount = baseEnemyCount,
         enemyCount = #floorEnemies,
         enemyComposition = CopyTable(archetypeCounts),
+        enemyRankComposition = CopyTable(rankCounts),
         enemies = floorEnemies,
         activeEnemyId = nil,
         enemyPhase = 0,
@@ -2039,6 +2077,10 @@ function GA:BeginDungeonRun()
         "Composition: " .. BuildCompositionText(archetypeCounts) .. ".",
         "system"
     )
+    self:AddCombatLog(
+        "Ranks: " .. BuildRankCompositionText(rankCounts) .. ".",
+        "system"
+    )
     self:AddCombatLog("Vision radius: 4. Walls block line of sight.", "system")
     self:AddCombatLog(
         string.format(
@@ -2055,7 +2097,7 @@ function GA:BeginDungeonRun()
         self:AddCombatLog(
             string.format(
                 "%s Lv %d profile: %d HP, %d-%d damage.",
-                sampleEnemy.name,
+                GetEnemyDisplayName(sampleEnemy),
                 sampleEnemy.level,
                 sampleEnemy.maxHp,
                 sampleEnemy.damageMin,
@@ -2095,6 +2137,7 @@ function GA:ApplyDungeonFloor(floorNumber)
     run.baseEnemyCount = floorSetup.baseEnemyCount
     run.enemyCount = floorSetup.enemyCount
     run.enemyComposition = CopyTable(floorSetup.enemyComposition)
+    run.enemyRankComposition = CopyTable(floorSetup.enemyRankComposition)
     run.enemies = floorSetup.enemies
     run.activeEnemyId = nil
     run.enemyPhase = 0
@@ -2140,6 +2183,10 @@ function GA:ApplyDungeonFloor(floorNumber)
         "Composition: " .. BuildCompositionText(floorSetup.enemyComposition) .. ".",
         "system"
     )
+    self:AddCombatLog(
+        "Ranks: " .. BuildRankCompositionText(floorSetup.enemyRankComposition) .. ".",
+        "system"
+    )
 
     local sampleEnemy = floorSetup.enemies[1]
     if sampleEnemy then
@@ -2147,7 +2194,7 @@ function GA:ApplyDungeonFloor(floorNumber)
             string.format(
                 "Floor %d scaling: %s Lv %d profile = %d HP, %d-%d damage.",
                 floorNumber,
-                sampleEnemy.name or "Enemy",
+                GetEnemyDisplayName(sampleEnemy),
                 sampleEnemy.level or 1,
                 sampleEnemy.maxHp or 0,
                 sampleEnemy.damageMin or 0,

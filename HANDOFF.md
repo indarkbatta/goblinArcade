@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.16.8**  
+Current addon version: **0.17.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -266,6 +266,7 @@ Rules:
 - never-seen terrain is almost black;
 - unseen cells have **no visible border** to avoid the dotted/grid artifact;
 - enemies are drawn only when currently visible;
+- visible enemy cells keep the normal terrain background; only the cell border turns red;
 - static discovered landmarks may remain visible in dim form as memory.
 
 LOS currently uses deterministic line tracing.
@@ -720,7 +721,8 @@ A new floor resets/regenerates:
 - enemy collection and enemy phase counter;
 - active combat target;
 - density profile;
-- enemy archetype composition.
+- enemy archetype composition;
+- enemy rank composition.
 
 Each new floor therefore receives its own fresh QUIET / STANDARD / CROWDED roll and its own floor-specific enemy scaling while preserving the player's run progression.
 
@@ -744,7 +746,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.16.8**
+- **0.17.0**
 
 Recent gameplay foundation:
 
@@ -774,6 +776,9 @@ Recent gameplay foundation:
 - Kobold grid art uses the 128×128 custom `kobold.tga`
 - Spider and Skeleton now use dedicated 128×128 custom sprites for grid + target card
 - temporary upload names `spider01_128x128.tga` and `skeleton01_128x128.tga` were normalized to `spider.tga` and `skeleton.tga`
+- enemy tile backgrounds are no longer tinted red; only the enemy tile border is red
+- FloorGenerator v3 now creates bounded Normal / Veteran / Elite rank compositions without increasing enemy count
+- the target card prefixes Veteran / Elite ranks so stronger enemies are identifiable
 
 ---
 
@@ -1206,9 +1211,40 @@ The generator converts these weights into bounded integer counts for the floor, 
 
 ### Rank interaction
 
-Veteran / Elite / Boss enemies should generally **replace part of the normal enemy budget**, not simply be added on top of the body count.
+**Implemented in FloorGenerator v3 / GoblinArcade 0.17.0.**
 
-This prevents a harder rank mix from also accidentally becoming an excessive-density floor.
+Veteran and Elite enemies replace Normal enemies inside the existing population budget; they do **not** add extra bodies. Boss remains reserved for objective-specific encounters.
+
+Current floor rank weights:
+
+```
+Floor 1–2:
+Normal 100%
+Veteran 0%
+Elite 0%
+
+Floor 3–4:
+Normal 85%
+Veteran 15%
+Elite 0%
+
+Floor 5–6:
+Normal 70%
+Veteran 25%
+Elite 5%
+
+Floor 7–8:
+Normal 55%
+Veteran 30%
+Elite 15%
+
+Floor 9:
+Normal 40%
+Veteran 35%
+Elite 25%
+```
+
+Weights are converted into bounded integer counts for the actual floor population and the resulting rank plan is shuffled before assignment. Existing deterministic rank stat multipliers in EnemyGenerator remain authoritative.
 
 ### Difficulty axes
 
@@ -1226,48 +1262,43 @@ Randomness is appropriate in floor composition/density. It must remain bounded. 
 
 ## 25. Recommended next development steps
 
-Deterministic scaling, bounded density, multi-enemy support, three active archetypes and the 9-floor run loop are complete. The most natural next slice is now **rank composition + enemy intent presentation**, followed by floor-layout variety.
+Deterministic scaling, bounded density, multi-enemy support, three active archetypes, the 9-floor run loop, and bounded rank composition are complete. The most natural next slice is now **enemy intent / combat presentation**, followed by floor-layout variety.
 
 Recommended order:
 
-1. **Rank composition**
-   - Veteran and Elite replace normal enemies inside the same population budget
-   - later floors allow higher rank percentages
-   - Boss remains a floor/objective-specific case
-
-2. **Enemy intent / combat presentation**
+1. **Enemy intent / combat presentation**
    - ATTACKING
    - MOVING
    - STAGGERED
    - maybe visible on the right target card
 
-3. **Abilities**
+2. **Abilities**
    - Warrior first
    - basic attack + 4 actives + passive is the longer-term design
    - current buttons 2/3 are placeholders
 
-4. **Potions**
+3. **Potions**
    - finite run resource
    - no unlimited healing
 
-5. **Dungeon generation**
+4. **Dungeon generation**
    - floor templates first
    - procedural generation later if needed
 
-6. **Floor objectives**
+5. **Floor objectives**
    - exit
    - elite
    - chest
    - shrine/shop
    - boss
 
-7. **More deterministic loot**
+6. **More deterministic loot**
    - armor
    - jewelry
    - weapons
    - clear archetype-based differences
 
-8. **Scores**
+7. **Scores**
    - run score summary
    - eventual local/group sharing
 
@@ -1349,6 +1380,7 @@ Before changing layout conventions, remember the user's current preferences:
 - dungeon logical tile baseline is 96×96 px;
 - viewport baseline is 7×7 visible tiles;
 - creature art baseline is 128×128 source rendered at 96×96 px with no tile overflow;
+- enemy cells keep the terrain background and use only a red border for hostile highlighting;
 - fog should not show dotted borders;
 - item tooltips should show GoblinArcade stats, not WoW stats;
 - drag targets must visually highlight.
