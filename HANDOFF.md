@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.15.0**  
+Current addon version: **0.16.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -215,8 +215,12 @@ Player starts around:
 Exit:
 
 - `23,23`
+- on Floors 1–8, stepping on the exit advances to the next floor;
+- on Floor 9, stepping on the exit completes the run.
 
 The camera follows the player and clamps at world boundaries.
+
+Current 0.16.0 run length is **9 floors**. Each floor currently reuses the same prototype 25×25 Test Cellar layout; floor-template variety is still future work.
 
 Current test map uses static walls and markers.
 
@@ -677,6 +681,37 @@ The active run keeps:
 - enemy state
 - opened chests
 
+### Floor transitions (0.16.0)
+
+The Dungeon Run now progresses through **Floor 1 → Floor 9**.
+
+When moving from one floor to the next, the run preserves:
+
+- current HP and max HP;
+- GoblinArcade equipment;
+- backpack and dungeon loot;
+- score;
+- total turn count;
+- original character snapshot;
+- frozen BEGIN RUN Gear Pressure.
+
+A new floor resets/regenerates:
+
+- player position back to the floor start;
+- Fog of War / explored cells;
+- current visible cells;
+- opened chest state for that floor;
+- enemy collection and enemy phase counter;
+- active combat target;
+- density profile;
+- enemy archetype composition.
+
+Each new floor therefore receives its own fresh QUIET / STANDARD / CROWDED roll and its own floor-specific enemy scaling while preserving the player's run progression.
+
+Dungeon loot found on earlier floors does **not** recalculate Gear Pressure. This preserves the value of upgrades found during the run.
+
+Current prototype limitation: the same static chest locations and prototype chest items exist on every floor until the loot/floor-template system is expanded.
+
 ---
 
 ## 20. Recent UI fixes
@@ -693,7 +728,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.15.0**
+- **0.16.0**
 
 Recent gameplay foundation:
 
@@ -710,6 +745,11 @@ Recent gameplay foundation:
 - Spider moves 1 tile normally and 2 tiles on every second enemy phase
 - Skeleton attacks every phase in melee but only advances on every second enemy phase
 - Brute remains generator-only / future content
+- Dungeon Run now advances through all 9 floors
+- Floors 1–8 regenerate density, composition, enemies and Fog of War on exit
+- Floor 9 exit completes the run
+- HP, equipment, backpack, score and total turns persist across floor transitions
+- frozen BEGIN RUN Gear Pressure persists across the entire 9-floor run
 
 ---
 
@@ -779,7 +819,7 @@ Multi-enemy support is now active in 0.14.2:
 
 ### Current map
 
-The 25×25 map is still manually defined.
+The 25×25 map is still manually defined and **the same Test Cellar layout is currently reused on all 9 floors**.
 
 Future floors should likely be generated from:
 
@@ -1162,7 +1202,7 @@ Randomness is appropriate in floor composition/density. It must remain bounded. 
 
 ## 25. Recommended next development steps
 
-Deterministic scaling, bounded density, multi-enemy support and the first three active archetypes are complete. The most natural next slice is now **rank composition + enemy intent presentation**, not another broad UI rewrite.
+Deterministic scaling, bounded density, multi-enemy support, three active archetypes and the 9-floor run loop are complete. The most natural next slice is now **rank composition + enemy intent presentation**, followed by floor-layout variety.
 
 Recommended order:
 
@@ -1248,7 +1288,7 @@ These are useful sanity checks, not hard-coded gameplay requirements.
 
 Long-term dungeon concept:
 
-- 9 floors
+- 9 floors (**run progression implemented in 0.16.0**)
 - 13×13 camera viewport
 - larger dungeon world underneath
 - movement consumes turns

@@ -474,6 +474,38 @@ local function BuildCompositionText(counts)
     )
 end
 
+local function GenerateFloorSetup(floorGenerator, enemyGenerator, playerLevel, floorNumber, gearPressure)
+    local walkableTiles = CountWalkableTiles()
+    local densityProfile = floorGenerator:RollDensityProfile()
+    local enemyCount, baseEnemyCount = floorGenerator:CalculateEnemyCount(
+        walkableTiles,
+        floorNumber,
+        densityProfile
+    )
+
+    local archetypePlan, archetypeCounts = floorGenerator:CreateArchetypePlan(
+        enemyCount,
+        floorNumber
+    )
+
+    local floorEnemies = CreateFloorEnemies(
+        enemyGenerator,
+        playerLevel,
+        floorNumber,
+        gearPressure,
+        archetypePlan
+    )
+
+    return {
+        walkableTiles = walkableTiles,
+        densityProfile = densityProfile,
+        baseEnemyCount = baseEnemyCount,
+        enemyCount = #floorEnemies,
+        enemyComposition = archetypeCounts,
+        enemies = floorEnemies,
+    }
+end
+
 local function SetCharacterVisual(texture, character)
     if not texture then
         return
@@ -549,7 +581,7 @@ function GA:CreateDungeonRunPage(parent)
     title:SetPoint("TOPLEFT", 18, -16)
     title:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
-    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  ENEMY ARCHETYPES + SCALING")
+    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  9 FLOOR DUNGEON RUN")
     subtitle:SetPoint("TOPRIGHT", -18, -22)
     subtitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
@@ -1868,27 +1900,19 @@ function GA:BeginDungeonRun()
         selected.equipment or {}
     )
 
-    local walkableTiles = CountWalkableTiles()
-    local densityProfile = self.FloorGenerator:RollDensityProfile()
-    local enemyCount, baseEnemyCount = self.FloorGenerator:CalculateEnemyCount(
-        walkableTiles,
-        floor,
-        densityProfile
-    )
-
-    local archetypePlan, archetypeCounts = self.FloorGenerator:CreateArchetypePlan(
-        enemyCount,
-        floor
-    )
-
-    local floorEnemies = CreateFloorEnemies(
+    local floorSetup = GenerateFloorSetup(
+        self.FloorGenerator,
         self.EnemyGenerator,
         level,
         floor,
-        gearPressure,
-        archetypePlan
+        gearPressure
     )
 
+    local walkableTiles = floorSetup.walkableTiles
+    local densityProfile = floorSetup.densityProfile
+    local baseEnemyCount = floorSetup.baseEnemyCount
+    local archetypeCounts = floorSetup.enemyComposition
+    local floorEnemies = floorSetup.enemies
     local sampleEnemy = floorEnemies[1]
 
     self.RunState = {
@@ -2027,7 +2051,99 @@ function GA:BeginDungeonRun()
     self:RenderDungeonGrid()
 end
 
-function GA:CompleteTestFloor()
+function GA:ApplyDungeonFloor(floorNumber)
+    local run = self.RunState
+    if not run or not run.active or not run.snapshot then
+        return false
+    end
+
+    local floorSetup = GenerateFloorSetup(
+        self.FloorGenerator,
+        self.EnemyGenerator,
+        run.snapshot.level or 1,
+        floorNumber,
+        run.gearPressure or {}
+    )
+
+    run.floor = floorNumber
+    run.playerX = START_X
+    run.playerY = START_Y
+    run.openedChests = {}
+    run.explored = {}
+    run.visible = {}
+    run.densityProfile = CopyTable(floorSetup.densityProfile)
+    run.walkableTiles = floorSetup.walkableTiles
+    run.baseEnemyCount = floorSetup.baseEnemyCount
+    run.enemyCount = floorSetup.enemyCount
+    run.enemyComposition = CopyTable(floorSetup.enemyComposition)
+    run.enemies = floorSetup.enemies
+    run.activeEnemyId = nil
+    run.enemyPhase = 0
+
+    self.DungeonCameraX = nil
+    self.DungeonCameraY = nil
+
+    if self.CharacterSheetFrame then
+        self.CharacterSheetFrame:Hide()
+    end
+    self:CancelCharacterItemDrag()
+
+    if self.DungeonFloorTitle then
+        self.DungeonFloorTitle:SetText(string.format(
+            "FLOOR %d  -  THE TEST CELLAR  -  %s  -  %d ENEMIES",
+            floorNumber,
+            floorSetup.densityProfile.key,
+            floorSetup.enemyCount
+        ))
+    end
+
+    if self.DungeonRunStateText then
+        self.DungeonRunStateText:SetText(
+            string.format("FLOOR %d - PLAYER TURN", floorNumber)
+        )
+        self.DungeonRunStateText:SetTextColor(
+            COLORS.green[1],
+            COLORS.green[2],
+            COLORS.green[3]
+        )
+    end
+
+    self:AddCombatLog(
+        string.format(
+            "Floor %d begins: %s, %d enemies.",
+            floorNumber,
+            floorSetup.densityProfile.key,
+            floorSetup.enemyCount
+        ),
+        "system"
+    )
+    self:AddCombatLog(
+        "Composition: " .. BuildCompositionText(floorSetup.enemyComposition) .. ".",
+        "system"
+    )
+
+    local sampleEnemy = floorSetup.enemies[1]
+    if sampleEnemy then
+        self:AddCombatLog(
+            string.format(
+                "Floor %d scaling: %s Lv %d profile = %d HP, %d-%d damage.",
+                floorNumber,
+                sampleEnemy.name or "Enemy",
+                sampleEnemy.level or 1,
+                sampleEnemy.maxHp or 0,
+                sampleEnemy.damageMin or 0,
+                sampleEnemy.damageMax or 0
+            ),
+            "system"
+        )
+    end
+
+    self:RefreshRunCounters()
+    self:RenderDungeonGrid()
+    return true
+end
+
+function GA:CompleteDungeonRun()
     local run = self.RunState
     if not run or not run.active then
         return
@@ -2037,21 +2153,42 @@ function GA:CompleteTestFloor()
     run.completed = true
 
     if self.DungeonFloorTitle then
-        self.DungeonFloorTitle:SetText("FLOOR 1  -  CLEARED")
+        self.DungeonFloorTitle:SetText("RUN COMPLETE  -  FLOOR 9 CLEARED")
     end
 
     if self.DungeonRunStateText then
-        self.DungeonRunStateText:SetText(string.format("TEST FLOOR CLEARED - %d TURNS", run.turns))
-        self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+        self.DungeonRunStateText:SetText(
+            string.format(
+                "DUNGEON CLEARED - %d TURNS - SCORE %d",
+                run.turns or 0,
+                run.score or 0
+            )
+        )
+        self.DungeonRunStateText:SetTextColor(
+            COLORS.green[1],
+            COLORS.green[2],
+            COLORS.green[3]
+        )
     end
 
     if self.DungeonBeginButton then
         self.DungeonBeginButton:SetEnabled(true)
         self.DungeonBeginButton.label:SetText("BEGIN AGAIN")
-        self.DungeonBeginButton.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+        self.DungeonBeginButton.label:SetTextColor(
+            COLORS.gold[1],
+            COLORS.gold[2],
+            COLORS.gold[3]
+        )
     end
 
-    self:AddCombatLog(string.format("Test floor cleared in %d turns.", run.turns), "system")
+    self:AddCombatLog(
+        string.format(
+            "Dungeon Run complete. Floor 9 cleared in %d turns with %d score.",
+            run.turns or 0,
+            run.score or 0
+        ),
+        "system"
+    )
 
     if self.CharacterSheetFrame then
         self.CharacterSheetFrame:Hide()
@@ -2068,6 +2205,35 @@ function GA:CompleteTestFloor()
     self:SetDungeonSetupMode(true)
     self:RefreshRunCounters()
     self:RenderDungeonGrid()
+end
+
+function GA:AdvanceDungeonFloor()
+    local run = self.RunState
+    if not run or not run.active then
+        return
+    end
+
+    local clearedFloor = run.floor or 1
+
+    if clearedFloor >= 9 then
+        self:CompleteDungeonRun()
+        return
+    end
+
+    local nextFloor = clearedFloor + 1
+
+    self:AddCombatLog(
+        string.format(
+            "Floor %d cleared. Descending to Floor %d with %d/%d HP.",
+            clearedFloor,
+            nextFloor,
+            run.playerHealth or 0,
+            run.playerMaxHealth or 0
+        ),
+        "system"
+    )
+
+    self:ApplyDungeonFloor(nextFloor)
 end
 
 function GA:RunEnemyTurn()
@@ -2321,7 +2487,7 @@ function GA:MoveDungeonPlayer(dx, dy)
     self:TryLootChest(nextX, nextY)
 
     if nextX == EXIT_X and nextY == EXIT_Y then
-        self:CompleteTestFloor()
+        self:AdvanceDungeonFloor()
         return
     end
 
