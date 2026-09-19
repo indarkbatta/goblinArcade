@@ -882,6 +882,98 @@ Dungeon loot found during the run must **not** increase enemy scaling.
 
 This is essential so dungeon upgrades remain meaningful.
 
+### Character-level pressure
+
+Character level already increases the base enemy stats through Effective Enemy Level, but higher-level characters should also face a slightly higher **relative** challenge.
+
+Use:
+
+```
+Level Pressure =
+1 + 0.15 × ((Player Level - 1) / 59)
+```
+
+Reference values:
+
+```
+Level 1  → 1.00x
+Level 10 → ~1.02x
+Level 20 → ~1.05x
+Level 40 → ~1.10x
+Level 60 → 1.15x
+```
+
+This pressure is intentionally mild. Leveling a character must not feel like punishment, but a level-60 character should not face exactly the same relative difficulty as a level-1 character.
+
+### Floor progression pressure
+
+Dungeon depth is a separate difficulty axis from character level.
+
+Use:
+
+```
+Floor HP Multiplier =
+1 + 0.06 × (Floor - 1)
+
+Floor Damage Multiplier =
+1 + 0.04 × (Floor - 1)
+```
+
+Reference progression:
+
+```
+Floor 1 → HP 1.00x / Damage 1.00x
+Floor 2 → HP 1.06x / Damage 1.04x
+Floor 3 → HP 1.12x / Damage 1.08x
+Floor 5 → HP 1.24x / Damage 1.16x
+Floor 7 → HP 1.36x / Damage 1.24x
+Floor 9 → HP 1.48x / Damage 1.32x
+```
+
+This is deliberately stronger than the character-level pressure. The run should become meaningfully more dangerous as the player descends through floors.
+
+### Final enemy formulas
+
+Effective Enemy Level remains:
+
+```
+Effective Enemy Level =
+Player Level + Floor Level Bonus + Rank Bonus
+```
+
+The final deterministic stat pipeline should be:
+
+```
+Enemy HP =
+Base HP from Effective Enemy Level
+× Enemy Archetype HP Multiplier
+× Enemy Rank HP Multiplier
+× Level Pressure
+× Floor HP Multiplier
+× Gear Pressure HP Multiplier
+```
+
+```
+Enemy Damage =
+Base Damage from Effective Enemy Level
+× Enemy Archetype Damage Multiplier
+× Enemy Rank Damage Multiplier
+× Level Pressure
+× Floor Damage Multiplier
+× Gear Pressure Damage Multiplier
+```
+
+The design intent is:
+
+- Character level sets the main power band.
+- Floor progression raises difficulty over the course of a run.
+- Rank differentiates Normal / Veteran / Elite / Boss.
+- Archetype creates enemy identity.
+- Gear Pressure prevents highly geared characters from trivializing the dungeon.
+- Gear Pressure remains partial scaling, so better gear is still a real advantage.
+- All of these values are deterministic.
+- Randomness belongs only in combat rolls inside fixed generated ranges.
+
 ### Enemy archetype layer
 
 After level and Gear Pressure are calculated, individual enemy archetypes modify final stats.
