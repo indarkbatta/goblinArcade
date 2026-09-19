@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.14.1**  
+Current addon version: **0.14.2**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -98,6 +98,11 @@ Important addon files:
   - BEGIN RUN Gear Pressure calculation
   - HP / damage / score budgets
   - enemy archetype + rank profiles
+
+- `GoblinArcade/FloorGenerator.lua`
+  - bounded QUIET / STANDARD / CROWDED density roll
+  - walkable-tile-based base enemy budget
+  - floor-depth density growth
 
 - `GoblinArcade/CharacterRoster.lua`
   - account-wide character roster
@@ -350,10 +355,10 @@ Grid monster uses custom:
 
 ## 11. Current combat prototype
 
-Current kobold:
+Current floor enemies:
 
-- starts around `11,4`
-- level, HP and damage are now generated deterministically by `EnemyGenerator.lua`
+- Floor 1 now spawns a bounded random population of Kobolds instead of one fixed Kobold
+- level, HP and damage are generated deterministically by `EnemyGenerator.lua`
 - effective level depends on selected character level + floor + rank
 - HP and damage also receive frozen BEGIN RUN Gear Pressure
 - the target card displays the generated enemy level
@@ -372,11 +377,11 @@ Player combat:
 - damage uses the active GoblinArcade weapon;
 - no weapon = unarmed fallback damage.
 
-Kobold attacks when adjacent.
+Every living enemy gets an enemy-turn opportunity after a player action. Unalerted enemies stay inactive until they detect the player; alerted enemies chase without stacking. Multiple adjacent enemies can attack in the same enemy phase.
 
 Death ends the run.
 
-Kobold kill currently gives:
+A normal Kobold kill currently gives:
 
 - **+100 score**
 
@@ -684,7 +689,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.14.1**
+- **0.14.2**
 
 Recent gameplay foundation:
 
@@ -693,6 +698,9 @@ Recent gameplay foundation:
 - BEGIN RUN now freezes player level + Gear Pressure for enemy scaling
 - EnemyGenerator v2 applies Character-Level Pressure to both HP and damage
 - EnemyGenerator v2 applies separate Floor HP (+6% per floor after Floor 1) and Floor Damage (+4% per floor after Floor 1) pressure
+- FloorGenerator v1 rolls bounded QUIET / STANDARD / CROWDED population profiles
+- DungeonRun now supports multiple simultaneously living enemies with collision-aware movement
+- Floor 1 currently generates roughly 6–8 Kobolds on the current 25×25 test map
 - future enemy archetypes already have generator profiles for kobold, spider, skeleton and brute
 
 ---
@@ -748,17 +756,18 @@ Do **not** perform a large refactor without preserving current behavior and test
 
 ### Current enemy system
 
-Only one real enemy exists.
+Multi-enemy support is now active in 0.14.2:
 
-Pathfinding currently assumes a simple single-enemy model.
+- run state uses `run.enemies` rather than one `run.enemy`;
+- every enemy has a stable run-local UID;
+- bump combat targets the enemy occupying the destination tile;
+- the attack button targets the active/adjacent enemy;
+- all living enemies receive a turn after the player acts;
+- alerted enemies use occupancy-aware BFS and cannot stack on one tile;
+- multiple adjacent enemies can each attack during the enemy turn;
+- the right combat card follows the active adjacent target.
 
-Multi-enemy support will need:
-
-- occupancy handling;
-- collision between enemies;
-- turn order;
-- target selection;
-- enemy IDs / collections rather than `run.enemy`.
+Current 0.14.2 floor population is still Kobold-only. Archetype variety remains the next content layer.
 
 ### Current map
 
@@ -1019,7 +1028,7 @@ Enemy level, base HP, base damage, archetype multipliers and Gear Pressure must 
 
 Monster density should vary from floor to floor, but only inside controlled, human-scale limits.
 
-This is an **accepted design decision but not yet implemented**.
+**Implemented in 0.14.2 via `FloorGenerator.lua` plus multi-enemy support in `DungeonRun.lua`.**
 
 ### Base enemy count
 
@@ -1059,14 +1068,9 @@ The goal is noticeable variation without empty floors or excessive swarms.
 
 ### Persistence rule
 
-The density profile is rolled **once per floor** and stored in run state.
+The density profile is rolled **once when the floor/run is created** and stored in run state. UI rerenders, movement, combat and opening the character sheet do not reroll it.
 
-It must not reroll because of:
-
-- `/reload`
-- reopening GoblinArcade
-- opening the character sheet
-- rerendering the dungeon UI
+Important current limitation: GoblinArcade does not yet persist an active Dungeon Run across a full WoW `/reload`. A reload ends the in-memory run itself, so true cross-reload floor persistence belongs to a future run-save system.
 
 ### Spawn safety rules
 
@@ -1078,6 +1082,14 @@ Initial floor generation should enforce:
 - no enemy directly on exit/chest/objective cells unless intentionally designed;
 - avoid extreme initial clusters of many enemies in a tiny area;
 - normal floor generation should not create unavoidable instant swarms.
+
+Current implementation uses:
+
+- player-start safe radius: **4 tiles**;
+- preferred minimum initial enemy-to-enemy spawn distance: **3 tiles**;
+- randomized candidate order;
+- a uniqueness-preserving fallback if a future map is too constrained for the preferred spacing;
+- all static marker cells are reserved from ordinary enemy spawning.
 
 ### Rank interaction
 
@@ -1101,7 +1113,7 @@ Randomness is appropriate in floor composition/density. It must remain bounded. 
 
 ## 25. Recommended next development steps
 
-The deterministic enemy-scaling foundation is complete. The most natural next slice is now **multi-enemy support + enemy variety**, not another broad UI rewrite.
+Deterministic scaling, bounded density and the basic multi-enemy framework are complete. The most natural next slice is now **enemy archetype variety and rank composition**, not another broad UI rewrite.
 
 Recommended order:
 
@@ -1109,7 +1121,7 @@ Recommended order:
    - e.g. spider or skeleton
    - distinct portrait/icon
    - distinct AI profile
-   - enemy collection instead of single `run.enemy`
+   - use the existing multi-enemy collection and density budget
 
 2. **Enemy intent / combat presentation**
    - ATTACKING

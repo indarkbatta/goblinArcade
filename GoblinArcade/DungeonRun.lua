@@ -51,8 +51,6 @@ local STATIC_MARKERS = {
     ["23:23"] = { text = ">", color = "green" },
 }
 
-local KOBOLD_START_X = 11
-local KOBOLD_START_Y = 4
 local KOBOLD_TEXTURE = "Interface\\AddOns\\GoblinArcade\\Media\\Monsters\\kobold"
 local KOBOLD_PORTRAIT_ICON = "Interface\\Icons\\inv_misc_candlekobold_color1"
 
@@ -169,7 +167,7 @@ local PATH_DIRECTIONS = {
     { -1, 0 },
 }
 
-local function FindNextStep(startX, startY, targetX, targetY)
+local function FindNextStep(startX, startY, targetX, targetY, occupied)
     if startX == targetX and startY == targetY then
         return nil, nil
     end
@@ -193,7 +191,13 @@ local function FindNextStep(startX, startY, targetX, targetY)
             local nextY = current.y + delta[2]
             local nextKey = CellKey(nextX, nextY)
 
-            if not visited[nextKey] and not IsDungeonWall(nextX, nextY) then
+            local isTarget = nextX == targetX and nextY == targetY
+            local isOccupied = occupied and occupied[nextKey]
+
+            if not visited[nextKey]
+                and not IsDungeonWall(nextX, nextY)
+                and (isTarget or not isOccupied) then
+
                 visited[nextKey] = true
                 parent[nextKey] = CellKey(current.x, current.y)
 
@@ -225,6 +229,197 @@ end
 
 local function IsAdjacent(x1, y1, x2, y2)
     return math.abs(x1 - x2) + math.abs(y1 - y2) == 1
+end
+
+local ENEMY_START_SAFE_RADIUS = 4
+local ENEMY_MIN_SPAWN_DISTANCE = 3
+
+local function GetEnemyAt(run, x, y)
+    if not run or not run.enemies then
+        return nil
+    end
+
+    for _, enemy in ipairs(run.enemies) do
+        if enemy.alive ~= false and enemy.x == x and enemy.y == y then
+            return enemy
+        end
+    end
+
+    return nil
+end
+
+local function GetEnemyByUID(run, uid)
+    if not run or not run.enemies or not uid then
+        return nil
+    end
+
+    for _, enemy in ipairs(run.enemies) do
+        if enemy.uid == uid and enemy.alive ~= false then
+            return enemy
+        end
+    end
+
+    return nil
+end
+
+local function GetAdjacentEnemy(run)
+    if not run or not run.enemies then
+        return nil
+    end
+
+    local active = GetEnemyByUID(run, run.activeEnemyId)
+    if active and IsAdjacent(run.playerX, run.playerY, active.x, active.y) then
+        return active
+    end
+
+    for _, enemy in ipairs(run.enemies) do
+        if enemy.alive ~= false
+            and IsAdjacent(run.playerX, run.playerY, enemy.x, enemy.y) then
+
+            run.activeEnemyId = enemy.uid
+            return enemy
+        end
+    end
+
+    run.activeEnemyId = nil
+    return nil
+end
+
+local function BuildOccupiedEnemyCells(run, ignoreUID)
+    local occupied = {}
+
+    if not run or not run.enemies then
+        return occupied
+    end
+
+    for _, enemy in ipairs(run.enemies) do
+        if enemy.alive ~= false and enemy.uid ~= ignoreUID then
+            occupied[CellKey(enemy.x, enemy.y)] = true
+        end
+    end
+
+    return occupied
+end
+
+local function CountWalkableTiles()
+    local count = 0
+
+    for y = 1, GRID_HEIGHT do
+        for x = 1, GRID_WIDTH do
+            if not IsDungeonWall(x, y) then
+                count = count + 1
+            end
+        end
+    end
+
+    return count
+end
+
+local function ShuffleArray(values)
+    for i = #values, 2, -1 do
+        local j = math.random(1, i)
+        values[i], values[j] = values[j], values[i]
+    end
+end
+
+local function IsReservedEnemySpawn(x, y)
+    if IsDungeonWall(x, y) then
+        return true
+    end
+
+    if STATIC_MARKERS[CellKey(x, y)] then
+        return true
+    end
+
+    if IsWithinRadius(START_X, START_Y, x, y, ENEMY_START_SAFE_RADIUS) then
+        return true
+    end
+
+    return false
+end
+
+local function IsTooCloseToSpawnedEnemy(enemies, x, y, minimumDistance)
+    local minimumSquared = minimumDistance * minimumDistance
+
+    for _, enemy in ipairs(enemies) do
+        local dx = enemy.x - x
+        local dy = enemy.y - y
+
+        if (dx * dx) + (dy * dy) < minimumSquared then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function CreateFloorEnemies(enemyGenerator, playerLevel, floor, gearPressure, enemyCount)
+    local candidates = {}
+
+    for y = 1, GRID_HEIGHT do
+        for x = 1, GRID_WIDTH do
+            if not IsReservedEnemySpawn(x, y) then
+                candidates[#candidates + 1] = { x = x, y = y }
+            end
+        end
+    end
+
+    ShuffleArray(candidates)
+
+    local enemies = {}
+    local used = {}
+
+    local function AddEnemyAt(candidate)
+        local enemy = enemyGenerator:CreateEnemy({
+            archetype = "kobold",
+            rank = "normal",
+            playerLevel = playerLevel,
+            floor = floor,
+            gearPressure = gearPressure,
+        })
+
+        enemy.uid = "enemy-" .. tostring(#enemies + 1)
+        enemy.x = candidate.x
+        enemy.y = candidate.y
+        enemy.texture = KOBOLD_TEXTURE
+        enemy.portraitIcon = KOBOLD_PORTRAIT_ICON
+
+        enemies[#enemies + 1] = enemy
+        used[CellKey(candidate.x, candidate.y)] = true
+    end
+
+    -- First pass keeps enemies comfortably separated.
+    for _, candidate in ipairs(candidates) do
+        if #enemies >= enemyCount then
+            break
+        end
+
+        if not IsTooCloseToSpawnedEnemy(
+            enemies,
+            candidate.x,
+            candidate.y,
+            ENEMY_MIN_SPAWN_DISTANCE
+        ) then
+            AddEnemyAt(candidate)
+        end
+    end
+
+    -- Fallback only matters on unusually constrained future maps. It preserves
+    -- uniqueness and safety rules but relaxes anti-clustering before reducing
+    -- the requested floor population.
+    if #enemies < enemyCount then
+        for _, candidate in ipairs(candidates) do
+            if #enemies >= enemyCount then
+                break
+            end
+
+            if not used[CellKey(candidate.x, candidate.y)] then
+                AddEnemyAt(candidate)
+            end
+        end
+    end
+
+    return enemies
 end
 
 local function SetCharacterVisual(texture, character)
@@ -1155,12 +1350,8 @@ end
 
 function GA:RefreshEnemyCombatCard()
     local run = self.RunState
-    local enemy = run and run.enemy
-    local inCombat = run
-        and run.active
-        and enemy
-        and enemy.alive ~= false
-        and IsAdjacent(run.playerX, run.playerY, enemy.x, enemy.y)
+    local enemy = run and run.active and GetAdjacentEnemy(run) or nil
+    local inCombat = enemy ~= nil
 
     if self.DungeonEnemyCard then
         if inCombat then
@@ -1171,6 +1362,10 @@ function GA:RefreshEnemyCombatCard()
             self.DungeonEnemyHealth:SetText(
                 string.format("%d / %d HP", enemy.hp or 0, enemy.maxHp or 0)
             )
+
+            if self.DungeonEnemyPortrait then
+                self.DungeonEnemyPortrait:SetTexture(enemy.portraitIcon or KOBOLD_PORTRAIT_ICON)
+            end
         else
             self.DungeonEnemyCard:Hide()
         end
@@ -1207,12 +1402,8 @@ end
 
 function GA:RefreshActionButtons()
     local run = self.RunState
-    local enemy = run and run.enemy
-    local canAttack = run
-        and run.active
-        and enemy
-        and enemy.alive ~= false
-        and IsAdjacent(run.playerX, run.playerY, enemy.x, enemy.y)
+    local enemy = run and run.active and GetAdjacentEnemy(run) or nil
+    local canAttack = enemy ~= nil
 
     if self.DungeonAttackButton then
         self.DungeonAttackButton:SetEnabled(canAttack and true or false)
@@ -1267,14 +1458,15 @@ function GA:FailDungeonRun(reason)
     self:SetDungeonSetupMode(true)
 end
 
-function GA:PlayerAttackEnemy()
+function GA:PlayerAttackEnemy(targetEnemy)
     local run = self.RunState
-    if not run or not run.active or not run.enemy or run.enemy.alive == false then
+    if not run or not run.active then
         return false
     end
 
-    local enemy = run.enemy
-    if not IsAdjacent(run.playerX, run.playerY, enemy.x, enemy.y) then
+    local enemy = targetEnemy or GetAdjacentEnemy(run)
+    if not enemy or enemy.alive == false
+        or not IsAdjacent(run.playerX, run.playerY, enemy.x, enemy.y) then
         if self.DungeonRunStateText then
             self.DungeonRunStateText:SetText("NO TARGET IN MELEE RANGE")
             self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
@@ -1322,6 +1514,10 @@ function GA:PlayerAttackEnemy()
 
     if enemy.hp <= 0 then
         enemy.alive = false
+        if run.activeEnemyId == enemy.uid then
+            run.activeEnemyId = nil
+        end
+
         local scoreValue = enemy.scoreValue or 100
         run.score = (run.score or 0) + scoreValue
         self:AddCombatLog(
@@ -1509,28 +1705,24 @@ function GA:RenderDungeonGrid()
         end
     end
 
-    local enemy = run and run.enemy or {
-        x = KOBOLD_START_X,
-        y = KOBOLD_START_Y,
-        texture = KOBOLD_TEXTURE,
-    }
+    -- Creatures are not remembered through fog. Every living enemy renders
+    -- only while its world cell is currently visible.
+    for _, enemy in ipairs(run and run.enemies or {}) do
+        if enemy.alive ~= false and self:IsDungeonCellVisible(enemy.x, enemy.y) then
+            local enemyViewX = enemy.x - cameraX + 1
+            local enemyViewY = enemy.y - cameraY + 1
 
-    -- Creatures are not remembered through fog. They render only when the
-    -- player can currently see their world cell.
-    if enemy and enemy.alive ~= false and self:IsDungeonCellVisible(enemy.x, enemy.y) then
-        local enemyViewX = enemy.x - cameraX + 1
-        local enemyViewY = enemy.y - cameraY + 1
+            if enemyViewX >= 1 and enemyViewX <= VIEWPORT_WIDTH
+                and enemyViewY >= 1 and enemyViewY <= VIEWPORT_HEIGHT then
 
-        if enemyViewX >= 1 and enemyViewX <= VIEWPORT_WIDTH
-            and enemyViewY >= 1 and enemyViewY <= VIEWPORT_HEIGHT then
-
-            local enemyCell = self.DungeonGrid.cells[CellKey(enemyViewX, enemyViewY)]
-            if enemyCell and enemyCell.enemyIcon then
-                enemyCell.frame:SetBackdropColor(0.16, 0.055, 0.045, 1)
-                enemyCell.frame:SetBackdropBorderColor(COLORS.red[1], COLORS.red[2], COLORS.red[3], 1)
-                enemyCell.marker:SetText("")
-                enemyCell.enemyIcon:SetTexture(enemy.texture or KOBOLD_TEXTURE)
-                enemyCell.enemyIcon:Show()
+                local enemyCell = self.DungeonGrid.cells[CellKey(enemyViewX, enemyViewY)]
+                if enemyCell and enemyCell.enemyIcon then
+                    enemyCell.frame:SetBackdropColor(0.16, 0.055, 0.045, 1)
+                    enemyCell.frame:SetBackdropBorderColor(COLORS.red[1], COLORS.red[2], COLORS.red[3], 1)
+                    enemyCell.marker:SetText("")
+                    enemyCell.enemyIcon:SetTexture(enemy.texture or KOBOLD_TEXTURE)
+                    enemyCell.enemyIcon:Show()
+                end
             end
         end
     end
@@ -1602,9 +1794,9 @@ function GA:BeginDungeonRun()
     local selectedWeapon = CopyTable(selected.weapon)
     local floor = 1
 
-    if not self.EnemyGenerator then
+    if not self.EnemyGenerator or not self.FloorGenerator then
         if self.DungeonRunStateText then
-            self.DungeonRunStateText:SetText("ENEMY GENERATOR NOT LOADED")
+            self.DungeonRunStateText:SetText("DUNGEON GENERATORS NOT LOADED")
             self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
         end
         return
@@ -1615,18 +1807,23 @@ function GA:BeginDungeonRun()
         selected.equipment or {}
     )
 
-    local startingEnemy = self.EnemyGenerator:CreateEnemy({
-        archetype = "kobold",
-        rank = "normal",
-        playerLevel = level,
-        floor = floor,
-        gearPressure = gearPressure,
-    })
+    local walkableTiles = CountWalkableTiles()
+    local densityProfile = self.FloorGenerator:RollDensityProfile()
+    local enemyCount, baseEnemyCount = self.FloorGenerator:CalculateEnemyCount(
+        walkableTiles,
+        floor,
+        densityProfile
+    )
 
-    startingEnemy.x = KOBOLD_START_X
-    startingEnemy.y = KOBOLD_START_Y
-    startingEnemy.texture = KOBOLD_TEXTURE
-    startingEnemy.portraitIcon = KOBOLD_PORTRAIT_ICON
+    local floorEnemies = CreateFloorEnemies(
+        self.EnemyGenerator,
+        level,
+        floor,
+        gearPressure,
+        enemyCount
+    )
+
+    local sampleEnemy = floorEnemies[1]
 
     self.RunState = {
         active = true,
@@ -1645,7 +1842,12 @@ function GA:BeginDungeonRun()
         explored = {},
         visible = {},
         gearPressure = CopyTable(gearPressure),
-        enemy = startingEnemy,
+        densityProfile = CopyTable(densityProfile),
+        walkableTiles = walkableTiles,
+        baseEnemyCount = baseEnemyCount,
+        enemyCount = #floorEnemies,
+        enemies = floorEnemies,
+        activeEnemyId = nil,
         snapshot = {
             characterKey = selected.key,
             name = name,
@@ -1685,7 +1887,11 @@ function GA:BeginDungeonRun()
     end
 
     if self.DungeonFloorTitle then
-        self.DungeonFloorTitle:SetText("FLOOR 1  -  THE TEST CELLAR  -  25x25")
+        self.DungeonFloorTitle:SetText(string.format(
+            "FLOOR 1  -  THE TEST CELLAR  -  %s  -  %d ENEMIES",
+            densityProfile.key,
+            #floorEnemies
+        ))
     end
 
     if self.DungeonRunStateText then
@@ -1709,7 +1915,15 @@ function GA:BeginDungeonRun()
             self.RunState.snapshot.weapon.damageMax),
         "player"
     )
-    self:AddCombatLog("A kobold is somewhere in the cellar.", "enemy")
+    self:AddCombatLog(
+        string.format(
+            "%s floor: %d enemies across %d walkable tiles.",
+            densityProfile.key,
+            #floorEnemies,
+            walkableTiles
+        ),
+        "enemy"
+    )
     self:AddCombatLog("Vision radius: 4. Walls block line of sight.", "system")
     self:AddCombatLog(
         string.format(
@@ -1722,17 +1936,19 @@ function GA:BeginDungeonRun()
         ),
         "system"
     )
-    self:AddCombatLog(
-        string.format(
-            "%s Lv %d: %d HP, %d-%d damage.",
-            startingEnemy.name,
-            startingEnemy.level,
-            startingEnemy.maxHp,
-            startingEnemy.damageMin,
-            startingEnemy.damageMax
-        ),
-        "system"
-    )
+    if sampleEnemy then
+        self:AddCombatLog(
+            string.format(
+                "%s Lv %d profile: %d HP, %d-%d damage.",
+                sampleEnemy.name,
+                sampleEnemy.level,
+                sampleEnemy.maxHp,
+                sampleEnemy.damageMin,
+                sampleEnemy.damageMax
+            ),
+            "system"
+        )
+    end
     self:AddCombatLog("Press C for character sheet and backpack.", "system")
 
     self:RefreshRunCounters()
@@ -1784,133 +2000,149 @@ end
 
 function GA:RunEnemyTurn()
     local run = self.RunState
-    if not run or not run.active or not run.enemy or run.enemy.alive == false then
+    if not run or not run.active or not run.enemies then
         self:RefreshActionButtons()
         return
     end
 
-    local enemy = run.enemy
+    local stats = run.arcadeStats or {}
 
-    if enemy.skipTurn then
-        enemy.skipTurn = false
-        self:AddCombatLog("The staggered kobold loses its turn.", "enemy")
+    for _, enemy in ipairs(run.enemies) do
+        if enemy.alive ~= false and run.active then
+            if enemy.skipTurn then
+                enemy.skipTurn = false
 
-        if self.DungeonRunStateText then
-            self.DungeonRunStateText:SetText("PLAYER TURN - KOBOLD STAGGERED")
-            self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
-        end
+                if self:IsDungeonCellVisible(enemy.x, enemy.y) then
+                    self:AddCombatLog(
+                        "The staggered " .. string.lower(enemy.name or "enemy") .. " loses its turn.",
+                        "enemy"
+                    )
+                end
+            else
+                local seesPlayer = IsWithinRadius(
+                    enemy.x,
+                    enemy.y,
+                    run.playerX,
+                    run.playerY,
+                    enemy.visionRadius or 6
+                ) and HasLineOfSight(enemy.x, enemy.y, run.playerX, run.playerY)
 
-        self:RenderDungeonGrid()
-        return
-    end
+                if seesPlayer and not enemy.alerted then
+                    enemy.alerted = true
 
-    local seesPlayer = IsWithinRadius(
-        enemy.x,
-        enemy.y,
-        run.playerX,
-        run.playerY,
-        enemy.visionRadius or 6
-    ) and HasLineOfSight(enemy.x, enemy.y, run.playerX, run.playerY)
+                    if self:IsDungeonCellVisible(enemy.x, enemy.y) then
+                        self:AddCombatLog(
+                            "The " .. string.lower(enemy.name or "enemy") .. " spots you!",
+                            "enemy"
+                        )
+                    end
+                end
 
-    if seesPlayer and not enemy.alerted then
-        enemy.alerted = true
+                if IsAdjacent(enemy.x, enemy.y, run.playerX, run.playerY) then
+                    run.activeEnemyId = run.activeEnemyId or enemy.uid
 
-        if self:IsDungeonCellVisible(enemy.x, enemy.y) then
-            self:AddCombatLog("The kobold spots you!", "enemy")
-        end
-    end
+                    local dodgeChance = stats.dodge or 0
+                    local dodged = dodgeChance > 0
+                        and math.random(1, 1000) <= math.floor(dodgeChance * 10)
 
-    if IsAdjacent(enemy.x, enemy.y, run.playerX, run.playerY) then
-        local stats = run.arcadeStats or {}
-        local dodgeChance = stats.dodge or 0
+                    if dodged then
+                        self:AddCombatLog(
+                            "You dodge the " .. string.lower(enemy.name or "enemy") .. "'s attack.",
+                            "player"
+                        )
+                    else
+                        local rawDamage = math.random(
+                            enemy.damageMin or 1,
+                            enemy.damageMax or enemy.damageMin or 1
+                        )
+                        local armor = stats.armor or 0
+                        local mitigation = math.min(0.55, armor / (armor + 100))
+                        local damage = math.max(
+                            1,
+                            math.floor(rawDamage * (1 - mitigation) + 0.5)
+                        )
 
-        if dodgeChance > 0
-            and math.random(1, 1000) <= math.floor(dodgeChance * 10) then
+                        local blockChance = stats.block or 0
+                        local blocked = blockChance > 0
+                            and math.random(1, 1000) <= math.floor(blockChance * 10)
 
-            self:AddCombatLog("You dodge the kobold's attack.", "player")
+                        if blocked then
+                            damage = math.max(1, math.floor(damage * 0.5 + 0.5))
+                        end
 
-            if self.DungeonRunStateText then
-                self.DungeonRunStateText:SetText(
-                    string.format("PLAYER TURN - KOBOLD %d/%d HP", enemy.hp or 0, enemy.maxHp or 0)
-                )
-                self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+                        run.playerHealth = math.max(
+                            0,
+                            (run.playerHealth or run.playerMaxHealth or 1) - damage
+                        )
+
+                        self:AddCombatLog(
+                            string.format(
+                                "%s%s hits you for %d damage. (%d/%d HP)",
+                                blocked and "BLOCK! " or "",
+                                enemy.name or "Enemy",
+                                damage,
+                                run.playerHealth,
+                                run.playerMaxHealth or run.playerHealth
+                            ),
+                            "enemy"
+                        )
+
+                        self:UpdateRunHealth()
+
+                        if run.playerHealth <= 0 then
+                            self:FailDungeonRun(
+                                (enemy.name or "Enemy")
+                                .. " killed "
+                                .. (run.snapshot.name or "your hero")
+                                .. "."
+                            )
+                            return
+                        end
+                    end
+                elseif enemy.alerted then
+                    local occupied = BuildOccupiedEnemyCells(run, enemy.uid)
+                    local wasVisible = self:IsDungeonCellVisible(enemy.x, enemy.y)
+                    local nextX, nextY = FindNextStep(
+                        enemy.x,
+                        enemy.y,
+                        run.playerX,
+                        run.playerY,
+                        occupied
+                    )
+
+                    if nextX and nextY
+                        and not (nextX == run.playerX and nextY == run.playerY)
+                        and not occupied[CellKey(nextX, nextY)] then
+
+                        enemy.x = nextX
+                        enemy.y = nextY
+
+                        local nowVisible = self:IsDungeonCellVisible(enemy.x, enemy.y)
+                        if wasVisible or nowVisible then
+                            self:AddCombatLog(
+                                (enemy.name or "Enemy") .. " moves closer.",
+                                "enemy"
+                            )
+                        end
+                    end
+                end
             end
-
-            self:RenderDungeonGrid()
-            return
-        end
-
-        local rawDamage = math.random(enemy.damageMin or 1, enemy.damageMax or enemy.damageMin or 1)
-        local armor = stats.armor or 0
-        local mitigation = math.min(0.55, armor / (armor + 100))
-        local damage = math.max(1, math.floor(rawDamage * (1 - mitigation) + 0.5))
-
-        local blockChance = stats.block or 0
-        local blocked = blockChance > 0
-            and math.random(1, 1000) <= math.floor(blockChance * 10)
-
-        if blocked then
-            damage = math.max(1, math.floor(damage * 0.5 + 0.5))
-        end
-
-        run.playerHealth = math.max(0, (run.playerHealth or run.playerMaxHealth or 1) - damage)
-
-        self:AddCombatLog(
-            string.format("%sKobold hits you for %d damage. (%d/%d HP)",
-                blocked and "BLOCK! " or "",
-                damage,
-                run.playerHealth,
-                run.playerMaxHealth or run.playerHealth),
-            "enemy"
-        )
-
-        self:UpdateRunHealth()
-
-        if run.playerHealth <= 0 then
-            self:FailDungeonRun("The kobold killed " .. (run.snapshot.name or "your hero") .. ".")
-            return
-        end
-
-        if self.DungeonRunStateText then
-            self.DungeonRunStateText:SetText(
-                string.format("PLAYER TURN - KOBOLD %d/%d HP", enemy.hp or 0, enemy.maxHp or 0)
-            )
-            self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
-        end
-
-        self:RenderDungeonGrid()
-        return
-    end
-
-    if not enemy.alerted then
-        self:RenderDungeonGrid()
-        return
-    end
-
-    if self.DungeonRunStateText then
-        self.DungeonRunStateText:SetText("ENEMY TURN - KOBOLD")
-        self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
-    end
-
-    local wasVisible = self:IsDungeonCellVisible(enemy.x, enemy.y)
-    local nextX, nextY = FindNextStep(enemy.x, enemy.y, run.playerX, run.playerY)
-
-    if nextX and nextY and not (nextX == run.playerX and nextY == run.playerY) then
-        enemy.x = nextX
-        enemy.y = nextY
-
-        local nowVisible = self:IsDungeonCellVisible(enemy.x, enemy.y)
-        if wasVisible or nowVisible then
-            self:AddCombatLog("Kobold moves closer.", "enemy")
         end
     end
 
     self:RenderDungeonGrid()
 
-    if self.DungeonRunStateText then
-        if IsAdjacent(enemy.x, enemy.y, run.playerX, run.playerY) then
+    if self.DungeonRunStateText and run.active then
+        local adjacent = GetAdjacentEnemy(run)
+
+        if adjacent then
             self.DungeonRunStateText:SetText(
-                string.format("PLAYER TURN - KOBOLD %d/%d HP", enemy.hp or 0, enemy.maxHp or 0)
+                string.format(
+                    "PLAYER TURN - %s %d/%d HP",
+                    string.upper(adjacent.name or "ENEMY"),
+                    adjacent.hp or 0,
+                    adjacent.maxHp or 0
+                )
             )
             self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
         else
@@ -1966,12 +2198,10 @@ function GA:MoveDungeonPlayer(dx, dy)
         return
     end
 
-    if run.enemy
-        and run.enemy.alive ~= false
-        and nextX == run.enemy.x
-        and nextY == run.enemy.y then
-
-        self:PlayerAttackEnemy()
+    local blockingEnemy = GetEnemyAt(run, nextX, nextY)
+    if blockingEnemy then
+        run.activeEnemyId = blockingEnemy.uid
+        self:PlayerAttackEnemy(blockingEnemy)
         return
     end
 
