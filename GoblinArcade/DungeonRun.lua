@@ -1603,6 +1603,7 @@ function GA:BeginDungeonRun()
         playerY = START_Y,
         playerHealth = maxHealth,
         playerMaxHealth = maxHealth,
+        baseMaxHealth = maxHealth,
         equipment = CopyTable(selected.equipment or {}),
         backpack = {},
         openedChests = {},
