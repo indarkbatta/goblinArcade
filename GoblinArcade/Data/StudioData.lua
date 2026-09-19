@@ -1,12 +1,12 @@
 local _, GA = ...
 
--- Generated-data foundation for GoblinArcade Studio.
--- The web editor exports this same table shape. Runtime systems may migrate
--- toward these records incrementally without making the editor itself a WoW UI.
+-- Generated data for GoblinArcade Studio.
+-- Enemies, ranks, room door/marker settings and shrine values are live runtime
+-- inputs. Classes, abilities and loot remain staged for later migration.
 
 GA.StudioData = {
     schemaVersion = 1,
-    studioVersion = "0.1.0",
+    studioVersion = "0.2.0",
 
     classes = {
         {

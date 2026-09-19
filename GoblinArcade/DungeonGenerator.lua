@@ -3,7 +3,7 @@ local _, GA = ...
 GA.DungeonGenerator = GA.DungeonGenerator or {}
 local DG = GA.DungeonGenerator
 
-DG.VERSION = 6
+DG.VERSION = 7
 
 local MODULUS = 2147483647
 local MULTIPLIER = 48271
@@ -212,6 +212,24 @@ local function BuildRoomMembership(rooms)
     return membership
 end
 
+local function GetStudioRoomDefinition(role)
+    for _, record in ipairs(GA.StudioData and GA.StudioData.rooms or {}) do
+        if record.id == role then
+            return record
+        end
+    end
+    return nil
+end
+
+local function GetStudioRoomMarker(role, fallback)
+    local definition = GetStudioRoomDefinition(role)
+    local marker = definition and definition.marker
+    if marker ~= nil and tostring(marker) ~= "" then
+        return tostring(marker)
+    end
+    return fallback
+end
+
 local function BuildDoorSet(rooms, walkable)
     local doors = {}
     local membership = BuildRoomMembership(rooms)
@@ -227,17 +245,21 @@ local function BuildDoorSet(rooms, walkable)
     local function GetDoorLimit(room)
         local role = room and room.role
 
-        -- Special-purpose rooms should read as deliberate destinations rather
-        -- than open junctions.
+        -- Small rooms remain hard-capped at one door for readability.
+        if room and (room.w * room.h) <= 25 then
+            return 1
+        end
+
+        local definition = GetStudioRoomDefinition(role)
+        local configured = definition and tonumber(definition.doorLimit)
+        if configured then
+            return math.max(1, math.floor(configured + 0.5))
+        end
+
         if role == "TREASURE"
             or role == "SHRINE"
             or role == "ELITE"
             or role == "BOSS" then
-            return 1
-        end
-
-        -- Small rooms stay visually simple.
-        if room and (room.w * room.h) <= 25 then
             return 1
         end
 
@@ -467,7 +489,7 @@ local function AddRoomRoleMarker(markers, room, text, color, kind)
     }
 end
 
-local function AddTreasureChests(markers, chestKeys, room, maximumChests)
+local function AddTreasureChests(markers, chestKeys, room, maximumChests, markerText)
     if not room or not room.center then
         return
     end
@@ -497,7 +519,7 @@ local function AddTreasureChests(markers, chestKeys, room, maximumChests)
             local key = CellKey(candidate.x, candidate.y)
             if not markers[key] then
                 markers[key] = {
-                    text = "$",
+                    text = markerText or "$",
                     color = "gold",
                     kind = "chest",
                     roomIndex = room.index,
@@ -677,7 +699,7 @@ function DG:GenerateFloor(width, height, floorNumber, runSeed)
     end
 
     markers[CellKey(exit.x, exit.y)] = {
-        text = ">",
+        text = GetStudioRoomMarker("EXIT", ">"),
         color = "green",
         kind = "exit",
         roomIndex = exitRoomIndex,
@@ -685,17 +707,17 @@ function DG:GenerateFloor(width, height, floorNumber, runSeed)
 
     if floor > 1 then
         markers[CellKey(start.x, start.y)] = {
-            text = "<",
+            text = GetStudioRoomMarker("START", "<"),
             color = "green",
             kind = "stairsUp",
             roomIndex = startRoomIndex,
         }
     end
 
-    AddTreasureChests(markers, chestKeys, roleData.treasureRoom, 2)
-    AddRoomRoleMarker(markers, roleData.shrineRoom, "S", "green", "shrine")
-    AddRoomRoleMarker(markers, roleData.eliteRoom, "!", "red", "elite")
-    AddRoomRoleMarker(markers, roleData.bossRoom, "B", "red", "boss")
+    AddTreasureChests(markers, chestKeys, roleData.treasureRoom, 2, GetStudioRoomMarker("TREASURE", "$"))
+    AddRoomRoleMarker(markers, roleData.shrineRoom, GetStudioRoomMarker("SHRINE", "S"), "green", "shrine")
+    AddRoomRoleMarker(markers, roleData.eliteRoom, GetStudioRoomMarker("ELITE", "!"), "red", "elite")
+    AddRoomRoleMarker(markers, roleData.bossRoom, GetStudioRoomMarker("BOSS", "B"), "red", "boss")
 
     return {
         generatorVersion = self.VERSION,

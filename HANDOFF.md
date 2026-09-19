@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.24.1**  
+Current addon version: **0.25.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -41,18 +41,20 @@ Deployment is automatic through GitHub Actions.
 
 ### GoblinArcade Studio / Vercel
 
-Studio v0.1.0 is deliberately **static-first** for Vercel cost efficiency:
+Studio v0.2.0 keeps a **static-first** architecture for Vercel cost efficiency:
 
 - no npm build is required;
 - no database is used;
 - no serverless functions run during normal editing;
 - editor drafts live in browser localStorage;
-- JSON export provides portable backups;
-- Lua export produces the shape expected at `GoblinArcade/Data/StudioData.lua`.
+- canonical published data is mirrored at `/studio-data.json`;
+- JSON/Lua export remain available as portable backups;
+- one protected `/api/publish` function runs only when PUBLISH TO WOW is pressed;
+- publish commits `studio-data.json` and `GoblinArcade/Data/StudioData.lua` to GitHub, which triggers the existing Windows self-hosted WoW deployment.
 
 The repo-level `vercel.json` keeps `/` as a real static `index.html` entrypoint and rewrites only `/studio` to that file. 0.24.1 also mirrors the same static entrypoint to `GoblinArcade/index.html` so the page still works if the Vercel project's Root Directory is configured as `GoblinArcade`. WoW ignores the HTML file.
 
-Direct **Publish to GitHub** is intentionally not exposed from the static page yet. It will be added as a protected, on-demand endpoint once an authenticated Vercel secret is available. Until then the public Studio cannot modify the repository, even if someone discovers its URL.
+Direct **PUBLISH TO WOW** is implemented in Studio v0.2.0 through an on-demand Vercel Function. It requires two Vercel environment variables: `GITHUB_TOKEN` (fine-grained token restricted to this repository, Contents read/write) and `STUDIO_PUBLISH_KEY` (a private editor password). The GitHub token never reaches the browser; the Studio key is stored only in browser sessionStorage.
 
 The Vercel connector still does not list the newly imported GoblinArcade project, but the user confirmed the production domain is `goblin-arcade.vercel.app`. The initial 0.24.0 deployment returned Vercel 404 at the root despite being Ready; 0.24.1 fixes this by deploying a real root `index.html` instead of relying on a root rewrite. Do not touch the unrelated `liminal-space` Vercel project.
 
@@ -156,15 +158,20 @@ Important addon files:
 Studio / web tooling:
 
 - `index.html` and `studio/index.html`
-  - GoblinArcade Studio v0.1.0
+  - GoblinArcade Studio v0.2.0
   - root `index.html` is the canonical Vercel entrypoint; `/studio` rewrites to it
   - single-file static editor with no framework/build step
   - edits Classes, Abilities, Enemies, Ranks, Room Roles, Loot and Shrines
   - browser-local autosave via localStorage
+  - LOAD PUBLISHED reads canonical `/studio-data.json`
+  - PUBLISH TO WOW uses protected `/api/publish`
   - JSON import/export, validation, live preview and Lua export
 - `vercel.json`
   - routes the Vercel project root and /studio to the static Studio page
-  - no serverless function, database or always-on backend in v0.1.0
+  - no database or always-on backend
+- `api/publish.js`
+  - protected on-demand GitHub publisher
+  - invoked only on explicit PUBLISH TO WOW
 
 Media:
 
@@ -804,7 +811,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.24.1**
+- **0.25.0**
 
 Recent gameplay foundation:
 
@@ -852,7 +859,7 @@ Recent gameplay foundation:
 - DungeonGenerator v3 assigns room roles: START / COMBAT / TREASURE / ELITE / SHRINE / EXIT / BOSS
 - DungeonGenerator v4 fixes door placement: doors are now true room/corridor thresholds in the one-tile wall band outside rooms, not arbitrary room-edge contacts
 - threshold detection requires room interior -> doorway -> continuing corridor, and contiguous doorway candidates collapse to one centered door
-- DungeonGenerator v6 makes adjacent doors illegal: no two generated doors may share an orthogonal edge
+- DungeonGenerator v7 makes adjacent doors illegal: no two generated doors may share an orthogonal edge
 - door counts are bounded by room: small rooms get at most 1 door; TREASURE / SHRINE / ELITE / BOSS rooms get at most 1; ordinary larger rooms get at most 2
 - door selection prefers the center of a valid threshold segment, then searches outward for a non-adjacent candidate
 - DungeonGenerator v5 adds a < stairs-up marker to the START room on Floors 2-9
@@ -942,7 +949,7 @@ Multi-enemy support is now active in 0.14.2:
 
 ### Current map
 
-DungeonGenerator v6 is active in 0.23.0.
+DungeonGenerator v7 is active in 0.23.0.
 
 - map dimensions remain 25×25;
 - rooms are procedurally placed with one-cell separation;
@@ -988,7 +995,7 @@ Compressed values include:
 - player base HP imported from WoW at BEGIN RUN;
 - weapon min/max damage from WeaponGenerator v2;
 - gear HP bonuses from ItemGenerator v3;
-- enemy max HP and min/max damage from EnemyGenerator v4;
+- enemy max HP and min/max damage from EnemyGenerator v5;
 - percentage-based heals and HP costs automatically operate on the smaller run HP pool.
 
 Unrelated systems are not divided: Armor, Dodge/Crit/Block percentages, score, movement, enemy count, item level and Gear Pressure multipliers stay unchanged.
@@ -1400,10 +1407,11 @@ Deterministic scaling, bounded density, multi-enemy support, three active archet
 Recommended order:
 
 1. **Studio data migration**
-   - verify the first static Vercel Studio deployment
-   - migrate Warrior abilities to consume GA.StudioData instead of hard-coded definitions
-   - then migrate enemies / ranks / rooms / shrines incrementally
-   - add authenticated on-demand Publish to GitHub only after a Vercel secret is configured
+   - configure the two Vercel publish secrets once
+   - EnemyGenerator v5 reads enemy archetypes and ranks from GA.StudioData
+   - DungeonGenerator v7 reads room door limits and map markers from GA.StudioData
+   - Shrine effects and Shrine UI values read from GA.StudioData
+   - migrate Warrior abilities next, then loot tables
 
 2. **Room-role gameplay polish**
    - test the stricter door rules, Shrine modal, Elite Cache and Floor 9 exit lock in-game
@@ -1518,7 +1526,7 @@ Before changing layout conventions, remember the user's current preferences:
 - enemy cells keep the terrain background and use only a red border for hostile highlighting;
 - active floors use the procedural DungeonGenerator; do not restore fixed start/exit/chest coordinates;
 - generated rooms use real room-to-corridor threshold doors in the wall band outside the room; closed doors block LOS and open on bump for one turn;
-- two generated doors must never be orthogonally adjacent; special/small rooms are capped at 1 door and larger ordinary rooms at 2;
+- two generated doors must never be orthogonally adjacent; small rooms remain hard-capped at 1 door, while larger room-role door limits are Studio-driven;
 - generated rooms have gameplay roles; START / TREASURE / SHRINE / EXIT stay free of ordinary enemy spawns;
 - dungeon floors are bidirectional inside an active run: > descends and < returns, with visited floor state restored rather than regenerated;
 - Floor 9 exit stays locked while its Boss room still has a living boss;
@@ -1527,7 +1535,7 @@ Before changing layout conventions, remember the user's current preferences:
 - fog should not show dotted borders;
 - item tooltips should show GoblinArcade stats, not WoW stats;
 - all GoblinArcade HP and damage values use the global 10:1 compression; do not restore the older large-number scale;
-- GoblinArcade Studio stays static-first unless a server feature is necessary; avoid database/always-on Vercel spend;
+- GoblinArcade Studio stays static-first; the only backend is the on-demand publish request, so avoid database/always-on Vercel spend;
 - do not modify or deploy the unrelated liminal-space Vercel project while working on GoblinArcade;
 - drag targets must visually highlight.
 

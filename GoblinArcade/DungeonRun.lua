@@ -670,6 +670,15 @@ local function CountEnemyRanks(enemies)
     return counts
 end
 
+local function GetStudioShrineChoice(choiceId)
+    for _, record in ipairs(GA.StudioData and GA.StudioData.shrines or {}) do
+        if record.id == choiceId then
+            return record
+        end
+    end
+    return nil
+end
+
 local function BuildRoomRoleText(counts)
     counts = counts or {}
 
@@ -1287,33 +1296,69 @@ function GA:CreateDungeonRunPage(parent)
     shrineText:SetPoint("TOP", shrineTitle, "BOTTOM", 0, -10)
     shrineText:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
-    local restoreButton = CreateFlatButton(shrineFrame, "1  RESTORE", 148, 40)
+    local restoreDefinition = GetStudioShrineChoice("restore") or {}
+    local blessingDefinition = GetStudioShrineChoice("blessing") or {}
+    local sacrificeDefinition = GetStudioShrineChoice("sacrifice") or {}
+
+    local restoreButton = CreateFlatButton(
+        shrineFrame,
+        "1  " .. string.upper(restoreDefinition.name or "RESTORE"),
+        148,
+        40
+    )
     restoreButton:SetPoint("BOTTOMLEFT", 16, 18)
     restoreButton:SetScript("OnClick", function()
         GA:ChooseShrineGift("restore")
     end)
 
-    local blessingButton = CreateFlatButton(shrineFrame, "2  BLESSING", 148, 40)
+    local blessingButton = CreateFlatButton(
+        shrineFrame,
+        "2  " .. string.upper(blessingDefinition.name or "BLESSING"),
+        148,
+        40
+    )
     blessingButton:SetPoint("BOTTOM", 0, 18)
     blessingButton:SetScript("OnClick", function()
         GA:ChooseShrineGift("blessing")
     end)
 
-    local sacrificeButton = CreateFlatButton(shrineFrame, "3  SACRIFICE", 148, 40)
+    local sacrificeButton = CreateFlatButton(
+        shrineFrame,
+        "3  " .. string.upper(sacrificeDefinition.name or "SACRIFICE"),
+        148,
+        40
+    )
     sacrificeButton:SetPoint("BOTTOMRIGHT", -16, 18)
     sacrificeButton:SetScript("OnClick", function()
         GA:ChooseShrineGift("sacrifice")
     end)
 
-    local restoreDesc = CreateText(shrineFrame, "GameFontDisableSmall", "+25% max HP")
+    local restorePercent = tonumber(restoreDefinition.value) or 25
+    local blessingPercent = tonumber(blessingDefinition.value) or 5
+    local sacrificePercent = tonumber(sacrificeDefinition.value) or 15
+    local sacrificeScore = tonumber(sacrificeDefinition.secondaryValue) or 150
+
+    local restoreDesc = CreateText(
+        shrineFrame,
+        "GameFontDisableSmall",
+        string.format("HEAL %d%% MAX HP", restorePercent)
+    )
     restoreDesc:SetPoint("BOTTOM", restoreButton, "TOP", 0, 5)
     restoreDesc:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    local blessingDesc = CreateText(shrineFrame, "GameFontDisableSmall", "+5% run damage")
+    local blessingDesc = CreateText(
+        shrineFrame,
+        "GameFontDisableSmall",
+        string.format("+%d%% RUN DAMAGE", blessingPercent)
+    )
     blessingDesc:SetPoint("BOTTOM", blessingButton, "TOP", 0, 5)
     blessingDesc:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    local sacrificeDesc = CreateText(shrineFrame, "GameFontDisableSmall", "-15% max HP, +150 score")
+    local sacrificeDesc = CreateText(
+        shrineFrame,
+        "GameFontDisableSmall",
+        string.format("-%d%% MAX HP, +%d SCORE", sacrificePercent, sacrificeScore)
+    )
     sacrificeDesc:SetPoint("BOTTOM", sacrificeButton, "TOP", 0, 5)
     sacrificeDesc:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
@@ -3443,16 +3488,18 @@ function GA:ChooseShrineGift(choice)
     end
 
     if choice == "restore" then
-        local amount = math.max(1, math.floor((run.playerMaxHealth or 1) * 0.25 + 0.5))
+        local definition = GetStudioShrineChoice("restore")
+        local percent = math.max(1, tonumber(definition and definition.value) or 25)
+        local amount = math.max(1, math.floor((run.playerMaxHealth or 1) * (percent / 100) + 0.5))
         local before = run.playerHealth or 0
         run.playerHealth = math.min(run.playerMaxHealth or before, before + amount)
         local restored = run.playerHealth - before
-        self:AddCombatLog(
-            string.format("SHRINE - RESTORE: +%d HP.", restored),
-            "system"
-        )
+        self:AddCombatLog(string.format("SHRINE - RESTORE: +%d HP.", restored), "system")
     elseif choice == "blessing" then
-        run.shrineDamageBonus = math.min(0.25, (run.shrineDamageBonus or 0) + 0.05)
+        local definition = GetStudioShrineChoice("blessing")
+        local bonusPercent = math.max(0, tonumber(definition and definition.value) or 5)
+        local capPercent = math.max(bonusPercent, tonumber(definition and definition.secondaryValue) or 25)
+        run.shrineDamageBonus = math.min(capPercent / 100, (run.shrineDamageBonus or 0) + (bonusPercent / 100))
         self:AddCombatLog(
             string.format(
                 "SHRINE - BLESSING: run damage bonus is now +%d%%.",
@@ -3461,11 +3508,14 @@ function GA:ChooseShrineGift(choice)
             "system"
         )
     elseif choice == "sacrifice" then
-        local cost = math.max(1, math.floor((run.playerMaxHealth or 1) * 0.15 + 0.5))
+        local definition = GetStudioShrineChoice("sacrifice")
+        local costPercent = math.max(1, tonumber(definition and definition.value) or 15)
+        local scoreReward = math.max(0, math.floor((tonumber(definition and definition.secondaryValue) or 150) + 0.5))
+        local cost = math.max(1, math.floor((run.playerMaxHealth or 1) * (costPercent / 100) + 0.5))
         run.playerHealth = math.max(1, (run.playerHealth or 1) - cost)
-        run.score = (run.score or 0) + 150
+        run.score = (run.score or 0) + scoreReward
         self:AddCombatLog(
-            string.format("SHRINE - SACRIFICE: -%d HP, +150 score.", cost),
+            string.format("SHRINE - SACRIFICE: -%d HP, +%d score.", cost, scoreReward),
             "system"
         )
     else

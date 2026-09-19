@@ -3,7 +3,7 @@ local _, GA = ...
 GA.EnemyGenerator = GA.EnemyGenerator or {}
 local EG = GA.EnemyGenerator
 
-EG.VERSION = 4
+EG.VERSION = 5
 
 local GEAR_SLOTS = {
     "head",
@@ -84,6 +84,47 @@ local ARCHETYPES = {
         baseScore = 160,
     },
 }
+
+local function FindStudioRecord(collectionName, recordId)
+    for _, record in ipairs(GA.StudioData and GA.StudioData[collectionName] or {}) do
+        if record.id == recordId then
+            return record
+        end
+    end
+    return nil
+end
+
+local function GetRankDefinition(rankName)
+    local key = rankName or "normal"
+    local fallback = RANKS[key] or RANKS.normal
+    local record = FindStudioRecord("ranks", key)
+    if not record then
+        return fallback
+    end
+    return {
+        levelBonus = tonumber(record.levelBonus) or fallback.levelBonus,
+        hpMultiplier = tonumber(record.hpMultiplier) or fallback.hpMultiplier,
+        damageMultiplier = tonumber(record.damageMultiplier) or fallback.damageMultiplier,
+        scoreMultiplier = tonumber(record.scoreMultiplier) or fallback.scoreMultiplier,
+    }
+end
+
+local function GetArchetypeDefinition(archetypeName)
+    local key = archetypeName or "kobold"
+    local fallback = ARCHETYPES[key] or ARCHETYPES.kobold
+    local record = FindStudioRecord("enemies", key)
+    if not record then
+        return fallback
+    end
+    return {
+        name = record.name or fallback.name,
+        hpMultiplier = tonumber(record.hpMultiplier) or fallback.hpMultiplier,
+        damageMultiplier = tonumber(record.damageMultiplier) or fallback.damageMultiplier,
+        visionRadius = tonumber(record.visionRadius) or fallback.visionRadius,
+        movementPattern = string.lower(tostring(record.movement or fallback.movementPattern or "normal")),
+        baseScore = tonumber(record.baseScore) or fallback.baseScore,
+    }
+end
 
 local function Clamp(value, minimum, maximum)
     if value < minimum then
@@ -194,7 +235,7 @@ end
 
 function EG:GetEffectiveLevel(playerLevel, floor, rankName)
     local level = math.max(1, tonumber(playerLevel) or 1)
-    local rank = RANKS[rankName or "normal"] or RANKS.normal
+    local rank = GetRankDefinition(rankName)
 
     return level + GetFloorBonus(floor) + rank.levelBonus
 end
@@ -217,8 +258,8 @@ function EG:CreateEnemy(options)
 
     local archetypeKey = options.archetype or "kobold"
     local rankKey = options.rank or "normal"
-    local archetype = ARCHETYPES[archetypeKey] or ARCHETYPES.kobold
-    local rank = RANKS[rankKey] or RANKS.normal
+    local archetype = GetArchetypeDefinition(archetypeKey)
+    local rank = GetRankDefinition(rankKey)
     local playerLevel = math.max(1, tonumber(options.playerLevel) or 1)
     local floor = math.max(1, tonumber(options.floor) or 1)
     local gearPressure = options.gearPressure
