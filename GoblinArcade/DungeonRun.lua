@@ -34,11 +34,11 @@ end
 
 local function CreateGrid(parent)
     local grid = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-    grid:SetSize(363, 363)
+    grid:SetSize(350, 350)
     grid:SetPoint("TOP", 0, -32)
     ApplyBackdrop(grid, { 0.025, 0.022, 0.018, 1 }, COLORS.goldDim)
 
-    local size = 27
+    local size = 26
     local gap = 1
     local stride = size + gap
 
@@ -157,11 +157,50 @@ function GA:CreateDungeonRunPage(parent)
     gearHint:SetPoint("TOPLEFT", 12, -268)
     gearHint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    local gearValue = CreateText(left, "GameFontDisableSmall", "scan coming next")
-    gearValue:SetPoint("TOPLEFT", 12, -286)
-    gearValue:SetPoint("RIGHT", left, "RIGHT", -10, 0)
-    gearValue:SetJustifyH("LEFT")
-    gearValue:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    local itemIconButton = CreateFrame("Button", nil, left, "BackdropTemplate")
+    itemIconButton:SetSize(42, 42)
+    itemIconButton:SetPoint("TOPLEFT", 12, -288)
+    ApplyBackdrop(itemIconButton, { 0.025, 0.022, 0.018, 1 }, COLORS.goldDim)
+
+    local itemIcon = itemIconButton:CreateTexture(nil, "ARTWORK")
+    itemIcon:SetPoint("TOPLEFT", 2, -2)
+    itemIcon:SetPoint("BOTTOMRIGHT", -2, 2)
+    itemIcon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+    self.DungeonMainHandIcon = itemIcon
+
+    itemIconButton:SetScript("OnEnter", function(button)
+        if GA.DungeonMainHandLink then
+            GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+            GameTooltip:SetHyperlink(GA.DungeonMainHandLink)
+            GameTooltip:Show()
+        end
+    end)
+    itemIconButton:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+
+    local itemName = CreateText(left, "GameFontNormalSmall", "Scanning...")
+    itemName:SetPoint("TOPLEFT", itemIconButton, "TOPRIGHT", 8, -2)
+    itemName:SetPoint("RIGHT", left, "RIGHT", -8, 0)
+    itemName:SetJustifyH("LEFT")
+    itemName:SetWordWrap(true)
+    itemName:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+    self.DungeonMainHandName = itemName
+
+    local itemLevel = CreateText(left, "GameFontHighlightSmall", "")
+    itemLevel:SetPoint("TOPLEFT", itemIconButton, "TOPRIGHT", 8, -22)
+    itemLevel:SetPoint("RIGHT", left, "RIGHT", -8, 0)
+    itemLevel:SetJustifyH("LEFT")
+    itemLevel:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    self.DungeonMainHandLevel = itemLevel
+
+    local itemMeta = CreateText(left, "GameFontDisableSmall", "")
+    itemMeta:SetPoint("TOPLEFT", 12, -338)
+    itemMeta:SetPoint("RIGHT", left, "RIGHT", -8, 0)
+    itemMeta:SetJustifyH("LEFT")
+    itemMeta:SetWordWrap(true)
+    itemMeta:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    self.DungeonMainHandMeta = itemMeta
 
     local right = CreateFrame("Frame", nil, body, "BackdropTemplate")
     right:SetPoint("TOPRIGHT")
@@ -238,6 +277,65 @@ function GA:CreateDungeonRunPage(parent)
     return page
 end
 
+local QUALITY_NAMES = {
+    [0] = "Poor",
+    [1] = "Common",
+    [2] = "Uncommon",
+    [3] = "Rare",
+    [4] = "Epic",
+    [5] = "Legendary",
+    [6] = "Artifact",
+    [7] = "Heirloom",
+}
+
+function GA:RefreshMainHandInfo()
+    if not self.DungeonMainHandName then
+        return
+    end
+
+    local slotID = 16
+    local itemLink = GetInventoryItemLink("player", slotID)
+    local texture = GetInventoryItemTexture("player", slotID)
+
+    self.DungeonMainHandLink = itemLink
+
+    if self.DungeonMainHandIcon then
+        self.DungeonMainHandIcon:SetTexture(texture or "Interface\\Icons\\INV_Misc_QuestionMark")
+    end
+
+    if not itemLink then
+        self.DungeonMainHandName:SetText("No main hand")
+        self.DungeonMainHandName:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+        self.DungeonMainHandLevel:SetText("")
+        self.DungeonMainHandMeta:SetText("Equip a weapon to scan it.")
+        return
+    end
+
+    local name, _, quality, itemLevel, _, itemType, itemSubType = GetItemInfo(itemLink)
+
+    if not name then
+        self.DungeonMainHandName:SetText("Loading item...")
+        self.DungeonMainHandName:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+        self.DungeonMainHandLevel:SetText("")
+        self.DungeonMainHandMeta:SetText("Waiting for item data.")
+        return
+    end
+
+    local qualityColor = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality]
+    if qualityColor then
+        self.DungeonMainHandName:SetTextColor(qualityColor.r, qualityColor.g, qualityColor.b)
+    else
+        self.DungeonMainHandName:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+    end
+
+    self.DungeonMainHandName:SetText(name)
+    self.DungeonMainHandLevel:SetText("Item Level " .. tostring(itemLevel or "?"))
+
+    local rarity = QUALITY_NAMES[quality] or "Unknown"
+    local typeName = itemSubType or itemType or "Unknown type"
+    self.DungeonMainHandMeta:SetText(rarity .. "  -  " .. typeName)
+end
+
 function GA:RefreshDungeonSummary()
     if not self.DungeonPlayerName then
         return
@@ -255,4 +353,20 @@ function GA:RefreshDungeonSummary()
     if self.DungeonPortrait then
         SetPortraitTexture(self.DungeonPortrait, "player")
     end
+
+    self:RefreshMainHandInfo()
 end
+
+local itemEventFrame = CreateFrame("Frame")
+itemEventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+itemEventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
+
+itemEventFrame:SetScript("OnEvent", function(_, event, arg1)
+    if event == "PLAYER_EQUIPMENT_CHANGED" and arg1 ~= 16 then
+        return
+    end
+
+    if GA.RefreshMainHandInfo then
+        GA:RefreshMainHandInfo()
+    end
+end)
