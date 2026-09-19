@@ -3,7 +3,7 @@ local _, GA = ...
 GA.EnemyGenerator = GA.EnemyGenerator or {}
 local EG = GA.EnemyGenerator
 
-EG.VERSION = 3
+EG.VERSION = 4
 
 local GEAR_SLOTS = {
     "head",
@@ -238,7 +238,7 @@ function EG:CreateEnemy(options)
     local referencePlayerHealth = 100 + effectiveLevel * 20
     local averageDamage = referencePlayerHealth * 0.035
 
-    local maxHp = math.max(1, Round(
+    local rawMaxHp = math.max(1, Round(
         baseHp
         * archetype.hpMultiplier
         * rank.hpMultiplier
@@ -254,8 +254,12 @@ function EG:CreateEnemy(options)
         * floorPressure.damageMultiplier
         * gearPressure.damageMultiplier
 
-    local damageMin = math.max(1, Round(scaledAverageDamage * 0.80))
-    local damageMax = math.max(damageMin, Round(scaledAverageDamage * 1.20))
+    local rawDamageMin = math.max(1, Round(scaledAverageDamage * 0.80))
+    local rawDamageMax = math.max(rawDamageMin, Round(scaledAverageDamage * 1.20))
+
+    local maxHp = GA:ScaleCombatValue(rawMaxHp)
+    local damageMin = GA:ScaleCombatValue(rawDamageMin)
+    local damageMax = math.max(damageMin, GA:ScaleCombatValue(rawDamageMax))
     local scoreValue = math.max(1, Round(archetype.baseScore * rank.scoreMultiplier))
 
     return {

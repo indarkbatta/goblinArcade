@@ -115,6 +115,22 @@ local function CellKey(x, y)
     return tostring(x) .. ":" .. tostring(y)
 end
 
+local function ResolveCharacterWeapon(self, character)
+    if not character then
+        return nil
+    end
+
+    local mainHand = character.equipment and character.equipment.mainhand
+    if mainHand and self.EnsureArcadeItemConversion then
+        self:EnsureArcadeItemConversion(mainHand)
+        if mainHand.arcadeWeapon then
+            return CopyTable(mainHand.arcadeWeapon)
+        end
+    end
+
+    return character.weapon and CopyTable(character.weapon) or nil
+end
+
 local ACTIVE_FLOOR_MAP = nil
 
 local function SetActiveFloorMap(floorMap)
@@ -1658,7 +1674,7 @@ function GA:RefreshDungeonCharacterSelection()
         selected.key == currentKey and "CURRENT CHARACTER - LIVE DATA" or "ALT - LAST SYNCED DATA"
     )
 
-    local weapon = selected.weapon
+    local weapon = ResolveCharacterWeapon(self, selected)
     if weapon then
         self.DungeonSelectedWeaponName:SetText(selected.weaponName or weapon.sourceName or "Cached main hand")
         self.DungeonSelectedWeaponStats:SetText(string.format(
@@ -2562,7 +2578,8 @@ function GA:BeginDungeonRun()
         selected = self:GetSelectedDungeonCharacter()
     end
 
-    if not selected or not selected.weapon then
+    local selectedWeapon = ResolveCharacterWeapon(self, selected)
+    if not selected or not selectedWeapon then
         if self.DungeonRunStateText then
             self.DungeonRunStateText:SetText("SELECT A CHARACTER WITH A CACHED LOADOUT")
             self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
@@ -2573,8 +2590,7 @@ function GA:BeginDungeonRun()
     local name = selected.name or "Unknown"
     local level = selected.level or 0
     local className = selected.className or "Adventurer"
-    local maxHealth = selected.maxHealth or 0
-    local selectedWeapon = CopyTable(selected.weapon)
+    local maxHealth = self:ScaleCombatValue(selected.maxHealth or 0)
     local floor = 1
 
     if not self.EnemyGenerator or not self.FloorGenerator or not self.DungeonGenerator then
@@ -3597,7 +3613,7 @@ function GA:RefreshDungeonSummary()
         self.DungeonRunPage:SetPropagateKeyboardInput(true)
     end
 
-    local maxHealth = UnitHealthMax("player") or 0
+    local maxHealth = self:ScaleCombatValue(UnitHealthMax("player") or 0)
     self.DungeonHealth:SetText(tostring(maxHealth))
     self:RefreshMainHandInfo()
     self:RefreshRunCounters()

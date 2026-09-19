@@ -4,7 +4,25 @@ GA = GA or {}
 _G.GoblinArcade = GA
 
 GA.name = "GoblinArcade"
-GA.version = "0.21.0"
+GA.version = "0.22.0"
+
+GA.COMBAT_NUMBER_DIVISOR = 10
+
+function GA:ScaleCombatValue(value, preservePositive)
+    local numeric = tonumber(value) or 0
+    if numeric <= 0 then
+        return 0
+    end
+
+    local divisor = math.max(1, tonumber(self.COMBAT_NUMBER_DIVISOR) or 10)
+    local scaled = math.floor((numeric / divisor) + 0.5)
+
+    if preservePositive == false then
+        return math.max(0, scaled)
+    end
+
+    return math.max(1, scaled)
+end
 
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("PLAYER_LOGIN")

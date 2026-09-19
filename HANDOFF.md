@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.21.0**  
+Current addon version: **0.22.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -767,7 +767,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.21.0**
+- **0.22.0**
 
 Recent gameplay foundation:
 
@@ -930,6 +930,30 @@ The current generator is intentionally room-and-corridor based rather than full 
 ## 23. Deterministic enemy scaling
 
 **Implemented via `EnemyGenerator.lua`: base level + Gear Pressure in 0.14.0; Character-Level Pressure + Floor Pressure in 0.14.1.**
+
+### Combat number compression (0.22.0)
+
+All GoblinArcade combat-facing HP and damage values now use a global **10:1 compression**:
+
+```
+Compressed Value = round(Raw Value / 10)
+```
+
+Any positive HP or damage value has a minimum of **1** after compression.
+
+Compressed values include:
+
+- player base HP imported from WoW at BEGIN RUN;
+- weapon min/max damage from WeaponGenerator v2;
+- gear HP bonuses from ItemGenerator v3;
+- enemy max HP and min/max damage from EnemyGenerator v4;
+- percentage-based heals and HP costs automatically operate on the smaller run HP pool.
+
+Unrelated systems are not divided: Armor, Dodge/Crit/Block percentages, score, movement, enemy count, item level and Gear Pressure multipliers stay unchanged.
+
+The intent is readability and smaller RPG-style numbers, not a difficulty redesign. Level, floor, rank, archetype and Gear Pressure calculations still happen normally before final HP/damage compression.
+
+Cached equipment is re-converted when generator versions are stale. Dungeon character selection and BEGIN RUN also resolve the main-hand weapon through the current generator so offline alts do not keep legacy 10x weapon values.
 
 Enemy strength must be deterministic and should depend on both **character level** and the character's **starting WoW gear quality**.
 
@@ -1099,23 +1123,27 @@ Player Level + Floor Level Bonus + Rank Bonus
 The final deterministic stat pipeline should be:
 
 ```
-Enemy HP =
+Raw Enemy HP =
 Base HP from Effective Enemy Level
 × Enemy Archetype HP Multiplier
 × Enemy Rank HP Multiplier
 × Level Pressure
 × Floor HP Multiplier
 × Gear Pressure HP Multiplier
+
+Final Enemy HP = round(Raw Enemy HP / 10), minimum 1
 ```
 
 ```
-Enemy Damage =
+Raw Enemy Damage =
 Base Damage from Effective Enemy Level
 × Enemy Archetype Damage Multiplier
 × Enemy Rank Damage Multiplier
 × Level Pressure
 × Floor Damage Multiplier
 × Gear Pressure Damage Multiplier
+
+Final Enemy Damage = round(Raw Enemy Damage / 10), minimum 1
 ```
 
 The design intent is:
@@ -1387,11 +1415,11 @@ Current frequently tested character:
 - Orc Warrior
 - Level 13
 
-Known example run values around this development stage:
+Known example run values after 0.22.0 combat-number compression:
 
-- base health around 358
+- raw WoW health around 358 → GoblinArcade base HP around 36
 - Heavy Copper Maul
-- GoblinArcade damage 14–19
+- previous GoblinArcade damage 14–19 → compressed damage around 1–2
 - STAGGER 15%
 
 These are useful sanity checks, not hard-coded gameplay requirements.
@@ -1449,6 +1477,7 @@ Before changing layout conventions, remember the user's current preferences:
 - minimap belongs in the lower-right run panel and respects Fog of War instead of revealing unexplored rooms;
 - fog should not show dotted borders;
 - item tooltips should show GoblinArcade stats, not WoW stats;
+- all GoblinArcade HP and damage values use the global 10:1 compression; do not restore the older large-number scale;
 - drag targets must visually highlight.
 
 Preserve those decisions unless the user explicitly asks to change them.

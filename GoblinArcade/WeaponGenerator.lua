@@ -3,7 +3,7 @@ local _, GA = ...
 GA.WeaponGenerator = GA.WeaponGenerator or {}
 local WG = GA.WeaponGenerator
 
-WG.VERSION = 1
+WG.VERSION = 2
 
 local ARCHETYPES = {
     Dagger = {
@@ -194,9 +194,12 @@ function WG:Convert(metadata)
         multiplier = multiplier * 1.22
     end
 
-    local minDamage = math.max(1, Rounded(baseDamage * multiplier))
-    local spread = math.max(2, Rounded(minDamage * archetype.spread))
-    local maxDamage = minDamage + spread
+    local rawMinDamage = math.max(1, Rounded(baseDamage * multiplier))
+    local rawSpread = math.max(2, Rounded(rawMinDamage * archetype.spread))
+    local rawMaxDamage = rawMinDamage + rawSpread
+
+    local minDamage = GA:ScaleCombatValue(rawMinDamage)
+    local maxDamage = math.max(minDamage, GA:ScaleCombatValue(rawMaxDamage))
 
     local speed = archetype.speed
     if handedness == "Two-Handed" and (archetypeName == "Axe" or archetypeName == "Mace" or archetypeName == "Sword" or archetypeName == "Staff") then

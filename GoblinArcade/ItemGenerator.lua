@@ -3,7 +3,7 @@ local _, GA = ...
 GA.ItemGenerator = GA.ItemGenerator or {}
 local IG = GA.ItemGenerator
 
-IG.VERSION = 2
+IG.VERSION = 3
 
 local QUALITY_MULTIPLIER = {
     [0] = 0.80,
@@ -99,9 +99,10 @@ function IG:Convert(metadata)
         armorBase * (profile.armor or 0) * materialMultiplier * qualityMultiplier
     ))
 
-    local health = math.max(0, Round(
+    local rawHealth = math.max(0, Round(
         healthBase * (profile.health or 0) * materialMultiplier * qualityMultiplier
     ))
+    local health = rawHealth > 0 and GA:ScaleCombatValue(rawHealth) or 0
 
     local dodge = math.max(0, Round1(
         secondaryBase * (profile.dodge or 0) * qualityMultiplier
