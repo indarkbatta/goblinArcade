@@ -1015,7 +1015,91 @@ Enemy level, base HP, base damage, archetype multipliers and Gear Pressure must 
 
 ---
 
-## 24. Recommended next development steps
+## 24. Planned bounded monster density
+
+Monster density should vary from floor to floor, but only inside controlled, human-scale limits.
+
+This is an **accepted design decision but not yet implemented**.
+
+### Base enemy count
+
+For a generated floor:
+
+```
+Base Enemy Count =
+round((Walkable Tiles / 70) × (1 + 0.05 × (Floor - 1)))
+```
+
+The current 25×25 test map has roughly 497 walkable tiles, giving approximately:
+
+```
+Floor 1  → ~7 enemies
+Floor 3  → ~8 enemies
+Floor 5  → ~9 enemies
+Floor 7  → ~9–10 enemies
+Floor 9  → ~10 enemies
+```
+
+### Random density profile
+
+Each floor rolls exactly one bounded density profile when the floor is created:
+
+```
+QUIET      20% → ×0.85
+STANDARD   60% → ×1.00
+CROWDED    20% → ×1.15
+```
+
+Expected practical range on the current map is roughly:
+
+- Floor 1: about 6–8 enemies
+- Floor 9: about 8–12 enemies
+
+The goal is noticeable variation without empty floors or excessive swarms.
+
+### Persistence rule
+
+The density profile is rolled **once per floor** and stored in run state.
+
+It must not reroll because of:
+
+- `/reload`
+- reopening GoblinArcade
+- opening the character sheet
+- rerendering the dungeon UI
+
+### Spawn safety rules
+
+Initial floor generation should enforce:
+
+- no enemy on the player start tile;
+- no enemy inside a small safe radius around the player start;
+- no enemy on walls or occupied cells;
+- no enemy directly on exit/chest/objective cells unless intentionally designed;
+- avoid extreme initial clusters of many enemies in a tiny area;
+- normal floor generation should not create unavoidable instant swarms.
+
+### Rank interaction
+
+Veteran / Elite / Boss enemies should generally **replace part of the normal enemy budget**, not simply be added on top of the body count.
+
+This prevents a harder rank mix from also accidentally becoming an excessive-density floor.
+
+### Difficulty axes
+
+Floor difficulty should eventually come from several partially independent systems:
+
+1. deterministic character-level scaling;
+2. deterministic floor HP/damage pressure;
+3. bounded random density profile;
+4. enemy archetype composition;
+5. rank mix.
+
+Randomness is appropriate in floor composition/density. It must remain bounded. Gear conversion and enemy stat formulas themselves remain deterministic.
+
+---
+
+## 25. Recommended next development steps
 
 The deterministic enemy-scaling foundation is complete. The most natural next slice is now **multi-enemy support + enemy variety**, not another broad UI rewrite.
 
@@ -1065,7 +1149,7 @@ Recommended order:
 
 ---
 
-## 25. Development workflow for the next context
+## 26. Development workflow for the next context
 
 When modifying code:
 
@@ -1081,7 +1165,7 @@ Do not assume an earlier file snapshot is still current.
 
 ---
 
-## 26. Current test character
+## 27. Current test character
 
 Current frequently tested character:
 
@@ -1100,7 +1184,7 @@ These are useful sanity checks, not hard-coded gameplay requirements.
 
 ---
 
-## 27. Product direction
+## 28. Product direction
 
 Long-term dungeon concept:
 
@@ -1124,7 +1208,7 @@ WoW character level and WoW gear are the foundation.
 
 ---
 
-## 28. Final reminder
+## 29. Final reminder
 
 This project is being built by rapid visual iteration.
 
