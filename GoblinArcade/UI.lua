@@ -88,6 +88,61 @@ local function SetNavSelected(button, selected)
     end
 end
 
+function GA:ResetCombatLog()
+    self.CombatLogLines = {}
+
+    if self.CombatLogText then
+        self.CombatLogText:SetText("")
+    end
+end
+
+function GA:AddCombatLog(message, kind)
+    if not message then
+        return
+    end
+
+    self.CombatLogLines = self.CombatLogLines or {}
+
+    local color = "c8c0b2"
+    if kind == "player" then
+        color = "63dd72"
+    elseif kind == "enemy" then
+        color = "ef6253"
+    elseif kind == "system" then
+        color = "ffc21a"
+    elseif kind == "warning" then
+        color = "f3a447"
+    end
+
+    table.insert(self.CombatLogLines, "|cff" .. color .. message .. "|r")
+
+    while #self.CombatLogLines > 17 do
+        table.remove(self.CombatLogLines, 1)
+    end
+
+    if self.CombatLogText then
+        self.CombatLogText:SetText(table.concat(self.CombatLogLines, "\n\n"))
+    end
+end
+
+function GA:SetRunMode(active)
+    if self.NavigationRail then
+        if active then
+            self.NavigationRail:Hide()
+        else
+            self.NavigationRail:Show()
+        end
+    end
+
+    if self.CombatLogRail then
+        if active then
+            self.CombatLogRail:Show()
+        else
+            self.CombatLogRail:Hide()
+        end
+    end
+end
+
 function GA:ShowPage(pageName)
     if not self.Pages or not self.Pages[pageName] then
         return
@@ -145,7 +200,7 @@ function GA:CreateHomePage(parent)
     gameDescription:SetJustifyV("TOP")
     gameDescription:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    local status = CreateText(card, "GameFontNormal", ">  FIRST ENEMY ONLINE")
+    local status = CreateText(card, "GameFontNormal", ">  RUN MODE ONLINE")
     status:SetPoint("BOTTOMLEFT", 22, 22)
     status:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
 
@@ -155,11 +210,11 @@ function GA:CreateHomePage(parent)
         GA:ShowPage("dungeon")
     end)
 
-    local coming = CreateText(page, "GameFontHighlightSmall", "Begin a run and move with WASD or the arrow keys. The kobold now takes a turn after you.")
+    local coming = CreateText(page, "GameFontHighlightSmall", "Begin a run to lock keyboard focus, swap the menu for the combat log, and face the kobold.")
     coming:SetPoint("TOPLEFT", card, "BOTTOMLEFT", 0, -18)
     coming:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    local version = CreateText(page, "GameFontDisableSmall", "GoblinArcade v" .. tostring(self.version or "0.4.0") .. "  -  WoW Forever")
+    local version = CreateText(page, "GameFontDisableSmall", "GoblinArcade v" .. tostring(self.version or "0.6.0") .. "  -  WoW Forever")
     version:SetPoint("BOTTOMRIGHT", -16, 12)
     version:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
@@ -221,6 +276,7 @@ function GA:CreateMainFrame()
     rail:SetPoint("BOTTOMLEFT", 14, 14)
     rail:SetWidth(232)
     ApplyBackdrop(rail, COLORS.panel, COLORS.goldDim)
+    self.NavigationRail = rail
 
     local portraitBorder = CreateFrame("Frame", nil, rail, "BackdropTemplate")
     portraitBorder:SetSize(80, 80)
@@ -288,6 +344,41 @@ function GA:CreateMainFrame()
     hint:SetPoint("BOTTOMLEFT", 16, 14)
     hint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
+    local combatRail = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    combatRail:SetPoint("TOPLEFT", 14, -72)
+    combatRail:SetPoint("BOTTOMLEFT", 14, 14)
+    combatRail:SetWidth(232)
+    ApplyBackdrop(combatRail, { 0.045, 0.038, 0.030, 0.98 }, COLORS.goldDim)
+    combatRail:Hide()
+    self.CombatLogRail = combatRail
+
+    local combatTitle = CreateText(combatRail, "GameFontNormalLarge", "COMBAT LOG")
+    combatTitle:SetPoint("TOPLEFT", 14, -14)
+    combatTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    local combatSubtitle = CreateText(combatRail, "GameFontDisableSmall", "RUN EVENT STREAM")
+    combatSubtitle:SetPoint("TOPLEFT", combatTitle, "BOTTOMLEFT", 0, -4)
+    combatSubtitle:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local combatDivider = combatRail:CreateTexture(nil, "ARTWORK")
+    combatDivider:SetColorTexture(COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 1)
+    combatDivider:SetHeight(1)
+    combatDivider:SetPoint("TOPLEFT", 12, -62)
+    combatDivider:SetPoint("TOPRIGHT", -12, -62)
+
+    local combatText = CreateText(combatRail, "GameFontHighlightSmall", "")
+    combatText:SetPoint("TOPLEFT", 14, -78)
+    combatText:SetPoint("BOTTOMRIGHT", -14, 42)
+    combatText:SetJustifyH("LEFT")
+    combatText:SetJustifyV("TOP")
+    combatText:SetWordWrap(true)
+    combatText:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+    self.CombatLogText = combatText
+
+    local combatHint = CreateText(combatRail, "GameFontDisableSmall", "Dungeon controls have keyboard focus.")
+    combatHint:SetPoint("BOTTOMLEFT", 14, 14)
+    combatHint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
     local content = CreateFrame("Frame", nil, frame, "BackdropTemplate")
     content:SetPoint("TOPLEFT", rail, "TOPRIGHT", 12, 0)
     content:SetPoint("BOTTOMRIGHT", -14, 14)
@@ -305,6 +396,8 @@ function GA:CreateMainFrame()
 
     frame:SetScript("OnShow", function()
         GA:RefreshPlayerSummary()
+        GA:SetRunMode(GA.RunState and GA.RunState.active)
+
         if GA.ActivePage == "dungeon" and GA.RefreshDungeonSummary then
             GA:RefreshDungeonSummary()
         end

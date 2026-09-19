@@ -200,12 +200,13 @@ function GA:CreateDungeonRunPage(parent)
     local page = CreateFrame("Frame", nil, parent)
     page:SetAllPoints(parent)
     page:Hide()
+    self.DungeonRunPage = page
 
     local title = CreateText(page, "GameFontNormalHuge", "DUNGEON RUN")
     title:SetPoint("TOPLEFT", 18, -16)
     title:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
-    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  ENEMY TURN PROTOTYPE")
+    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  RUN MODE PROTOTYPE")
     subtitle:SetPoint("TOPRIGHT", -18, -22)
     subtitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
@@ -230,6 +231,38 @@ function GA:CreateDungeonRunPage(parent)
     local gearTitle = CreateText(left, "GameFontNormalSmall", "WOW GEAR INPUT")
     gearTitle:SetPoint("TOPLEFT", 12, -126)
     gearTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    local runPortraitFrame = CreateFrame("Frame", nil, left, "BackdropTemplate")
+    runPortraitFrame:SetSize(158, 92)
+    runPortraitFrame:SetPoint("TOPLEFT", 12, -126)
+    ApplyBackdrop(runPortraitFrame, { 0.035, 0.030, 0.024, 1 }, COLORS.goldDim)
+    runPortraitFrame:Hide()
+    self.DungeonRunPortraitFrame = runPortraitFrame
+
+    local runPortraitBorder = CreateFrame("Frame", nil, runPortraitFrame, "BackdropTemplate")
+    runPortraitBorder:SetSize(64, 64)
+    runPortraitBorder:SetPoint("LEFT", 10, 0)
+    ApplyBackdrop(runPortraitBorder, { 0.02, 0.02, 0.02, 1 }, COLORS.gold)
+
+    local runPortrait = runPortraitBorder:CreateTexture(nil, "ARTWORK")
+    runPortrait:SetPoint("TOPLEFT", 2, -2)
+    runPortrait:SetPoint("BOTTOMRIGHT", -2, 2)
+    runPortrait:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    self.DungeonRunPortrait = runPortrait
+
+    local runPortraitName = CreateText(runPortraitFrame, "GameFontNormal", "")
+    runPortraitName:SetPoint("TOPLEFT", runPortraitBorder, "TOPRIGHT", 8, -8)
+    runPortraitName:SetPoint("RIGHT", runPortraitFrame, "RIGHT", -8, 0)
+    runPortraitName:SetJustifyH("LEFT")
+    runPortraitName:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+    self.DungeonRunPortraitName = runPortraitName
+
+    local runPortraitMeta = CreateText(runPortraitFrame, "GameFontHighlightSmall", "")
+    runPortraitMeta:SetPoint("TOPLEFT", runPortraitName, "BOTTOMLEFT", 0, -6)
+    runPortraitMeta:SetPoint("RIGHT", runPortraitFrame, "RIGHT", -8, 0)
+    runPortraitMeta:SetJustifyH("LEFT")
+    runPortraitMeta:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    self.DungeonRunPortraitMeta = runPortraitMeta
 
     local gearHint = CreateText(left, "GameFontHighlightSmall", "Main hand")
     gearHint:SetPoint("TOPLEFT", 12, -148)
@@ -279,6 +312,14 @@ function GA:CreateDungeonRunPage(parent)
     itemMeta:SetWordWrap(true)
     itemMeta:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
     self.DungeonMainHandMeta = itemMeta
+    self.DungeonGearWidgets = {
+        gearTitle,
+        gearHint,
+        itemIconButton,
+        itemName,
+        itemLevel,
+        itemMeta,
+    }
 
     local conversionTitle = CreateText(left, "GameFontNormalSmall", "ARCADE CONVERSION")
     conversionTitle:SetPoint("TOPLEFT", 12, -252)
@@ -398,8 +439,26 @@ function GA:CreateDungeonRunPage(parent)
     end
 
     page:SetScript("OnKeyDown", function(pageFrame, key)
+        local runActive = GA.RunState and GA.RunState.active
+
+        if not runActive then
+            if pageFrame.SetPropagateKeyboardInput then
+                pageFrame:SetPropagateKeyboardInput(true)
+            end
+            return
+        end
+
+        -- The propagation state is already disabled when the run begins. Keep
+        -- it disabled for the entire run so WoW never receives movement keys.
         if pageFrame.SetPropagateKeyboardInput then
-            pageFrame:SetPropagateKeyboardInput(true)
+            pageFrame:SetPropagateKeyboardInput(false)
+        end
+
+        if key == "ESCAPE" then
+            if GA.MainFrame then
+                GA.MainFrame:Hide()
+            end
+            return
         end
 
         local movement = {
@@ -414,16 +473,45 @@ function GA:CreateDungeonRunPage(parent)
         }
 
         local delta = movement[key]
-        if delta and GA.RunState and GA.RunState.active then
-            if pageFrame.SetPropagateKeyboardInput then
-                pageFrame:SetPropagateKeyboardInput(false)
-            end
+        if delta then
             GA:MoveDungeonPlayer(delta[1], delta[2])
         end
     end)
 
     self:RenderDungeonGrid()
     return page
+end
+
+function GA:SetDungeonRunPortraitMode(active)
+    if self.DungeonGearWidgets then
+        for _, widget in ipairs(self.DungeonGearWidgets) do
+            if active then
+                widget:Hide()
+            else
+                widget:Show()
+            end
+        end
+    end
+
+    if self.DungeonRunPortraitFrame then
+        if active then
+            local snapshot = self.RunState and self.RunState.snapshot
+            local name = snapshot and snapshot.name or UnitName("player") or "Unknown"
+            local level = snapshot and snapshot.level or UnitLevel("player") or 0
+            local className = snapshot and snapshot.className or UnitClass("player") or "Adventurer"
+
+            self.DungeonRunPortraitName:SetText(name)
+            self.DungeonRunPortraitMeta:SetText(string.format("Level %d %s", level, className))
+
+            if self.DungeonRunPortrait then
+                SetPortraitTexture(self.DungeonRunPortrait, "player")
+            end
+
+            self.DungeonRunPortraitFrame:Show()
+        else
+            self.DungeonRunPortraitFrame:Hide()
+        end
+    end
 end
 
 local QUALITY_NAMES = {
@@ -732,6 +820,23 @@ function GA:BeginDungeonRun()
         self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
     end
 
+    if self.DungeonRunPage and self.DungeonRunPage.SetPropagateKeyboardInput then
+        self.DungeonRunPage:SetPropagateKeyboardInput(false)
+    end
+
+    self:SetRunMode(true)
+    self:SetDungeonRunPortraitMode(true)
+    self:ResetCombatLog()
+    self:AddCombatLog("Dungeon Run started.", "system")
+    self:AddCombatLog(
+        string.format("Loadout locked: %s  %d-%d damage.",
+            self.RunState.snapshot.weapon.sourceName or "Main hand",
+            self.RunState.snapshot.weapon.damageMin,
+            self.RunState.snapshot.weapon.damageMax),
+        "player"
+    )
+    self:AddCombatLog("A kobold is hunting you.", "enemy")
+
     self:RefreshRunCounters()
     self:RenderDungeonGrid()
 end
@@ -760,6 +865,15 @@ function GA:CompleteTestFloor()
         self.DungeonBeginButton.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
     end
 
+    self:AddCombatLog(string.format("Test floor cleared in %d turns.", run.turns), "system")
+
+    if self.DungeonRunPage and self.DungeonRunPage.SetPropagateKeyboardInput then
+        self.DungeonRunPage:SetPropagateKeyboardInput(true)
+    end
+
+    self:SetDungeonRunPortraitMode(false)
+    self:SetRunMode(false)
+    self:RefreshMainHandInfo(true)
     self:RefreshRunCounters()
     self:RenderDungeonGrid()
 end
@@ -777,6 +891,7 @@ function GA:RunEnemyTurn()
             self.DungeonRunStateText:SetText("PLAYER TURN - KOBOLD ADJACENT")
             self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
         end
+        self:AddCombatLog("The kobold is already in striking distance.", "enemy")
         return
     end
 
@@ -792,6 +907,7 @@ function GA:RunEnemyTurn()
     if nextX and nextY and not (nextX == run.playerX and nextY == run.playerY) then
         enemy.x = nextX
         enemy.y = nextY
+        self:AddCombatLog("Kobold moves closer.", "enemy")
     end
 
     self:RenderDungeonGrid()
@@ -821,6 +937,7 @@ function GA:MoveDungeonPlayer(dx, dy)
             self.DungeonRunStateText:SetText("BLOCKED - WALL")
             self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
         end
+        self:AddCombatLog("A wall blocks your path.", "warning")
         return
     end
 
@@ -829,12 +946,25 @@ function GA:MoveDungeonPlayer(dx, dy)
             self.DungeonRunStateText:SetText("KOBOLD BLOCKS THE WAY - COMBAT NEXT")
             self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
         end
+        self:AddCombatLog("You square up with the kobold. Combat is the next milestone.", "warning")
         return
     end
 
     run.playerX = nextX
     run.playerY = nextY
     run.turns = run.turns + 1
+
+    local direction = "move"
+    if dx == 1 then
+        direction = "east"
+    elseif dx == -1 then
+        direction = "west"
+    elseif dy == 1 then
+        direction = "south"
+    elseif dy == -1 then
+        direction = "north"
+    end
+    self:AddCombatLog("You move " .. direction .. ".", "player")
 
     self:RefreshRunCounters()
     self:RenderDungeonGrid()
@@ -853,6 +983,13 @@ function GA:RefreshDungeonSummary()
     end
 
     if self.RunState and self.RunState.active and self.RunState.snapshot then
+        self:SetRunMode(true)
+        self:SetDungeonRunPortraitMode(true)
+
+        if self.DungeonRunPage and self.DungeonRunPage.SetPropagateKeyboardInput then
+            self.DungeonRunPage:SetPropagateKeyboardInput(false)
+        end
+
         self.DungeonHealth:SetText(tostring(self.RunState.snapshot.maxHealth or 0))
 
         local weapon = self.RunState.snapshot.weapon
@@ -863,6 +1000,13 @@ function GA:RefreshDungeonSummary()
         self:RefreshRunCounters()
         self:RenderDungeonGrid()
         return
+    end
+
+    self:SetRunMode(false)
+    self:SetDungeonRunPortraitMode(false)
+
+    if self.DungeonRunPage and self.DungeonRunPage.SetPropagateKeyboardInput then
+        self.DungeonRunPage:SetPropagateKeyboardInput(true)
     end
 
     local maxHealth = UnitHealthMax("player") or 0
