@@ -29,6 +29,11 @@ local EXIT_X = 23
 local EXIT_Y = 23
 local VISION_RADIUS = 4
 
+local DUNGEON_TILE_SIZE = 32
+local DUNGEON_TILE_GAP = 1
+local CREATURE_SPRITE_SOURCE_SIZE = 64
+local CREATURE_SPRITE_RENDER_SIZE = 48
+
 local STATIC_WALLS = {
     ["4:3"] = true, ["4:4"] = true, ["4:5"] = true,
     ["9:2"] = true, ["9:3"] = true,
@@ -529,8 +534,8 @@ local function SetCharacterVisual(texture, character)
 end
 
 local function CreateGrid(parent)
-    local size = 32
-    local gap = 1
+    local size = DUNGEON_TILE_SIZE
+    local gap = DUNGEON_TILE_GAP
     local stride = size + gap
     local gridWidth = (VIEWPORT_WIDTH * size) + ((VIEWPORT_WIDTH - 1) * gap)
     local gridHeight = (VIEWPORT_HEIGHT * size) + ((VIEWPORT_HEIGHT - 1) * gap)
@@ -539,6 +544,16 @@ local function CreateGrid(parent)
     grid:SetSize(gridWidth, gridHeight)
     grid:SetPoint("TOP", 0, -28)
     ApplyBackdrop(grid, { 0.018, 0.016, 0.013, 1 }, { 0.16, 0.12, 0.05, 1 })
+
+    -- Creature art intentionally lives on a dedicated overlay layer rather
+    -- than inside the logical 32x32 cells. This allows 64x64 source art to be
+    -- rendered larger than a tile without neighboring cell backdrops clipping it.
+    local spriteLayer = CreateFrame("Frame", nil, grid)
+    spriteLayer:SetAllPoints(grid)
+    spriteLayer:SetFrameLevel(grid:GetFrameLevel() + 20)
+    grid.spriteLayer = spriteLayer
+    grid.creatureSpriteSourceSize = CREATURE_SPRITE_SOURCE_SIZE
+    grid.creatureSpriteRenderSize = CREATURE_SPRITE_RENDER_SIZE
 
     grid.cells = {}
 
@@ -550,9 +565,9 @@ local function CreateGrid(parent)
 
             ApplyBackdrop(cell, { 0.055, 0.048, 0.038, 1 }, { 0.09, 0.075, 0.055, 1 })
 
-            local enemyIcon = cell:CreateTexture(nil, "OVERLAY")
-            enemyIcon:SetSize(28, 28)
-            enemyIcon:SetPoint("CENTER")
+            local enemyIcon = spriteLayer:CreateTexture(nil, "OVERLAY", nil, 2)
+            enemyIcon:SetSize(CREATURE_SPRITE_RENDER_SIZE, CREATURE_SPRITE_RENDER_SIZE)
+            enemyIcon:SetPoint("CENTER", cell, "CENTER", 0, 0)
             enemyIcon:SetTexture(KOBOLD_TEXTURE)
             enemyIcon:SetTexCoord(0, 1, 0, 1)
             enemyIcon:Hide()
