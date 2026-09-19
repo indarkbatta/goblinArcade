@@ -257,7 +257,7 @@ local function CreateGrid(parent)
     local grid = CreateFrame("Frame", nil, parent, "BackdropTemplate")
     grid:SetSize(350, 350)
     grid:SetPoint("TOP", 0, -32)
-    ApplyBackdrop(grid, { 0.025, 0.022, 0.018, 1 }, COLORS.goldDim)
+    ApplyBackdrop(grid, { 0.018, 0.016, 0.013, 1 }, { 0.16, 0.12, 0.05, 1 })
 
     local size = 26
     local gap = 1
@@ -1455,7 +1455,7 @@ function GA:RenderDungeonGrid()
                     -- Unseen: almost completely black. The player has no map
                     -- knowledge of either walls or floor here yet.
                     entry.frame:SetBackdropColor(0.008, 0.007, 0.006, 1)
-                    entry.frame:SetBackdropBorderColor(0.015, 0.013, 0.010, 1)
+                    entry.frame:SetBackdropBorderColor(0, 0, 0, 0)
                 elseif not visible then
                     -- Explored memory: preserve terrain shape, but strongly dim it.
                     if wall then
@@ -1463,7 +1463,7 @@ function GA:RenderDungeonGrid()
                         entry.frame:SetBackdropBorderColor(0.070, 0.058, 0.040, 1)
                     else
                         entry.frame:SetBackdropColor(0.020, 0.018, 0.015, 1)
-                        entry.frame:SetBackdropBorderColor(0.038, 0.032, 0.025, 1)
+                        entry.frame:SetBackdropBorderColor(0.026, 0.023, 0.019, 0.55)
                     end
                 else
                     -- Currently visible.
