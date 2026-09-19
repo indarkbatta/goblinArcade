@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.25.1**  
+Current addon version: **0.26.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -91,8 +91,9 @@ Important addon files:
 
 - `GoblinArcade/Data/StudioData.lua`
   - Studio schema/data foundation loaded by the addon
-  - seeds classes, planned Warrior abilities, enemies, ranks, room roles, loot and shrine choices
-  - current gameplay systems are not fully migrated to consume this table yet
+  - contains all 32 current Warrior spellbook abilities with their minimum trainer unlock levels and Arms/Fury/Protection category
+  - Warrior source baseline: WoW Forever beta client build 1.60.1.69893 spellbook data, checked 2026-09-20
+  - enemies, ranks, room settings and shrine values are already runtime-driven; Warrior ability execution and loot remain to be migrated
 
 - `GoblinArcade/UI.lua`
   - main shell
@@ -159,7 +160,7 @@ Studio / web tooling:
 
 - 0.25.1 fixes the Studio interaction regression: the shared `render()` coordinator was missing, so buttons/list navigation called an undefined function after the initial static paint. All three served HTML entrypoints now include the coordinator plus a visible runtime-error status fallback.
 - `index.html` and `studio/index.html`
-  - GoblinArcade Studio v0.2.0
+  - GoblinArcade Studio v0.3.0
   - root `index.html` is the canonical Vercel entrypoint; `/studio` rewrites to it
   - single-file static editor with no framework/build step
   - edits Classes, Abilities, Enemies, Ranks, Room Roles, Loot and Shrines
@@ -812,7 +813,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.25.1**
+- **0.26.0**
 
 Recent gameplay foundation:
 
@@ -1412,7 +1413,7 @@ Recommended order:
    - EnemyGenerator v5 reads enemy archetypes and ranks from GA.StudioData
    - DungeonGenerator v7 reads room door limits and map markers from GA.StudioData
    - Shrine effects and Shrine UI values read from GA.StudioData
-   - migrate Warrior abilities next, then loot tables
+   - Warrior spellbook data is populated; next wire level-gated ability selection/execution into the run, then migrate loot tables
 
 2. **Room-role gameplay polish**
    - test the stricter door rules, Shrine modal, Elite Cache and Floor 9 exit lock in-game
@@ -1537,6 +1538,7 @@ Before changing layout conventions, remember the user's current preferences:
 - item tooltips should show GoblinArcade stats, not WoW stats;
 - all GoblinArcade HP and damage values use the global 10:1 compression; do not restore the older large-number scale;
 - GoblinArcade Studio stays static-first; the only backend is the on-demand publish request, so avoid database/always-on Vercel spend;
+- Warrior ability names and minimum unlock levels should track the current Forever spellbook rather than invented class skills;
 - do not modify or deploy the unrelated liminal-space Vercel project while working on GoblinArcade;
 - drag targets must visually highlight.
 
