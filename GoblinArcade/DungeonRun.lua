@@ -57,6 +57,8 @@ local STATIC_MARKERS = {
 }
 
 local KOBOLD_TEXTURE = "Interface\\AddOns\\GoblinArcade\\Media\\Monsters\\kobold"
+local SPIDER_TEXTURE = "Interface\\AddOns\\GoblinArcade\\Media\\Monsters\\spider"
+local SKELETON_TEXTURE = "Interface\\AddOns\\GoblinArcade\\Media\\Monsters\\skeleton"
 local KOBOLD_PORTRAIT_ICON = "Interface\\Icons\\inv_misc_candlekobold_color1"
 
 local ENEMY_VISUALS = {
@@ -66,14 +68,14 @@ local ENEMY_VISUALS = {
         gridTexCoord = { 0, 1, 0, 1 },
     },
     spider = {
-        gridTexture = "Interface\\Icons\\Ability_Hunter_Pet_Spider",
-        portraitIcon = "Interface\\Icons\\Ability_Hunter_Pet_Spider",
-        gridTexCoord = { 0.08, 0.92, 0.08, 0.92 },
+        gridTexture = SPIDER_TEXTURE,
+        portraitIcon = SPIDER_TEXTURE,
+        gridTexCoord = { 0, 1, 0, 1 },
     },
     skeleton = {
-        gridTexture = "Interface\\Icons\\INV_Misc_Bone_HumanSkull_01",
-        portraitIcon = "Interface\\Icons\\INV_Misc_Bone_HumanSkull_01",
-        gridTexCoord = { 0.08, 0.92, 0.08, 0.92 },
+        gridTexture = SKELETON_TEXTURE,
+        portraitIcon = SKELETON_TEXTURE,
+        gridTexCoord = { 0, 1, 0, 1 },
     },
 }
 
