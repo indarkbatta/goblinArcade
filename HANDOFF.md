@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.16.4**  
+Current addon version: **0.16.5**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -124,8 +124,8 @@ Media:
 
 - `GoblinArcade/Media/Monsters/kobold.tga`
   - current Kobold grid sprite
-  - 64×64 custom TGA
-  - replaced in 0.16.4 with the new user-supplied artwork
+  - 128×128 custom TGA
+  - replaced in 0.16.5 with the new user-supplied 128×128 artwork
 
 SavedVariables:
 
@@ -137,8 +137,8 @@ SavedVariables:
 
 Main window:
 
-- current size: **1160 × 720**
-- retained while the dungeon presentation moved to a 7×7 viewport with 64×64 tiles
+- current size: **1600 × 1200**
+- enlarged in 0.16.5 so the 7×7 dungeon viewport can use true 128×128 tiles without sprite overlap
 - dark brown / black / gold visual language
 - flat UI, no rounded-corner aesthetic
 
@@ -208,16 +208,16 @@ World size:
 Viewport:
 
 - **7 × 7**
-- logical tile size: **64 × 64 px**
+- logical tile size: **128 × 128 px**
 - tile gap: **1 px**
-- rendered grid: **454 × 454 px**
-- creature sprite source-art standard: **64 × 64 px**
-- creature sprite render size: **56 × 56 px**
+- rendered grid: **902 × 902 px**
+- creature sprite source-art standard: **128 × 128 px**
+- creature sprite render size: **128 × 128 px**
 - static/player markers use the huge game font for readability at the larger scale
 
 The viewport is a camera into the larger 25×25 world, not a scrollbar.
 
-Important visual rule: the user explicitly wants **large physical tiles, not merely oversized sprites**. The intended baseline is now 64×64 logical tiles with only 7×7 cells visible at once. This creates a closer, more detailed roguelike presentation while keeping the overall on-screen dungeon area roughly the same size.
+Important visual rule: the user explicitly wants **large physical tiles, not sprites that overflow neighboring cells**. The current 0.16.5 test baseline uses true 128×128 logical tiles and 128×128 rendered creature sprites inside a 7×7 viewport. Every creature texture remains fully contained inside its own tile.
 
 Player starts around:
 
@@ -739,7 +739,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.16.4**
+- **0.16.5**
 
 Recent gameplay foundation:
 
@@ -761,12 +761,12 @@ Recent gameplay foundation:
 - Floor 9 exit completes the run
 - HP, equipment, backpack, score and total turns persist across floor transitions
 - frozen BEGIN RUN Gear Pressure persists across the entire 9-floor run
-- dungeon logical tiles are now 64×64 px
-- viewport reduced from 13×13 to 7×7 so the on-screen dungeon footprint stays roughly similar
-- creature source-art standard remains 64×64 px
-- creature sprites render at 56×56 px inside the larger tile
-- main window remains 1160×720
-- Kobold grid art replaced with the new 64×64 custom `kobold.tga`; the temporary upload name `kobold02_64x64.tga` was removed
+- dungeon logical tiles are now 128×128 px for the current visual test
+- viewport remains 7×7
+- creature source-art standard is now 128×128 px
+- creature sprites render at 128×128 px and remain fully contained inside their own tile
+- main window is now 1600×1200 to accommodate the 902×902 grid
+- Kobold grid art replaced with the new 128×128 custom `kobold.tga`; the temporary upload name `kobold02_128x128.tga` was removed
 
 ---
 
@@ -1339,9 +1339,9 @@ Before changing layout conventions, remember the user's current preferences:
 - no relic panel;
 - vision radius = 4;
 - map should not visually overlap side panels;
-- dungeon logical tile baseline is 64×64 px;
+- dungeon logical tile test baseline is 128×128 px;
 - viewport baseline is 7×7 visible tiles;
-- creature art baseline is 64×64 source rendered at 56×56 px;
+- creature art test baseline is 128×128 source rendered at 128×128 px with no tile overflow;
 - fog should not show dotted borders;
 - item tooltips should show GoblinArcade stats, not WoW stats;
 - drag targets must visually highlight.

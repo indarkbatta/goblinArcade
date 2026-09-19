@@ -29,10 +29,10 @@ local EXIT_X = 23
 local EXIT_Y = 23
 local VISION_RADIUS = 4
 
-local DUNGEON_TILE_SIZE = 64
+local DUNGEON_TILE_SIZE = 128
 local DUNGEON_TILE_GAP = 1
-local CREATURE_SPRITE_SOURCE_SIZE = 64
-local CREATURE_SPRITE_RENDER_SIZE = 56
+local CREATURE_SPRITE_SOURCE_SIZE = 128
+local CREATURE_SPRITE_RENDER_SIZE = 128
 
 local STATIC_WALLS = {
     ["4:3"] = true, ["4:4"] = true, ["4:5"] = true,
@@ -546,8 +546,8 @@ local function CreateGrid(parent)
     ApplyBackdrop(grid, { 0.018, 0.016, 0.013, 1 }, { 0.16, 0.12, 0.05, 1 })
 
     -- Creature art lives on a dedicated overlay layer for clean z-order.
-    -- The logical world tile itself is now 64x64, matching the intended
-    -- higher-detail sprite scale.
+    -- Logical tiles and creature sprites are both 128x128 so every sprite
+    -- remains fully contained inside its own tile without overlap.
     local spriteLayer = CreateFrame("Frame", nil, grid)
     spriteLayer:SetAllPoints(grid)
     spriteLayer:SetFrameLevel(grid:GetFrameLevel() + 20)
