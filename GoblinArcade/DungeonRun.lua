@@ -28,10 +28,6 @@ local START_Y = 7
 local EXIT_X = 23
 local EXIT_Y = 23
 local VISION_RADIUS = 4
-local ENEMY_VISION_RADIUS = 6
-local KOBOLD_MAX_HP = 36
-local KOBOLD_DAMAGE_MIN = 4
-local KOBOLD_DAMAGE_MAX = 7
 
 local STATIC_WALLS = {
     ["4:3"] = true, ["4:4"] = true, ["4:5"] = true,
@@ -306,7 +302,7 @@ function GA:CreateDungeonRunPage(parent)
     title:SetPoint("TOPLEFT", 18, -16)
     title:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
-    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  PLAYER + TARGET UI")
+    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  DETERMINISTIC ENEMY SCALING")
     subtitle:SetPoint("TOPRIGHT", -18, -22)
     subtitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
@@ -1169,7 +1165,9 @@ function GA:RefreshEnemyCombatCard()
     if self.DungeonEnemyCard then
         if inCombat then
             self.DungeonEnemyCard:Show()
-            self.DungeonEnemyName:SetText(enemy.name or "Kobold")
+            self.DungeonEnemyName:SetText(
+                string.format("%s  Lv %d", enemy.name or "Enemy", enemy.level or 1)
+            )
             self.DungeonEnemyHealth:SetText(
                 string.format("%d / %d HP", enemy.hp or 0, enemy.maxHp or 0)
             )
@@ -1324,11 +1322,17 @@ function GA:PlayerAttackEnemy()
 
     if enemy.hp <= 0 then
         enemy.alive = false
-        run.score = (run.score or 0) + 100
-        self:AddCombatLog("Kobold defeated. +100 score.", "system")
+        local scoreValue = enemy.scoreValue or 100
+        run.score = (run.score or 0) + scoreValue
+        self:AddCombatLog(
+            string.format("%s defeated. +%d score.", enemy.name or "Enemy", scoreValue),
+            "system"
+        )
 
         if self.DungeonRunStateText then
-            self.DungeonRunStateText:SetText("PLAYER TURN - KOBOLD DEFEATED")
+            self.DungeonRunStateText:SetText(
+                "PLAYER TURN - " .. string.upper(enemy.name or "ENEMY") .. " DEFEATED"
+            )
             self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
         end
 
@@ -1596,11 +1600,38 @@ function GA:BeginDungeonRun()
     local className = selected.className or "Adventurer"
     local maxHealth = selected.maxHealth or 0
     local selectedWeapon = CopyTable(selected.weapon)
+    local floor = 1
+
+    if not self.EnemyGenerator then
+        if self.DungeonRunStateText then
+            self.DungeonRunStateText:SetText("ENEMY GENERATOR NOT LOADED")
+            self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+        end
+        return
+    end
+
+    local gearPressure = self.EnemyGenerator:CalculateGearPressure(
+        level,
+        selected.equipment or {}
+    )
+
+    local startingEnemy = self.EnemyGenerator:CreateEnemy({
+        archetype = "kobold",
+        rank = "normal",
+        playerLevel = level,
+        floor = floor,
+        gearPressure = gearPressure,
+    })
+
+    startingEnemy.x = KOBOLD_START_X
+    startingEnemy.y = KOBOLD_START_Y
+    startingEnemy.texture = KOBOLD_TEXTURE
+    startingEnemy.portraitIcon = KOBOLD_PORTRAIT_ICON
 
     self.RunState = {
         active = true,
         completed = false,
-        floor = 1,
+        floor = floor,
         score = 0,
         turns = 0,
         playerX = START_X,
@@ -1613,20 +1644,8 @@ function GA:BeginDungeonRun()
         openedChests = {},
         explored = {},
         visible = {},
-        enemy = {
-            id = "kobold",
-            name = "Kobold",
-            x = KOBOLD_START_X,
-            y = KOBOLD_START_Y,
-            texture = KOBOLD_TEXTURE,
-            hp = KOBOLD_MAX_HP,
-            maxHp = KOBOLD_MAX_HP,
-            damageMin = KOBOLD_DAMAGE_MIN,
-            damageMax = KOBOLD_DAMAGE_MAX,
-            alive = true,
-            alerted = false,
-            skipTurn = false,
-        },
+        gearPressure = CopyTable(gearPressure),
+        enemy = startingEnemy,
         snapshot = {
             characterKey = selected.key,
             name = name,
@@ -1693,10 +1712,25 @@ function GA:BeginDungeonRun()
     self:AddCombatLog("A kobold is somewhere in the cellar.", "enemy")
     self:AddCombatLog("Vision radius: 4. Walls block line of sight.", "system")
     self:AddCombatLog(
-        string.format("Kobold combat profile: %d HP, %d-%d damage.",
-            KOBOLD_MAX_HP,
-            KOBOLD_DAMAGE_MIN,
-            KOBOLD_DAMAGE_MAX),
+        string.format(
+            "Scaling locked: Lv %d, gear %d/%d (%.2fx), overgear %.0f%%.",
+            level,
+            gearPressure.actualGearSum,
+            gearPressure.expectedGearSum,
+            gearPressure.gearIndex,
+            gearPressure.overgear * 100
+        ),
+        "system"
+    )
+    self:AddCombatLog(
+        string.format(
+            "%s Lv %d: %d HP, %d-%d damage.",
+            startingEnemy.name,
+            startingEnemy.level,
+            startingEnemy.maxHp,
+            startingEnemy.damageMin,
+            startingEnemy.damageMax
+        ),
         "system"
     )
     self:AddCombatLog("Press C for character sheet and backpack.", "system")
@@ -1775,7 +1809,7 @@ function GA:RunEnemyTurn()
         enemy.y,
         run.playerX,
         run.playerY,
-        ENEMY_VISION_RADIUS
+        enemy.visionRadius or 6
     ) and HasLineOfSight(enemy.x, enemy.y, run.playerX, run.playerY)
 
     if seesPlayer and not enemy.alerted then

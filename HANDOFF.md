@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.13.4**  
+Current addon version: **0.14.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -92,6 +92,12 @@ Important addon files:
 
 - `GoblinArcade/ItemGenerator.lua`
   - deterministic armor/jewelry/offhand conversion
+
+- `GoblinArcade/EnemyGenerator.lua`
+  - deterministic enemy effective level
+  - BEGIN RUN Gear Pressure calculation
+  - HP / damage / score budgets
+  - enemy archetype + rank profiles
 
 - `GoblinArcade/CharacterRoster.lua`
   - account-wide character roster
@@ -346,9 +352,11 @@ Grid monster uses custom:
 
 Current kobold:
 
-- HP: **36**
-- damage: **4–7**
 - starts around `11,4`
+- level, HP and damage are now generated deterministically by `EnemyGenerator.lua`
+- effective level depends on selected character level + floor + rank
+- HP and damage also receive frozen BEGIN RUN Gear Pressure
+- the target card displays the generated enemy level
 
 Enemy awareness:
 
@@ -676,12 +684,14 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.13.4**
+- **0.14.0**
 
-Latest known main commit before this handoff:
+Recent gameplay foundation:
 
-- `bb37d0c682f2874a44b7ab956e29dd8eb34bf954`
-- message: `Widen dungeon canvas and clean fog borders`
+- deterministic `EnemyGenerator.lua` added
+- hardcoded kobold HP/damage removed
+- BEGIN RUN now freezes player level + Gear Pressure for enemy scaling
+- future enemy archetypes already have generator profiles for kobold, spider, skeleton and brute
 
 ---
 
@@ -768,6 +778,8 @@ These are prototype/test markers and have no proper gameplay system yet.
 
 ## 23. Deterministic enemy scaling
 
+**Implemented in 0.14.0 via `EnemyGenerator.lua`.**
+
 Enemy strength must be deterministic and should depend on both **character level** and the character's **starting WoW gear quality**.
 
 ### Character level component
@@ -822,7 +834,7 @@ Eligible gear slots are the GoblinArcade equipment slots:
 
 Use the **sum of item levels**, normalized against the character level.
 
-For two-handed weapons, the main-hand item level should also fill the virtual off-hand budget so two-handed users are not unfairly considered undergeared.
+For two-handed and ranged weapons that consume the off-hand budget, the main-hand item level also fills the virtual off-hand budget when no actual off-hand is equipped.
 
 Baseline expected item level:
 
@@ -874,13 +886,32 @@ This is essential so dungeon upgrades remain meaningful.
 
 After level and Gear Pressure are calculated, individual enemy archetypes modify final stats.
 
-Example direction:
+Current generator profiles:
 
-- Kobold: lower HP, normal speed / pursuit
-- Spider: low HP, fast / poison-oriented later
-- Skeleton: higher HP / armor, slower
-- Brute: high HP and damage, slow
-- Elite / Boss: rank multipliers on top
+- Kobold: HP ×0.95, damage ×0.90, vision 6
+- Spider: HP ×0.70, damage ×0.80, vision 7
+- Skeleton: HP ×1.20, damage ×1.00, vision 5
+- Brute: HP ×1.50, damage ×1.25, vision 5
+
+Current ranks:
+
+- Normal: level +0, HP ×1.00, damage ×1.00
+- Veteran: level +1, HP ×1.25, damage ×1.10
+- Elite: level +2, HP ×1.60, damage ×1.25
+- Boss: level +3, HP ×2.80, damage ×1.45
+
+Base formulas currently implemented:
+
+```
+Reference Damage = 5 + Effective Enemy Level × 0.90
+Base Enemy HP = Reference Damage × 2.20
+
+Reference Player HP = 100 + Effective Enemy Level × 20
+Average Enemy Damage = Reference Player HP × 3.5%
+Damage range = 80%–120% of that deterministic average
+```
+
+Archetype, rank and frozen Gear Pressure multipliers are applied afterward.
 
 Enemy level, base HP, base damage, archetype multipliers and Gear Pressure must all be deterministic. Randomness may exist only in individual combat rolls such as exact damage within a fixed range.
 
@@ -888,7 +919,7 @@ Enemy level, base HP, base damage, archetype multipliers and Gear Pressure must 
 
 ## 24. Recommended next development steps
 
-The most natural next slice is **enemy variety + proper floor gameplay**, not another broad UI rewrite.
+The deterministic enemy-scaling foundation is complete. The most natural next slice is now **multi-enemy support + enemy variety**, not another broad UI rewrite.
 
 Recommended order:
 
