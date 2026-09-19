@@ -306,7 +306,7 @@ function GA:CreateDungeonRunPage(parent)
     title:SetPoint("TOPLEFT", 18, -16)
     title:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
-    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  COMBAT TARGET UI")
+    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  PLAYER + TARGET UI")
     subtitle:SetPoint("TOPRIGHT", -18, -22)
     subtitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
@@ -463,23 +463,30 @@ function GA:CreateDungeonRunPage(parent)
         arcadeTraitDesc,
     }
 
-    local enemyCard = CreateFrame("Frame", nil, left, "BackdropTemplate")
+
+    local right = CreateFrame("Frame", nil, body, "BackdropTemplate")
+    right:SetPoint("TOPRIGHT")
+    right:SetPoint("BOTTOMRIGHT")
+    right:SetWidth(182)
+    ApplyBackdrop(right, { 0.050, 0.043, 0.034, 1 }, COLORS.goldDim)
+
+    local enemyCard = CreateFrame("Frame", nil, right, "BackdropTemplate")
     enemyCard:SetSize(158, 92)
-    enemyCard:SetPoint("TOPLEFT", 12, -224)
-    ApplyBackdrop(enemyCard, { 0.060, 0.030, 0.026, 1 }, COLORS.red)
+    enemyCard:SetPoint("TOPLEFT", 12, -14)
+    ApplyBackdrop(enemyCard, { 0.035, 0.030, 0.024, 1 }, COLORS.goldDim)
     enemyCard:Hide()
     self.DungeonEnemyCard = enemyCard
 
     local enemyIconBorder = CreateFrame("Frame", nil, enemyCard, "BackdropTemplate")
     enemyIconBorder:SetSize(64, 64)
     enemyIconBorder:SetPoint("LEFT", 10, 0)
-    ApplyBackdrop(enemyIconBorder, { 0.02, 0.02, 0.02, 1 }, COLORS.red)
+    ApplyBackdrop(enemyIconBorder, { 0.02, 0.02, 0.02, 1 }, COLORS.gold)
 
     local enemyPortrait = enemyIconBorder:CreateTexture(nil, "ARTWORK")
     enemyPortrait:SetPoint("TOPLEFT", 2, -2)
     enemyPortrait:SetPoint("BOTTOMRIGHT", -2, 2)
     enemyPortrait:SetTexture(KOBOLD_PORTRAIT_ICON)
-    enemyPortrait:SetTexCoord(0, 1, 0, 1)
+    enemyPortrait:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     self.DungeonEnemyPortrait = enemyPortrait
 
     local enemyName = CreateText(enemyCard, "GameFontNormal", "Kobold")
@@ -496,21 +503,16 @@ function GA:CreateDungeonRunPage(parent)
     enemyHealth:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
     self.DungeonEnemyHealth = enemyHealth
 
-    local right = CreateFrame("Frame", nil, body, "BackdropTemplate")
-    right:SetPoint("TOPRIGHT")
-    right:SetPoint("BOTTOMRIGHT")
-    right:SetWidth(138)
-    ApplyBackdrop(right, { 0.050, 0.043, 0.034, 1 }, COLORS.goldDim)
-
     local runTitle = CreateText(right, "GameFontNormalSmall", "RUN")
-    runTitle:SetPoint("TOPLEFT", 12, -14)
+    runTitle:SetPoint("TOPLEFT", 12, -126)
     runTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    self.DungeonRunTitle = runTitle
 
-    self.DungeonFloorValue = CreateStatRow(right, "FLOOR", "1 / 9", -38)
-    self.DungeonScoreValue = CreateStatRow(right, "SCORE", "0", -62)
-    self.DungeonTurnsValue = CreateStatRow(right, "TURNS", "0", -86)
+    self.DungeonFloorValue, self.DungeonFloorLabel = CreateStatRow(right, "FLOOR", "1 / 9", -150)
+    self.DungeonScoreValue, self.DungeonScoreLabel = CreateStatRow(right, "SCORE", "0", -174)
+    self.DungeonTurnsValue, self.DungeonTurnsLabel = CreateStatRow(right, "TURNS", "0", -198)
 
-    local begin = CreateFlatButton(right, "BEGIN RUN", 114, 36)
+    local begin = CreateFlatButton(right, "BEGIN RUN", 158, 36)
     begin:SetPoint("BOTTOM", 0, 12)
     begin:SetEnabled(false)
     begin.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
@@ -1176,11 +1178,31 @@ function GA:RefreshEnemyCombatCard()
         end
     end
 
-    for _, widget in ipairs(self.DungeonConversionWidgets or {}) do
+    local function PositionRunRow(label, value, y)
+        if label then
+            label:ClearAllPoints()
+            label:SetPoint("TOPLEFT", 12, y)
+        end
+
+        if value then
+            value:ClearAllPoints()
+            value:SetPoint("TOPRIGHT", -12, y)
+        end
+    end
+
+    if self.DungeonRunTitle then
+        self.DungeonRunTitle:ClearAllPoints()
+
         if inCombat then
-            widget:Hide()
+            self.DungeonRunTitle:SetPoint("TOPLEFT", 12, -126)
+            PositionRunRow(self.DungeonFloorLabel, self.DungeonFloorValue, -150)
+            PositionRunRow(self.DungeonScoreLabel, self.DungeonScoreValue, -174)
+            PositionRunRow(self.DungeonTurnsLabel, self.DungeonTurnsValue, -198)
         else
-            widget:Show()
+            self.DungeonRunTitle:SetPoint("TOPLEFT", 12, -14)
+            PositionRunRow(self.DungeonFloorLabel, self.DungeonFloorValue, -38)
+            PositionRunRow(self.DungeonScoreLabel, self.DungeonScoreValue, -62)
+            PositionRunRow(self.DungeonTurnsLabel, self.DungeonTurnsValue, -86)
         end
     end
 end
