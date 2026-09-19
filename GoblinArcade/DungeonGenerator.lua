@@ -3,7 +3,7 @@ local _, GA = ...
 GA.DungeonGenerator = GA.DungeonGenerator or {}
 local DG = GA.DungeonGenerator
 
-DG.VERSION = 2
+DG.VERSION = 3
 
 local MODULUS = 2147483647
 local MULTIPLIER = 48271
@@ -227,6 +227,140 @@ local function BuildDoorSet(rooms, walkable)
     return doors
 end
 
+local function AssignRoomRoles(rooms, startRoomIndex, exitRoomIndex, floor, distances)
+    local roleCounts = {
+        START = 0,
+        COMBAT = 0,
+        TREASURE = 0,
+        ELITE = 0,
+        SHRINE = 0,
+        EXIT = 0,
+        BOSS = 0,
+    }
+
+    local candidates = {}
+
+    for index, room in ipairs(rooms) do
+        room.index = index
+        room.center = RoomCenter(room)
+        room.distanceFromStart = distances[CellKey(room.center.x, room.center.y)] or 0
+        room.role = "COMBAT"
+
+        if index == startRoomIndex then
+            room.role = "START"
+        elseif index == exitRoomIndex then
+            room.role = "EXIT"
+        else
+            candidates[#candidates + 1] = room
+        end
+    end
+
+    table.sort(candidates, function(a, b)
+        if a.distanceFromStart == b.distanceFromStart then
+            return a.index < b.index
+        end
+        return a.distanceFromStart > b.distanceFromStart
+    end)
+
+    local nextCandidate = 1
+    local function AssignNext(role)
+        local room = candidates[nextCandidate]
+        if not room then
+            return nil
+        end
+
+        room.role = role
+        nextCandidate = nextCandidate + 1
+        return room
+    end
+
+    -- High-value rooms are deliberately bounded and replace ordinary combat
+    -- rooms instead of increasing the room count.
+    local bossRoom
+    if floor >= 9 then
+        bossRoom = AssignNext("BOSS")
+    end
+
+    local treasureRoom = AssignNext("TREASURE")
+
+    local eliteRoom
+    if floor >= 5 then
+        eliteRoom = AssignNext("ELITE")
+    end
+
+    local shrineRoom
+    if floor >= 3 then
+        shrineRoom = AssignNext("SHRINE")
+    end
+
+    for _, room in ipairs(rooms) do
+        roleCounts[room.role] = (roleCounts[room.role] or 0) + 1
+    end
+
+    return {
+        counts = roleCounts,
+        treasureRoom = treasureRoom,
+        shrineRoom = shrineRoom,
+        eliteRoom = eliteRoom,
+        bossRoom = bossRoom,
+    }
+end
+
+local function AddRoomRoleMarker(markers, room, text, color, kind)
+    if not room or not room.center then
+        return
+    end
+
+    markers[CellKey(room.center.x, room.center.y)] = {
+        text = text,
+        color = color,
+        kind = kind,
+        roomIndex = room.index,
+    }
+end
+
+local function AddTreasureChests(markers, chestKeys, room, maximumChests)
+    if not room or not room.center then
+        return
+    end
+
+    local candidates = {
+        { x = room.center.x, y = room.center.y },
+        { x = room.center.x + 1, y = room.center.y },
+        { x = room.center.x - 1, y = room.center.y },
+        { x = room.center.x, y = room.center.y + 1 },
+        { x = room.center.x, y = room.center.y - 1 },
+    }
+
+    local added = 0
+    local right = room.x + room.w - 1
+    local bottom = room.y + room.h - 1
+
+    for _, candidate in ipairs(candidates) do
+        if added >= maximumChests then
+            break
+        end
+
+        if candidate.x > room.x
+            and candidate.x < right
+            and candidate.y > room.y
+            and candidate.y < bottom then
+
+            local key = CellKey(candidate.x, candidate.y)
+            if not markers[key] then
+                markers[key] = {
+                    text = "$",
+                    color = "gold",
+                    kind = "chest",
+                    roomIndex = room.index,
+                }
+                chestKeys[#chestKeys + 1] = key
+                added = added + 1
+            end
+        end
+    end
+end
+
 function DG:GenerateFloor(width, height, floorNumber, runSeed)
     local mapWidth = math.max(15, tonumber(width) or 25)
     local mapHeight = math.max(15, tonumber(height) or 25)
@@ -374,27 +508,13 @@ function DG:GenerateFloor(width, height, floorNumber, runSeed)
         end
     end
 
-    local chestCandidates = {}
-    for index, room in ipairs(rooms) do
-        if index ~= startRoomIndex and index ~= exitRoomIndex then
-            local center = RoomCenter(room)
-            chestCandidates[#chestCandidates + 1] = {
-                x = center.x,
-                y = center.y,
-                distance = distances[CellKey(center.x, center.y)] or 0,
-            }
-        end
-    end
-
-    table.sort(chestCandidates, function(a, b)
-        if a.distance == b.distance then
-            if a.y == b.y then
-                return a.x < b.x
-            end
-            return a.y < b.y
-        end
-        return a.distance > b.distance
-    end)
+    local roleData = AssignRoomRoles(
+        rooms,
+        startRoomIndex,
+        exitRoomIndex,
+        floor,
+        distances
+    )
 
     local markers = {}
     local chestKeys = {}
@@ -412,20 +532,13 @@ function DG:GenerateFloor(width, height, floorNumber, runSeed)
         text = ">",
         color = "green",
         kind = "exit",
+        roomIndex = exitRoomIndex,
     }
 
-    local chestCount = math.min(2, #chestCandidates)
-    for index = 1, chestCount do
-        local chest = chestCandidates[index]
-        local key = CellKey(chest.x, chest.y)
-
-        markers[key] = {
-            text = "$",
-            color = "gold",
-            kind = "chest",
-        }
-        chestKeys[#chestKeys + 1] = key
-    end
+    AddTreasureChests(markers, chestKeys, roleData.treasureRoom, 2)
+    AddRoomRoleMarker(markers, roleData.shrineRoom, "S", "green", "shrine")
+    AddRoomRoleMarker(markers, roleData.eliteRoom, "!", "red", "elite")
+    AddRoomRoleMarker(markers, roleData.bossRoom, "B", "red", "boss")
 
     return {
         generatorVersion = self.VERSION,
@@ -440,6 +553,7 @@ function DG:GenerateFloor(width, height, floorNumber, runSeed)
         walkableCount = CountKeys(walkable),
         rooms = rooms,
         roomCount = #rooms,
+        roomRoleCounts = roleData.counts,
         markers = markers,
         chestKeys = chestKeys,
         doors = doors,

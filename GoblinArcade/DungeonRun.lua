@@ -441,18 +441,93 @@ local function IsTooCloseToSpawnedEnemy(enemies, x, y, minimumDistance)
     return false
 end
 
-local function CreateFloorEnemies(enemyGenerator, playerLevel, floor, gearPressure, archetypePlan, rankPlan)
-    local candidates = {}
+local ENCOUNTER_ROOM_ROLES = {
+    COMBAT = true,
+    ELITE = true,
+    BOSS = true,
+}
 
-    for y = 1, GRID_HEIGHT do
-        for x = 1, GRID_WIDTH do
-            if not IsReservedEnemySpawn(x, y) then
-                candidates[#candidates + 1] = { x = x, y = y }
+local function BuildRoomEnemyCandidates(floorMap)
+    local specialAnchors = {}
+    local combatAnchors = {}
+    local remaining = {}
+
+    if not floorMap or not floorMap.rooms then
+        return nil
+    end
+
+    for _, room in ipairs(floorMap.rooms) do
+        if ENCOUNTER_ROOM_ROLES[room.role] then
+            local roomCandidates = {}
+
+            for y = room.y, room.y + room.h - 1 do
+                for x = room.x, room.x + room.w - 1 do
+                    if not IsReservedEnemySpawn(x, y) then
+                        roomCandidates[#roomCandidates + 1] = {
+                            x = x,
+                            y = y,
+                            roomIndex = room.index,
+                            roomRole = room.role,
+                        }
+                    end
+                end
+            end
+
+            ShuffleArray(roomCandidates)
+
+            local anchor = roomCandidates[1]
+            if anchor then
+                if room.role == "BOSS" then
+                    anchor.forceRank = "boss"
+                    specialAnchors[#specialAnchors + 1] = anchor
+                elseif room.role == "ELITE" then
+                    anchor.forceRank = "elite"
+                    specialAnchors[#specialAnchors + 1] = anchor
+                else
+                    combatAnchors[#combatAnchors + 1] = anchor
+                end
+            end
+
+            for index = 2, #roomCandidates do
+                remaining[#remaining + 1] = roomCandidates[index]
             end
         end
     end
 
-    ShuffleArray(candidates)
+    ShuffleArray(combatAnchors)
+    ShuffleArray(remaining)
+
+    local candidates = {}
+
+    for _, candidate in ipairs(specialAnchors) do
+        candidates[#candidates + 1] = candidate
+    end
+    for _, candidate in ipairs(combatAnchors) do
+        candidates[#candidates + 1] = candidate
+    end
+    for _, candidate in ipairs(remaining) do
+        candidates[#candidates + 1] = candidate
+    end
+
+    return candidates
+end
+
+local function CreateFloorEnemies(enemyGenerator, playerLevel, floor, gearPressure, archetypePlan, rankPlan, floorMap)
+    local candidates = BuildRoomEnemyCandidates(floorMap)
+
+    if not candidates or #candidates == 0 then
+        candidates = {}
+
+        for y = 1, GRID_HEIGHT do
+            for x = 1, GRID_WIDTH do
+                if not IsReservedEnemySpawn(x, y) then
+                    candidates[#candidates + 1] = { x = x, y = y }
+                end
+            end
+        end
+
+        ShuffleArray(candidates)
+    end
 
     local enemies = {}
     local used = {}
@@ -460,7 +535,9 @@ local function CreateFloorEnemies(enemyGenerator, playerLevel, floor, gearPressu
     local function AddEnemyAt(candidate)
         local nextIndex = #enemies + 1
         local archetype = archetypePlan[nextIndex] or "kobold"
-        local rank = rankPlan and rankPlan[nextIndex] or "normal"
+        local rank = candidate.forceRank
+            or (rankPlan and rankPlan[nextIndex])
+            or "normal"
         local visual = ENEMY_VISUALS[archetype] or ENEMY_VISUALS.kobold
 
         local enemy = enemyGenerator:CreateEnemy({
@@ -479,6 +556,8 @@ local function CreateFloorEnemies(enemyGenerator, playerLevel, floor, gearPressu
         enemy.gridTexCoord = visual.gridTexCoord
         enemy.portraitTexCoord = visual.portraitTexCoord
         enemy.intent = "IDLE"
+        enemy.roomIndex = candidate.roomIndex
+        enemy.roomRole = candidate.roomRole
 
         enemies[#enemies + 1] = enemy
         used[CellKey(candidate.x, candidate.y)] = true
@@ -551,11 +630,49 @@ local function BuildRankCompositionText(counts)
     counts = counts or {}
 
     return string.format(
-        "%d Normal / %d Veteran / %d Elite",
+        "%d Normal / %d Veteran / %d Elite / %d Boss",
         counts.normal or 0,
         counts.veteran or 0,
-        counts.elite or 0
+        counts.elite or 0,
+        counts.boss or 0
     )
+end
+
+local function CountEnemyRanks(enemies)
+    local counts = {
+        normal = 0,
+        veteran = 0,
+        elite = 0,
+        boss = 0,
+    }
+
+    for _, enemy in ipairs(enemies or {}) do
+        local rank = enemy.rank or "normal"
+        counts[rank] = (counts[rank] or 0) + 1
+    end
+
+    return counts
+end
+
+local function BuildRoomRoleText(counts)
+    counts = counts or {}
+
+    local parts = {
+        string.format("%d Combat", counts.COMBAT or 0),
+        string.format("%d Treasure", counts.TREASURE or 0),
+    }
+
+    if (counts.ELITE or 0) > 0 then
+        parts[#parts + 1] = string.format("%d Elite", counts.ELITE)
+    end
+    if (counts.SHRINE or 0) > 0 then
+        parts[#parts + 1] = string.format("%d Shrine", counts.SHRINE)
+    end
+    if (counts.BOSS or 0) > 0 then
+        parts[#parts + 1] = string.format("%d Boss", counts.BOSS)
+    end
+
+    return table.concat(parts, " / ")
 end
 
 local function GetEnemyDisplayName(enemy)
@@ -590,7 +707,7 @@ local function GetEnemyIntentLabel(enemy)
     return ENEMY_INTENT_LABELS[intent] or tostring(intent)
 end
 
-local function GenerateFloorSetup(floorGenerator, enemyGenerator, playerLevel, floorNumber, gearPressure)
+local function GenerateFloorSetup(floorGenerator, enemyGenerator, playerLevel, floorNumber, gearPressure, floorMap)
     local walkableTiles = CountWalkableTiles()
     local densityProfile = floorGenerator:RollDensityProfile()
     local enemyCount, baseEnemyCount = floorGenerator:CalculateEnemyCount(
@@ -614,8 +731,11 @@ local function GenerateFloorSetup(floorGenerator, enemyGenerator, playerLevel, f
         floorNumber,
         gearPressure,
         archetypePlan,
-        rankPlan
+        rankPlan,
+        floorMap
     )
+
+    local actualRankCounts = CountEnemyRanks(floorEnemies)
 
     return {
         walkableTiles = walkableTiles,
@@ -623,7 +743,7 @@ local function GenerateFloorSetup(floorGenerator, enemyGenerator, playerLevel, f
         baseEnemyCount = baseEnemyCount,
         enemyCount = #floorEnemies,
         enemyComposition = archetypeCounts,
-        enemyRankComposition = rankCounts,
+        enemyRankComposition = actualRankCounts,
         enemies = floorEnemies,
     }
 end
@@ -1987,6 +2107,12 @@ function GA:RefreshDungeonMiniMap()
                             else
                                 r, g, b, a = COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 1
                             end
+                        elseif marker.kind == "shrine" then
+                            state = "shrine"
+                            r, g, b, a = COLORS.green[1], COLORS.green[2], COLORS.green[3], 1
+                        elseif marker.kind == "elite" or marker.kind == "boss" then
+                            state = marker.kind
+                            r, g, b, a = COLORS.red[1], COLORS.red[2], COLORS.red[3], 1
                         end
                     end
                 end
@@ -2249,7 +2375,8 @@ function GA:BeginDungeonRun()
         self.EnemyGenerator,
         level,
         floor,
-        gearPressure
+        gearPressure,
+        floorMap
     )
 
     local walkableTiles = floorSetup.walkableTiles
@@ -2257,6 +2384,7 @@ function GA:BeginDungeonRun()
     local baseEnemyCount = floorSetup.baseEnemyCount
     local archetypeCounts = floorSetup.enemyComposition
     local rankCounts = floorSetup.enemyRankComposition
+    local roomRoleCounts = floorMap.roomRoleCounts or {}
     local floorEnemies = floorSetup.enemies
     local sampleEnemy = floorEnemies[1]
 
@@ -2280,6 +2408,7 @@ function GA:BeginDungeonRun()
         gearPressure = CopyTable(gearPressure),
         dungeonSeed = dungeonSeed,
         floorMap = floorMap,
+        roomRoleCounts = CopyTable(roomRoleCounts),
         chestLoot = BuildFloorChestLoot(floorMap),
         densityProfile = CopyTable(densityProfile),
         walkableTiles = walkableTiles,
@@ -2378,6 +2507,10 @@ function GA:BeginDungeonRun()
         "system"
     )
     self:AddCombatLog(
+        "Rooms: " .. BuildRoomRoleText(roomRoleCounts) .. ".",
+        "system"
+    )
+    self:AddCombatLog(
         "Composition: " .. BuildCompositionText(archetypeCounts) .. ".",
         "system"
     )
@@ -2442,11 +2575,13 @@ function GA:ApplyDungeonFloor(floorNumber)
         self.EnemyGenerator,
         run.snapshot.level or 1,
         floorNumber,
-        run.gearPressure or {}
+        run.gearPressure or {},
+        floorMap
     )
 
     run.floor = floorNumber
     run.floorMap = floorMap
+    run.roomRoleCounts = CopyTable(floorMap.roomRoleCounts or {})
     run.chestLoot = BuildFloorChestLoot(floorMap)
     run.playerX = startX
     run.playerY = startY
@@ -2510,6 +2645,10 @@ function GA:ApplyDungeonFloor(floorNumber)
             floorMap.doorCount or 0,
             floorMap.seed or 0
         ),
+        "system"
+    )
+    self:AddCombatLog(
+        "Rooms: " .. BuildRoomRoleText(floorMap.roomRoleCounts) .. ".",
         "system"
     )
     self:AddCombatLog(

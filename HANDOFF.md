@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.18.2**  
+Current addon version: **0.19.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -111,6 +111,7 @@ Important addon files:
   - extra loop connections on deeper floors
   - generated start, exit and chest positions
   - generated room/corridor threshold doors
+  - deterministic per-floor START / COMBAT / TREASURE / ELITE / SHRINE / EXIT / BOSS room roles
 
 - `GoblinArcade/CharacterRoster.lua`
   - account-wide character roster
@@ -757,7 +758,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.18.2**
+- **0.19.0**
 
 Recent gameplay foundation:
 
@@ -802,6 +803,11 @@ Recent gameplay foundation:
 - DungeonGenerator v2 detects room/corridor thresholds and creates real door cells
 - closed doors display as +, block line of sight and enemy pathfinding, and open when the player bumps into them
 - opening a door costs one player turn and triggers the normal enemy phase; opened doors display as / and remain open for the floor
+- DungeonGenerator v3 assigns room roles: START / COMBAT / TREASURE / ELITE / SHRINE / EXIT / BOSS
+- Floor 1-2 use START + COMBAT + TREASURE + EXIT; Shrine appears from Floor 3, Elite from Floor 5, Boss from Floor 9 when room count allows
+- enemy spawning is now room-based: ordinary enemies spawn only in COMBAT / ELITE / BOSS rooms, leaving START / TREASURE / SHRINE / EXIT rooms clear
+- ELITE rooms guarantee one Elite-ranked encounter anchor; BOSS rooms guarantee one Boss-ranked encounter anchor without increasing total enemy count
+- Treasure rooms contain the generated chest markers; Shrine / Elite / Boss room centers use S / ! / B discovery markers
 - Spider/Skeleton custom target-card art now uses full-frame portrait coordinates instead of Blizzard-icon cropping
 
 ---
@@ -873,17 +879,22 @@ Multi-enemy support is now active in 0.14.2:
 
 ### Current map
 
-DungeonGenerator v2 is active in 0.18.2.
+DungeonGenerator v3 is active in 0.19.0.
 
 - map dimensions remain 25×25;
 - rooms are procedurally placed with one-cell separation;
 - all rooms are connected by carved L-corridors;
 - deeper floors receive a small number of extra loop connections;
-- start, exit and chest positions are generated per floor;
 - corridor crossings on room boundaries become generated door cells;
 - closed doors block LOS and enemy pathfinding until the player opens them;
 - opening a door is a one-turn bump action;
-- generated marker cells are reserved from enemy spawning;
+- every generated room receives one gameplay role;
+- START, TREASURE, SHRINE and EXIT rooms are protected from ordinary enemy spawning;
+- COMBAT rooms host ordinary encounters;
+- ELITE rooms force one Elite encounter anchor;
+- BOSS rooms force one Boss encounter anchor;
+- Treasure rooms own the generated chest positions rather than using arbitrary map cells;
+- room-role markers remain Fog-of-War gated;
 - the old static Test Cellar data remains only as a non-run fallback/preview.
 
 The current generator is intentionally room-and-corridor based rather than full BSP/cellular generation so its output stays readable in the 7×7 camera.
@@ -1292,11 +1303,12 @@ Deterministic scaling, bounded density, multi-enemy support, three active archet
 
 Recommended order:
 
-1. **Generator iteration / room roles**
-   - test room/corridor/door readability and density in-game
+1. **Room-role gameplay**
+   - test room/corridor/door/role readability in-game
    - tune room counts / sizes from screenshots
-   - assign START / COMBAT / TREASURE / ELITE / SHRINE / EXIT / BOSS room roles
-   - move enemy placement from global walkable tiles toward room-based encounters
+   - implement Shrine interaction
+   - make Floor 9 Boss defeat unlock/guard the exit
+   - later add encounter rewards and room-clear feedback
 
 2. **Abilities**
    - Warrior first
@@ -1405,6 +1417,7 @@ Before changing layout conventions, remember the user's current preferences:
 - enemy cells keep the terrain background and use only a red border for hostile highlighting;
 - active floors use the procedural DungeonGenerator; do not restore fixed start/exit/chest coordinates;
 - generated rooms use real threshold doors; closed doors block LOS and open on bump for one turn;
+- generated rooms have gameplay roles; START / TREASURE / SHRINE / EXIT stay free of ordinary enemy spawns;
 - minimap belongs in the lower-right run panel and respects Fog of War instead of revealing unexplored rooms;
 - fog should not show dotted borders;
 - item tooltips should show GoblinArcade stats, not WoW stats;
