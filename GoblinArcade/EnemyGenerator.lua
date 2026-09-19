@@ -3,7 +3,7 @@ local _, GA = ...
 GA.EnemyGenerator = GA.EnemyGenerator or {}
 local EG = GA.EnemyGenerator
 
-EG.VERSION = 1
+EG.VERSION = 2
 
 local GEAR_SLOTS = {
     "head",
@@ -112,6 +112,25 @@ local function GetFloorBonus(floor)
     return 0
 end
 
+local function GetLevelPressure(playerLevel)
+    local level = math.max(1, tonumber(playerLevel) or 1)
+
+    -- Level 1 = 1.00x, level 60 = 1.15x.
+    -- Keep this separate from Effective Enemy Level so higher-level characters
+    -- face a slightly higher relative challenge, not only larger raw numbers.
+    return 1 + 0.15 * ((level - 1) / 59)
+end
+
+local function GetFloorPressure(floor)
+    local floorNumber = math.max(1, tonumber(floor) or 1)
+    local depth = floorNumber - 1
+
+    return {
+        hpMultiplier = 1 + 0.06 * depth,
+        damageMultiplier = 1 + 0.04 * depth,
+    }
+end
+
 local function GetItemLevel(item)
     if not item then
         return 0
@@ -177,6 +196,19 @@ function EG:GetEffectiveLevel(playerLevel, floor, rankName)
     return level + GetFloorBonus(floor) + rank.levelBonus
 end
 
+function EG:GetLevelPressure(playerLevel)
+    return GetLevelPressure(playerLevel)
+end
+
+function EG:GetFloorPressure(floor)
+    local pressure = GetFloorPressure(floor)
+
+    return {
+        hpMultiplier = pressure.hpMultiplier,
+        damageMultiplier = pressure.damageMultiplier,
+    }
+end
+
 function EG:CreateEnemy(options)
     options = options or {}
 
@@ -190,6 +222,8 @@ function EG:CreateEnemy(options)
         or self:CalculateGearPressure(playerLevel, options.equipment or {})
 
     local effectiveLevel = self:GetEffectiveLevel(playerLevel, floor, rankKey)
+    local levelPressure = GetLevelPressure(playerLevel)
+    local floorPressure = GetFloorPressure(floor)
 
     -- Reference attack power is calibrated so a level-13 normal enemy lands
     -- around the original prototype's ~36 HP before archetype adjustments.
@@ -205,12 +239,16 @@ function EG:CreateEnemy(options)
         baseHp
         * archetype.hpMultiplier
         * rank.hpMultiplier
+        * levelPressure
+        * floorPressure.hpMultiplier
         * gearPressure.hpMultiplier
     ))
 
     local scaledAverageDamage = averageDamage
         * archetype.damageMultiplier
         * rank.damageMultiplier
+        * levelPressure
+        * floorPressure.damageMultiplier
         * gearPressure.damageMultiplier
 
     local damageMin = math.max(1, Round(scaledAverageDamage * 0.80))
@@ -224,6 +262,13 @@ function EG:CreateEnemy(options)
         rank = rankKey,
         name = archetype.name,
         level = effectiveLevel,
+        playerLevel = playerLevel,
+        floor = floor,
+        levelPressure = levelPressure,
+        floorHpMultiplier = floorPressure.hpMultiplier,
+        floorDamageMultiplier = floorPressure.damageMultiplier,
+        gearHpMultiplier = gearPressure.hpMultiplier,
+        gearDamageMultiplier = gearPressure.damageMultiplier,
         hp = maxHp,
         maxHp = maxHp,
         damageMin = damageMin,

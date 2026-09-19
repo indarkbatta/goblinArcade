@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.14.0**  
+Current addon version: **0.14.1**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -684,13 +684,15 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.14.0**
+- **0.14.1**
 
 Recent gameplay foundation:
 
 - deterministic `EnemyGenerator.lua` added
 - hardcoded kobold HP/damage removed
 - BEGIN RUN now freezes player level + Gear Pressure for enemy scaling
+- EnemyGenerator v2 applies Character-Level Pressure to both HP and damage
+- EnemyGenerator v2 applies separate Floor HP (+6% per floor after Floor 1) and Floor Damage (+4% per floor after Floor 1) pressure
 - future enemy archetypes already have generator profiles for kobold, spider, skeleton and brute
 
 ---
@@ -778,7 +780,7 @@ These are prototype/test markers and have no proper gameplay system yet.
 
 ## 23. Deterministic enemy scaling
 
-**Implemented in 0.14.0 via `EnemyGenerator.lua`.**
+**Implemented via `EnemyGenerator.lua`: base level + Gear Pressure in 0.14.0; Character-Level Pressure + Floor Pressure in 0.14.1.**
 
 Enemy strength must be deterministic and should depend on both **character level** and the character's **starting WoW gear quality**.
 
@@ -905,6 +907,8 @@ Level 60 → 1.15x
 
 This pressure is intentionally mild. Leveling a character must not feel like punishment, but a level-60 character should not face exactly the same relative difficulty as a level-1 character.
 
+**Implementation status: active in EnemyGenerator v2 (addon 0.14.1).**
+
 ### Floor progression pressure
 
 Dungeon depth is a separate difficulty axis from character level.
@@ -931,6 +935,8 @@ Floor 9 → HP 1.48x / Damage 1.32x
 ```
 
 This is deliberately stronger than the character-level pressure. The run should become meaningfully more dangerous as the player descends through floors.
+
+**Implementation status: active in EnemyGenerator v2 (addon 0.14.1).**
 
 ### Final enemy formulas
 
@@ -1003,7 +1009,7 @@ Average Enemy Damage = Reference Player HP × 3.5%
 Damage range = 80%–120% of that deterministic average
 ```
 
-Archetype, rank and frozen Gear Pressure multipliers are applied afterward.
+Archetype, rank, Character-Level Pressure, Floor Pressure and frozen Gear Pressure multipliers are applied afterward.
 
 Enemy level, base HP, base damage, archetype multipliers and Gear Pressure must all be deterministic. Randomness may exist only in individual combat rolls such as exact damage within a fixed range.
 
