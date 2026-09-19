@@ -74,7 +74,7 @@ GA.StudioData = {
     enemies = {
         {
             id = "kobold",
-            name = "Kobold",
+            name = "KoboldBoys",
             hpMultiplier = 0.95,
             damageMultiplier = 1,
             visionRadius = 6,
