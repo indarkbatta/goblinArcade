@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.19.1**  
+Current addon version: **0.20.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -710,11 +710,19 @@ The active run keeps:
 - enemy state
 - opened chests
 
-### Floor transitions (0.16.0)
+### Floor transitions / backtracking (0.20.0)
 
-The Dungeon Run now progresses through **Floor 1 → Floor 9**.
+The Dungeon Run spans **Floor 1 → Floor 9**, and visited floors are now traversable in both directions during the active run.
 
-When moving from one floor to the next, the run preserves:
+Navigation:
+
+- `>` descends to the next floor;
+- `<` appears in the START room on Floors 2-9 and returns to the previous floor;
+- returning to a previous floor restores its existing state rather than regenerating it;
+- returning upward places the player on that floor's `>` exit;
+- descending into an already visited floor places the player on its `<` entrance.
+
+When moving between floors, the run preserves:
 
 - current HP and max HP;
 - GoblinArcade equipment;
@@ -724,19 +732,19 @@ When moving from one floor to the next, the run preserves:
 - original character snapshot;
 - frozen BEGIN RUN Gear Pressure.
 
-A new floor resets/regenerates:
+A floor is generated only on its first visit. First-time generation creates its layout, room roles, doors, chest placement, density, enemies and rank mix. After that, its state is stored in `run.floorStates[floor]`.
 
-- player position back to the floor start;
-- Fog of War / explored cells;
-- current visible cells;
-- opened chest state for that floor;
-- enemy collection and enemy phase counter;
-- active combat target;
-- density profile;
-- enemy archetype composition;
-- enemy rank composition.
+Per-floor state preserved across backtracking includes:
 
-Each new floor therefore receives its own fresh QUIET / STANDARD / CROWDED roll and its own floor-specific enemy scaling while preserving the player's run progression.
+- generated floor map and room roles;
+- explored Fog of War;
+- opened doors;
+- opened chests;
+- living/dead enemies, HP, positions and alert state;
+- enemy phase counter;
+- density profile and composition.
+
+The player's HP, equipment, backpack, score and total turn count remain run-global and continue changing while moving between floors.
 
 Dungeon loot found on earlier floors does **not** recalculate Gear Pressure. This preserves the value of upgrades found during the run.
 
@@ -758,7 +766,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.19.1**
+- **0.20.0**
 
 Recent gameplay foundation:
 
@@ -806,6 +814,10 @@ Recent gameplay foundation:
 - DungeonGenerator v3 assigns room roles: START / COMBAT / TREASURE / ELITE / SHRINE / EXIT / BOSS
 - DungeonGenerator v4 fixes door placement: doors are now true room/corridor thresholds in the one-tile wall band outside rooms, not arbitrary room-edge contacts
 - threshold detection requires room interior -> doorway -> continuing corridor, and contiguous doorway candidates collapse to one centered door
+- DungeonGenerator v5 adds a < stairs-up marker to the START room on Floors 2-9
+- floors are now bidirectionally traversable during a run: > descends, < returns to the previous floor
+- visited floor state is preserved in-memory per floor, including generated layout, enemies/deaths/positions, opened doors, opened chests and explored Fog of War
+- returning upward places the player on the previous floor's > exit; descending again places the player on the deeper floor's < entrance without rerolling anything
 - Floor 1-2 use START + COMBAT + TREASURE + EXIT; Shrine appears from Floor 3, Elite from Floor 5, Boss from Floor 9 when room count allows
 - enemy spawning is now room-based: ordinary enemies spawn only in COMBAT / ELITE / BOSS rooms, leaving START / TREASURE / SHRINE / EXIT rooms clear
 - ELITE rooms guarantee one Elite-ranked encounter anchor; BOSS rooms guarantee one Boss-ranked encounter anchor without increasing total enemy count
@@ -881,7 +893,7 @@ Multi-enemy support is now active in 0.14.2:
 
 ### Current map
 
-DungeonGenerator v4 is active in 0.19.1.
+DungeonGenerator v5 is active in 0.20.0.
 
 - map dimensions remain 25×25;
 - rooms are procedurally placed with one-cell separation;
@@ -899,6 +911,7 @@ DungeonGenerator v4 is active in 0.19.1.
 - BOSS rooms force one Boss encounter anchor;
 - Treasure rooms own the generated chest positions rather than using arbitrary map cells;
 - room-role markers remain Fog-of-War gated;
+- Floors 2-9 add a < stairs-up marker at the START room so visited floors can be traversed backward;
 - the old static Test Cellar data remains only as a non-run fallback/preview.
 
 The current generator is intentionally room-and-corridor based rather than full BSP/cellular generation so its output stays readable in the 7×7 camera.
@@ -1422,6 +1435,7 @@ Before changing layout conventions, remember the user's current preferences:
 - active floors use the procedural DungeonGenerator; do not restore fixed start/exit/chest coordinates;
 - generated rooms use real room-to-corridor threshold doors in the wall band outside the room; closed doors block LOS and open on bump for one turn;
 - generated rooms have gameplay roles; START / TREASURE / SHRINE / EXIT stay free of ordinary enemy spawns;
+- dungeon floors are bidirectional inside an active run: > descends and < returns, with visited floor state restored rather than regenerated;
 - minimap belongs in the lower-right run panel and respects Fog of War instead of revealing unexplored rooms;
 - fog should not show dotted borders;
 - item tooltips should show GoblinArcade stats, not WoW stats;

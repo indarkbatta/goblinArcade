@@ -3,7 +3,7 @@ local _, GA = ...
 GA.DungeonGenerator = GA.DungeonGenerator or {}
 local DG = GA.DungeonGenerator
 
-DG.VERSION = 4
+DG.VERSION = 5
 
 local MODULUS = 2147483647
 local MULTIPLIER = 48271
@@ -632,6 +632,15 @@ function DG:GenerateFloor(width, height, floorNumber, runSeed)
         kind = "exit",
         roomIndex = exitRoomIndex,
     }
+
+    if floor > 1 then
+        markers[CellKey(start.x, start.y)] = {
+            text = "<",
+            color = "green",
+            kind = "stairsUp",
+            roomIndex = startRoomIndex,
+        }
+    end
 
     AddTreasureChests(markers, chestKeys, roleData.treasureRoom, 2)
     AddRoomRoleMarker(markers, roleData.shrineRoom, "S", "green", "shrine")

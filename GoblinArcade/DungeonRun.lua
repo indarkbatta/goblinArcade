@@ -2093,8 +2093,8 @@ function GA:RefreshDungeonMiniMap()
                     local marker = markers[key]
                     local chestOpened = run.openedChests and run.openedChests[key]
                     if marker and not (marker.kind == "chest" and chestOpened) then
-                        if marker.kind == "exit" then
-                            state = "exit"
+                        if marker.kind == "exit" or marker.kind == "stairsUp" then
+                            state = marker.kind
                             r, g, b, a = COLORS.green[1], COLORS.green[2], COLORS.green[3], 1
                         elseif marker.kind == "chest" then
                             state = "chest"
@@ -2408,6 +2408,7 @@ function GA:BeginDungeonRun()
         gearPressure = CopyTable(gearPressure),
         dungeonSeed = dungeonSeed,
         floorMap = floorMap,
+        floorStates = {},
         roomRoleCounts = CopyTable(roomRoleCounts),
         chestLoot = BuildFloorChestLoot(floorMap),
         densityProfile = CopyTable(densityProfile),
@@ -2549,55 +2550,72 @@ function GA:BeginDungeonRun()
     self:RenderDungeonGrid()
 end
 
-function GA:ApplyDungeonFloor(floorNumber)
+function GA:ApplyDungeonFloor(floorNumber, entryDirection)
     local run = self.RunState
     if not run or not run.active or not run.snapshot then
         return false
     end
 
-    local floorMap = self.DungeonGenerator and self.DungeonGenerator:GenerateFloor(
-        GRID_WIDTH,
-        GRID_HEIGHT,
-        floorNumber,
-        run.dungeonSeed
-    )
+    entryDirection = entryDirection or "down"
+    run.floorStates = run.floorStates or {}
 
-    if not floorMap then
-        self:AddCombatLog("Dungeon generation failed for the next floor.", "warning")
-        return false
+    local stored = run.floorStates[floorNumber]
+    local floorMap
+    local floorSetup
+    local revisiting = stored ~= nil
+
+    if stored then
+        ApplyStoredFloorState(run, floorNumber, stored, entryDirection)
+        floorMap = run.floorMap
+    else
+        floorMap = self.DungeonGenerator and self.DungeonGenerator:GenerateFloor(
+            GRID_WIDTH,
+            GRID_HEIGHT,
+            floorNumber,
+            run.dungeonSeed
+        )
+
+        if not floorMap then
+            self:AddCombatLog("Dungeon generation failed for the target floor.", "warning")
+            return false
+        end
+
+        SetActiveFloorMap(floorMap)
+        local startX, startY = GetDungeonStart()
+
+        floorSetup = GenerateFloorSetup(
+            self.FloorGenerator,
+            self.EnemyGenerator,
+            run.snapshot.level or 1,
+            floorNumber,
+            run.gearPressure or {},
+            floorMap
+        )
+
+        run.floor = floorNumber
+        run.floorMap = floorMap
+        run.roomRoleCounts = CopyTable(floorMap.roomRoleCounts or {})
+        run.chestLoot = BuildFloorChestLoot(floorMap)
+        run.playerX = startX
+        run.playerY = startY
+        run.openedChests = {}
+        run.openDoors = {}
+        run.explored = {}
+        run.visible = {}
+        run.densityProfile = CopyTable(floorSetup.densityProfile)
+        run.walkableTiles = floorSetup.walkableTiles
+        run.baseEnemyCount = floorSetup.baseEnemyCount
+        run.enemyCount = floorSetup.enemyCount
+        run.enemyComposition = CopyTable(floorSetup.enemyComposition)
+        run.enemyRankComposition = CopyTable(floorSetup.enemyRankComposition)
+        run.enemies = floorSetup.enemies
+        run.activeEnemyId = nil
+        run.enemyPhase = 0
+
+        -- Save the freshly created floor immediately so future backtracking
+        -- always restores this exact layout and encounter state.
+        run.floorStates[floorNumber] = CaptureCurrentFloorState(run)
     end
-
-    SetActiveFloorMap(floorMap)
-    local startX, startY = GetDungeonStart()
-
-    local floorSetup = GenerateFloorSetup(
-        self.FloorGenerator,
-        self.EnemyGenerator,
-        run.snapshot.level or 1,
-        floorNumber,
-        run.gearPressure or {},
-        floorMap
-    )
-
-    run.floor = floorNumber
-    run.floorMap = floorMap
-    run.roomRoleCounts = CopyTable(floorMap.roomRoleCounts or {})
-    run.chestLoot = BuildFloorChestLoot(floorMap)
-    run.playerX = startX
-    run.playerY = startY
-    run.openedChests = {}
-    run.openDoors = {}
-    run.explored = {}
-    run.visible = {}
-    run.densityProfile = CopyTable(floorSetup.densityProfile)
-    run.walkableTiles = floorSetup.walkableTiles
-    run.baseEnemyCount = floorSetup.baseEnemyCount
-    run.enemyCount = floorSetup.enemyCount
-    run.enemyComposition = CopyTable(floorSetup.enemyComposition)
-    run.enemyRankComposition = CopyTable(floorSetup.enemyRankComposition)
-    run.enemies = floorSetup.enemies
-    run.activeEnemyId = nil
-    run.enemyPhase = 0
 
     self.DungeonCameraX = nil
     self.DungeonCameraY = nil
@@ -2607,13 +2625,15 @@ function GA:ApplyDungeonFloor(floorNumber)
     end
     self:CancelCharacterItemDrag()
 
+    local enemyCount = run.enemyCount or #(run.enemies or {})
+
     if self.DungeonFloorTitle then
         self.DungeonFloorTitle:SetText(string.format(
             "FLOOR %d  -  %s  -  %d ROOMS  -  %d ENEMIES",
             floorNumber,
             floorMap.name or "DUNGEON",
             floorMap.roomCount or 0,
-            floorSetup.enemyCount
+            enemyCount
         ))
     end
 
@@ -2628,52 +2648,62 @@ function GA:ApplyDungeonFloor(floorNumber)
         )
     end
 
-    self:AddCombatLog(
-        string.format(
-            "Floor %d begins: %s, %d enemies.",
-            floorNumber,
-            floorSetup.densityProfile.key,
-            floorSetup.enemyCount
-        ),
-        "system"
-    )
-    self:AddCombatLog(
-        string.format(
-            "Layout: %s, %d rooms, %d doors, seed %d.",
-            floorMap.name or "Dungeon",
-            floorMap.roomCount or 0,
-            floorMap.doorCount or 0,
-            floorMap.seed or 0
-        ),
-        "system"
-    )
-    self:AddCombatLog(
-        "Rooms: " .. BuildRoomRoleText(floorMap.roomRoleCounts) .. ".",
-        "system"
-    )
-    self:AddCombatLog(
-        "Composition: " .. BuildCompositionText(floorSetup.enemyComposition) .. ".",
-        "system"
-    )
-    self:AddCombatLog(
-        "Ranks: " .. BuildRankCompositionText(floorSetup.enemyRankComposition) .. ".",
-        "system"
-    )
-
-    local sampleEnemy = floorSetup.enemies[1]
-    if sampleEnemy then
+    if revisiting then
         self:AddCombatLog(
             string.format(
-                "Floor %d scaling: %s Lv %d profile = %d HP, %d-%d damage.",
-                floorNumber,
-                GetEnemyDisplayName(sampleEnemy),
-                sampleEnemy.level or 1,
-                sampleEnemy.maxHp or 0,
-                sampleEnemy.damageMin or 0,
-                sampleEnemy.damageMax or 0
+                "Returned to Floor %d. Previous exploration and encounters restored.",
+                floorNumber
             ),
             "system"
         )
+    else
+        self:AddCombatLog(
+            string.format(
+                "Floor %d begins: %s, %d enemies.",
+                floorNumber,
+                run.densityProfile and run.densityProfile.key or "STANDARD",
+                enemyCount
+            ),
+            "system"
+        )
+        self:AddCombatLog(
+            string.format(
+                "Layout: %s, %d rooms, %d doors, seed %d.",
+                floorMap.name or "Dungeon",
+                floorMap.roomCount or 0,
+                floorMap.doorCount or 0,
+                floorMap.seed or 0
+            ),
+            "system"
+        )
+        self:AddCombatLog(
+            "Rooms: " .. BuildRoomRoleText(floorMap.roomRoleCounts) .. ".",
+            "system"
+        )
+        self:AddCombatLog(
+            "Composition: " .. BuildCompositionText(run.enemyComposition) .. ".",
+            "system"
+        )
+        self:AddCombatLog(
+            "Ranks: " .. BuildRankCompositionText(run.enemyRankComposition) .. ".",
+            "system"
+        )
+
+        local sampleEnemy = run.enemies and run.enemies[1]
+        if sampleEnemy then
+            self:AddCombatLog(
+                string.format(
+                    "Floor %d scaling: %s Lv %d profile = %d HP, %d-%d damage.",
+                    floorNumber,
+                    GetEnemyDisplayName(sampleEnemy),
+                    sampleEnemy.level or 1,
+                    sampleEnemy.maxHp or 0,
+                    sampleEnemy.damageMin or 0,
+                    sampleEnemy.damageMax or 0
+                ),
+                "system"
+            )
+        end
     end
 
     self:RefreshRunCounters()
@@ -2745,6 +2775,70 @@ function GA:CompleteDungeonRun()
     self:RenderDungeonGrid()
 end
 
+local function CaptureCurrentFloorState(run)
+    if not run or not run.floor or not run.floorMap then
+        return nil
+    end
+
+    return {
+        floorMap = CopyTable(run.floorMap),
+        roomRoleCounts = CopyTable(run.roomRoleCounts or {}),
+        chestLoot = CopyTable(run.chestLoot or {}),
+        openedChests = CopyTable(run.openedChests or {}),
+        openDoors = CopyTable(run.openDoors or {}),
+        explored = CopyTable(run.explored or {}),
+        densityProfile = CopyTable(run.densityProfile or {}),
+        walkableTiles = run.walkableTiles,
+        baseEnemyCount = run.baseEnemyCount,
+        enemyCount = run.enemyCount,
+        enemyComposition = CopyTable(run.enemyComposition or {}),
+        enemyRankComposition = CopyTable(run.enemyRankComposition or {}),
+        enemies = CopyTable(run.enemies or {}),
+        enemyPhase = run.enemyPhase or 0,
+    }
+end
+
+local function SaveCurrentFloorState(run)
+    if not run or not run.floor then
+        return
+    end
+
+    run.floorStates = run.floorStates or {}
+    run.floorStates[run.floor] = CaptureCurrentFloorState(run)
+end
+
+local function ApplyStoredFloorState(run, floorNumber, stored, entryDirection)
+    run.floor = floorNumber
+    run.floorMap = CopyTable(stored.floorMap)
+    run.roomRoleCounts = CopyTable(stored.roomRoleCounts or {})
+    run.chestLoot = CopyTable(stored.chestLoot or {})
+    run.openedChests = CopyTable(stored.openedChests or {})
+    run.openDoors = CopyTable(stored.openDoors or {})
+    run.explored = CopyTable(stored.explored or {})
+    run.visible = {}
+    run.densityProfile = CopyTable(stored.densityProfile or {})
+    run.walkableTiles = stored.walkableTiles
+    run.baseEnemyCount = stored.baseEnemyCount
+    run.enemyCount = stored.enemyCount
+    run.enemyComposition = CopyTable(stored.enemyComposition or {})
+    run.enemyRankComposition = CopyTable(stored.enemyRankComposition or {})
+    run.enemies = CopyTable(stored.enemies or {})
+    run.activeEnemyId = nil
+    run.enemyPhase = stored.enemyPhase or 0
+
+    SetActiveFloorMap(run.floorMap)
+
+    if entryDirection == "up" then
+        local exitX, exitY = GetDungeonExit()
+        run.playerX = exitX
+        run.playerY = exitY
+    else
+        local startX, startY = GetDungeonStart()
+        run.playerX = startX
+        run.playerY = startY
+    end
+end
+
 function GA:AdvanceDungeonFloor()
     local run = self.RunState
     if not run or not run.active then
@@ -2759,6 +2853,7 @@ function GA:AdvanceDungeonFloor()
     end
 
     local nextFloor = clearedFloor + 1
+    SaveCurrentFloorState(run)
 
     self:AddCombatLog(
         string.format(
@@ -2771,7 +2866,35 @@ function GA:AdvanceDungeonFloor()
         "system"
     )
 
-    self:ApplyDungeonFloor(nextFloor)
+    self:ApplyDungeonFloor(nextFloor, "down")
+end
+
+function GA:ReturnDungeonFloor()
+    local run = self.RunState
+    if not run or not run.active then
+        return
+    end
+
+    local currentFloor = run.floor or 1
+    if currentFloor <= 1 then
+        return
+    end
+
+    local previousFloor = currentFloor - 1
+    SaveCurrentFloorState(run)
+
+    self:AddCombatLog(
+        string.format(
+            "Returning from Floor %d to Floor %d with %d/%d HP.",
+            currentFloor,
+            previousFloor,
+            run.playerHealth or 0,
+            run.playerMaxHealth or 0
+        ),
+        "system"
+    )
+
+    self:ApplyDungeonFloor(previousFloor, "up")
 end
 
 function GA:RunEnemyTurn()
@@ -3051,6 +3174,12 @@ function GA:MoveDungeonPlayer(dx, dy)
     self:RefreshRunCounters()
     self:RenderDungeonGrid()
     self:TryLootChest(nextX, nextY)
+
+    local startX, startY = GetDungeonStart()
+    if (run.floor or 1) > 1 and nextX == startX and nextY == startY then
+        self:ReturnDungeonFloor()
+        return
+    end
 
     local exitX, exitY = GetDungeonExit()
     if nextX == exitX and nextY == exitY then
