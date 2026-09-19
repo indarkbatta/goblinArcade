@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.17.2**  
+Current addon version: **0.18.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -103,6 +103,13 @@ Important addon files:
   - bounded QUIET / STANDARD / CROWDED density roll
   - walkable-tile-based base enemy budget
   - floor-depth density growth
+
+- `GoblinArcade/DungeonGenerator.lua`
+  - procedural 25×25 floor layout generation
+  - local seeded PRNG that does not disturb combat RNG
+  - non-overlapping rooms + connected L-corridors
+  - extra loop connections on deeper floors
+  - generated start, exit and chest positions
 
 - `GoblinArcade/CharacterRoster.lua`
   - account-wide character roster
@@ -236,9 +243,11 @@ Exit:
 
 The camera follows the player and clamps at world boundaries.
 
-Current 0.16.0 run length is **9 floors**. Each floor currently reuses the same prototype 25×25 Test Cellar layout; floor-template variety is still future work.
+Current run length is **9 floors**. In 0.18.0 each floor receives a fresh procedural 25×25 layout from DungeonGenerator v1.
 
-Current test map uses static walls and markers.
+The generator creates non-overlapping rooms, connects every room into one reachable dungeon, adds limited extra corridor loops on deeper floors, chooses a north-west-biased start room, places the exit in the most distant room by path distance, and places up to two chests in other distant rooms.
+
+A run has one dungeon seed; each floor derives its own deterministic layout seed from it. Re-rendering the UI never rerolls the floor.
 
 Static marker meanings:
 
@@ -747,7 +756,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.17.2**
+- **0.18.0**
 
 Recent gameplay foundation:
 
@@ -783,6 +792,10 @@ Recent gameplay foundation:
 - enemy intent presentation is active on the right-side target card: WATCHING / ALERTED / MOVING / ATTACKING / STAGGERED
 - intent state is updated explicitly once per enemy phase; terrain rendering does not mutate enemy state
 - ordinary killing blows now still trigger the enemy phase for other surviving enemies, closing the free-kill turn exploit
+- DungeonGenerator v1 now generates a new connected room-and-corridor layout for every floor
+- a single run seed produces deterministic per-floor layout seeds without calling math.randomseed
+- start, exit and two chest locations are generated dynamically and enemy spawning respects those reserved cells
+- chest loot templates are now assigned to generated chest positions instead of fixed map coordinates
 - Spider/Skeleton custom target-card art now uses full-frame portrait coordinates instead of Blizzard-icon cropping
 
 ---
@@ -853,19 +866,17 @@ Multi-enemy support is now active in 0.14.2:
 
 ### Current map
 
-The 25×25 map is still manually defined and **the same Test Cellar layout is currently reused on all 9 floors**.
+DungeonGenerator v1 is active in 0.18.0.
 
-Future floors should likely be generated from:
+- map dimensions remain 25×25;
+- rooms are procedurally placed with one-cell separation;
+- all rooms are connected by carved L-corridors;
+- deeper floors receive a small number of extra loop connections;
+- start, exit and chest positions are generated per floor;
+- generated marker cells are reserved from enemy spawning;
+- the old static Test Cellar data remains only as a non-run fallback/preview.
 
-- room templates;
-- corridors;
-- objective placement;
-- enemy spawn tables;
-- chest spawn tables.
-
-### Current static `S` markers
-
-These are prototype/test markers and have no proper gameplay system yet.
+The current generator is intentionally room-and-corridor based rather than full BSP/cellular generation so its output stays readable in the 7×7 camera.
 
 ---
 
@@ -1267,14 +1278,14 @@ Randomness is appropriate in floor composition/density. It must remain bounded. 
 
 ## 25. Recommended next development steps
 
-Deterministic scaling, bounded density, multi-enemy support, three active archetypes, the 9-floor run loop, bounded rank composition, enemy intent presentation, and the killing-blow enemy-phase cleanup are complete. The next major slice should be **floor-layout variety**.
+Deterministic scaling, bounded density, multi-enemy support, three active archetypes, the 9-floor run loop, bounded rank composition, enemy intent presentation, combat turn cleanup, and procedural room-and-corridor generation are complete.
 
 Recommended order:
 
-1. **Floor-layout variety**
-   - multiple hand-authored floor templates first
-   - keep 25×25 world dimensions and the 7×7 camera
-   - procedural generation can come later
+1. **Generator iteration**
+   - test room/corridor readability and density in-game
+   - tune room counts / sizes from screenshots
+   - later add room roles such as treasure, shrine, elite and boss rooms
 
 2. **Abilities**
    - Warrior first
@@ -1285,24 +1296,20 @@ Recommended order:
    - finite run resource
    - no unlimited healing
 
-4. **Dungeon generation**
-   - floor templates first
-   - procedural generation later if needed
-
-5. **Floor objectives**
+4. **Floor objectives**
    - exit
    - elite
    - chest
    - shrine/shop
    - boss
 
-6. **More deterministic loot**
+5. **More deterministic loot**
    - armor
    - jewelry
    - weapons
    - clear archetype-based differences
 
-7. **Scores**
+6. **Scores**
    - run score summary
    - eventual local/group sharing
 
@@ -1385,6 +1392,7 @@ Before changing layout conventions, remember the user's current preferences:
 - viewport baseline is 7×7 visible tiles;
 - creature art baseline is 128×128 source rendered at 96×96 px with no tile overflow;
 - enemy cells keep the terrain background and use only a red border for hostile highlighting;
+- active floors use the procedural DungeonGenerator; do not restore fixed start/exit/chest coordinates;
 - fog should not show dotted borders;
 - item tooltips should show GoblinArcade stats, not WoW stats;
 - drag targets must visually highlight.

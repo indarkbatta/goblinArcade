@@ -82,8 +82,8 @@ local ENEMY_VISUALS = {
     },
 }
 
-local CHEST_LOOT = {
-    ["9:11"] = {
+local CHEST_LOOT_TEMPLATES = {
+    {
         name = "Candlekeeper's Charm",
         icon = KOBOLD_PORTRAIT_ICON,
         itemLevel = 18,
@@ -96,7 +96,7 @@ local CHEST_LOOT = {
         description = "Warm wax hums faintly in your palm. Prototype dungeon loot.",
         source = "dungeon",
     },
-    ["17:15"] = {
+    {
         name = "Waxbound Ring",
         icon = "Interface\\Icons\\INV_Jewelry_Ring_03",
         itemLevel = 18,
@@ -115,6 +115,38 @@ local function CellKey(x, y)
     return tostring(x) .. ":" .. tostring(y)
 end
 
+local ACTIVE_FLOOR_MAP = nil
+
+local function SetActiveFloorMap(floorMap)
+    ACTIVE_FLOOR_MAP = floorMap
+end
+
+local function GetDungeonWalls()
+    return ACTIVE_FLOOR_MAP and ACTIVE_FLOOR_MAP.walls or STATIC_WALLS
+end
+
+local function GetDungeonMarkers()
+    return ACTIVE_FLOOR_MAP and ACTIVE_FLOOR_MAP.markers or STATIC_MARKERS
+end
+
+local function GetDungeonStart()
+    local start = ACTIVE_FLOOR_MAP and ACTIVE_FLOOR_MAP.start
+    if start then
+        return start.x, start.y
+    end
+
+    return START_X, START_Y
+end
+
+local function GetDungeonExit()
+    local exit = ACTIVE_FLOOR_MAP and ACTIVE_FLOOR_MAP.exit
+    if exit then
+        return exit.x, exit.y
+    end
+
+    return EXIT_X, EXIT_Y
+end
+
 local function IsDungeonWall(x, y)
     if x < 1 or x > GRID_WIDTH or y < 1 or y > GRID_HEIGHT then
         return true
@@ -124,7 +156,7 @@ local function IsDungeonWall(x, y)
         return true
     end
 
-    return STATIC_WALLS[CellKey(x, y)] == true
+    return GetDungeonWalls()[CellKey(x, y)] == true
 end
 
 local function HasLineOfSight(fromX, fromY, toX, toY)
@@ -186,6 +218,18 @@ local function CopyTable(value)
         copy[key] = CopyTable(child)
     end
     return copy
+end
+
+local function BuildFloorChestLoot(floorMap)
+    local loot = {}
+    local chestKeys = floorMap and floorMap.chestKeys or {}
+
+    for index, key in ipairs(chestKeys) do
+        local templateIndex = ((index - 1) % #CHEST_LOOT_TEMPLATES) + 1
+        loot[key] = CopyTable(CHEST_LOOT_TEMPLATES[templateIndex])
+    end
+
+    return loot
 end
 
 local PATH_DIRECTIONS = {
@@ -355,11 +399,12 @@ local function IsReservedEnemySpawn(x, y)
         return true
     end
 
-    if STATIC_MARKERS[CellKey(x, y)] then
+    if GetDungeonMarkers()[CellKey(x, y)] then
         return true
     end
 
-    if IsWithinRadius(START_X, START_Y, x, y, ENEMY_START_SAFE_RADIUS) then
+    local startX, startY = GetDungeonStart()
+    if IsWithinRadius(startX, startY, x, y, ENEMY_START_SAFE_RADIUS) then
         return true
     end
 
@@ -1803,8 +1848,9 @@ end
 
 function GA:UpdateDungeonCamera()
     local run = self.RunState
-    local focusX = run and run.playerX or START_X
-    local focusY = run and run.playerY or START_Y
+    local startX, startY = GetDungeonStart()
+    local focusX = run and run.playerX or startX
+    local focusY = run and run.playerY or startY
 
     local halfW = math.floor(VIEWPORT_WIDTH / 2)
     local halfH = math.floor(VIEWPORT_HEIGHT / 2)
@@ -1878,7 +1924,7 @@ function GA:RenderDungeonGrid()
                 -- bright while visible and muted when only remembered.
                 if explored then
                     local worldKey = CellKey(worldX, worldY)
-                    local staticMarker = STATIC_MARKERS[worldKey]
+                    local staticMarker = GetDungeonMarkers()[worldKey]
                     local chestOpened = run
                         and run.openedChests
                         and run.openedChests[worldKey]
@@ -1932,8 +1978,9 @@ function GA:RenderDungeonGrid()
         end
     end
 
-    local playerX = run and run.playerX or START_X
-    local playerY = run and run.playerY or START_Y
+    local startX, startY = GetDungeonStart()
+    local playerX = run and run.playerX or startX
+    local playerY = run and run.playerY or startY
     local playerViewX = playerX - cameraX + 1
     local playerViewY = playerY - cameraY + 1
 
@@ -1999,7 +2046,7 @@ function GA:BeginDungeonRun()
     local selectedWeapon = CopyTable(selected.weapon)
     local floor = 1
 
-    if not self.EnemyGenerator or not self.FloorGenerator then
+    if not self.EnemyGenerator or not self.FloorGenerator or not self.DungeonGenerator then
         if self.DungeonRunStateText then
             self.DungeonRunStateText:SetText("DUNGEON GENERATORS NOT LOADED")
             self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
@@ -2011,6 +2058,25 @@ function GA:BeginDungeonRun()
         level,
         selected.equipment or {}
     )
+
+    local dungeonSeed = math.random(1, 2147483646)
+    local floorMap = self.DungeonGenerator:GenerateFloor(
+        GRID_WIDTH,
+        GRID_HEIGHT,
+        floor,
+        dungeonSeed
+    )
+
+    if not floorMap then
+        if self.DungeonRunStateText then
+            self.DungeonRunStateText:SetText("DUNGEON GENERATION FAILED")
+            self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+        end
+        return
+    end
+
+    SetActiveFloorMap(floorMap)
+    local startX, startY = GetDungeonStart()
 
     local floorSetup = GenerateFloorSetup(
         self.FloorGenerator,
@@ -2034,8 +2100,8 @@ function GA:BeginDungeonRun()
         floor = floor,
         score = 0,
         turns = 0,
-        playerX = START_X,
-        playerY = START_Y,
+        playerX = startX,
+        playerY = startY,
         playerHealth = maxHealth,
         playerMaxHealth = maxHealth,
         baseMaxHealth = maxHealth,
@@ -2045,6 +2111,9 @@ function GA:BeginDungeonRun()
         explored = {},
         visible = {},
         gearPressure = CopyTable(gearPressure),
+        dungeonSeed = dungeonSeed,
+        floorMap = floorMap,
+        chestLoot = BuildFloorChestLoot(floorMap),
         densityProfile = CopyTable(densityProfile),
         walkableTiles = walkableTiles,
         baseEnemyCount = baseEnemyCount,
@@ -2094,8 +2163,9 @@ function GA:BeginDungeonRun()
 
     if self.DungeonFloorTitle then
         self.DungeonFloorTitle:SetText(string.format(
-            "FLOOR 1  -  THE TEST CELLAR  -  %s  -  %d ENEMIES",
-            densityProfile.key,
+            "FLOOR 1  -  %s  -  %d ROOMS  -  %d ENEMIES",
+            floorMap.name or "DUNGEON",
+            floorMap.roomCount or 0,
             #floorEnemies
         ))
     end
@@ -2129,6 +2199,15 @@ function GA:BeginDungeonRun()
             walkableTiles
         ),
         "enemy"
+    )
+    self:AddCombatLog(
+        string.format(
+            "Layout: %s, %d rooms, seed %d.",
+            floorMap.name or "Dungeon",
+            floorMap.roomCount or 0,
+            floorMap.seed or 0
+        ),
+        "system"
     )
     self:AddCombatLog(
         "Composition: " .. BuildCompositionText(archetypeCounts) .. ".",
@@ -2175,6 +2254,21 @@ function GA:ApplyDungeonFloor(floorNumber)
         return false
     end
 
+    local floorMap = self.DungeonGenerator and self.DungeonGenerator:GenerateFloor(
+        GRID_WIDTH,
+        GRID_HEIGHT,
+        floorNumber,
+        run.dungeonSeed
+    )
+
+    if not floorMap then
+        self:AddCombatLog("Dungeon generation failed for the next floor.", "warning")
+        return false
+    end
+
+    SetActiveFloorMap(floorMap)
+    local startX, startY = GetDungeonStart()
+
     local floorSetup = GenerateFloorSetup(
         self.FloorGenerator,
         self.EnemyGenerator,
@@ -2184,8 +2278,10 @@ function GA:ApplyDungeonFloor(floorNumber)
     )
 
     run.floor = floorNumber
-    run.playerX = START_X
-    run.playerY = START_Y
+    run.floorMap = floorMap
+    run.chestLoot = BuildFloorChestLoot(floorMap)
+    run.playerX = startX
+    run.playerY = startY
     run.openedChests = {}
     run.explored = {}
     run.visible = {}
@@ -2209,9 +2305,10 @@ function GA:ApplyDungeonFloor(floorNumber)
 
     if self.DungeonFloorTitle then
         self.DungeonFloorTitle:SetText(string.format(
-            "FLOOR %d  -  THE TEST CELLAR  -  %s  -  %d ENEMIES",
+            "FLOOR %d  -  %s  -  %d ROOMS  -  %d ENEMIES",
             floorNumber,
-            floorSetup.densityProfile.key,
+            floorMap.name or "DUNGEON",
+            floorMap.roomCount or 0,
             floorSetup.enemyCount
         ))
     end
@@ -2233,6 +2330,15 @@ function GA:ApplyDungeonFloor(floorNumber)
             floorNumber,
             floorSetup.densityProfile.key,
             floorSetup.enemyCount
+        ),
+        "system"
+    )
+    self:AddCombatLog(
+        string.format(
+            "Layout: %s, %d rooms, seed %d.",
+            floorMap.name or "Dungeon",
+            floorMap.roomCount or 0,
+            floorMap.seed or 0
         ),
         "system"
     )
@@ -2553,7 +2659,7 @@ function GA:TryLootChest(x, y)
     end
 
     local key = CellKey(x, y)
-    local loot = CHEST_LOOT[key]
+    local loot = run.chestLoot and run.chestLoot[key]
     if not loot or (run.openedChests and run.openedChests[key]) then
         return false
     end
@@ -2619,7 +2725,8 @@ function GA:MoveDungeonPlayer(dx, dy)
     self:RenderDungeonGrid()
     self:TryLootChest(nextX, nextY)
 
-    if nextX == EXIT_X and nextY == EXIT_Y then
+    local exitX, exitY = GetDungeonExit()
+    if nextX == exitX and nextY == exitY then
         self:AdvanceDungeonFloor()
         return
     end
@@ -2633,6 +2740,7 @@ function GA:RefreshDungeonSummary()
     end
 
     if self.RunState and self.RunState.active and self.RunState.snapshot then
+        SetActiveFloorMap(self.RunState.floorMap)
         self:SetDungeonSetupMode(false)
         self:SetRunMode(true)
         self:SetDungeonRunPortraitMode(true)
