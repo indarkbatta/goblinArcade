@@ -113,46 +113,28 @@ function GA:CreateDungeonRunPage(parent)
     local left = CreateFrame("Frame", nil, body, "BackdropTemplate")
     left:SetPoint("TOPLEFT")
     left:SetPoint("BOTTOMLEFT")
-    left:SetWidth(150)
+    left:SetWidth(182)
     ApplyBackdrop(left, { 0.050, 0.043, 0.034, 1 }, COLORS.goldDim)
 
-    local characterTitle = CreateText(left, "GameFontNormalSmall", "CHARACTER")
-    characterTitle:SetPoint("TOPLEFT", 12, -14)
-    characterTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
-
-    local playerName = CreateText(left, "GameFontNormal", "")
-    playerName:SetPoint("TOPLEFT", 12, -38)
-    playerName:SetPoint("RIGHT", left, "RIGHT", -10, 0)
-    playerName:SetJustifyH("LEFT")
-    playerName:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
-    self.DungeonPlayerName = playerName
-
-    local playerMeta = CreateText(left, "GameFontHighlightSmall", "")
-    playerMeta:SetPoint("TOPLEFT", playerName, "BOTTOMLEFT", 0, -4)
-    playerMeta:SetPoint("RIGHT", left, "RIGHT", -10, 0)
-    playerMeta:SetJustifyH("LEFT")
-    playerMeta:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
-    self.DungeonPlayerMeta = playerMeta
-
     local statsTitle = CreateText(left, "GameFontNormalSmall", "RUN STATS")
-    statsTitle:SetPoint("TOPLEFT", 12, -92)
+    statsTitle:SetPoint("TOPLEFT", 12, -14)
     statsTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
-    self.DungeonHealth = CreateStatRow(left, "HEALTH", "--", -116)
-    self.DungeonPower = CreateStatRow(left, "POWER", "--", -140)
-    self.DungeonDodge = CreateStatRow(left, "DODGE", "--", -164)
+    self.DungeonHealth = CreateStatRow(left, "HEALTH", "--", -38)
+    self.DungeonPower = CreateStatRow(left, "WEAPON", "--", -62)
+    self.DungeonDodge = CreateStatRow(left, "DODGE", "--", -86)
 
-    local gearTitle = CreateText(left, "GameFontNormalSmall", "GEAR INPUT")
-    gearTitle:SetPoint("TOPLEFT", 12, -206)
+    local gearTitle = CreateText(left, "GameFontNormalSmall", "WOW GEAR INPUT")
+    gearTitle:SetPoint("TOPLEFT", 12, -126)
     gearTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
     local gearHint = CreateText(left, "GameFontHighlightSmall", "Main hand")
-    gearHint:SetPoint("TOPLEFT", 12, -230)
+    gearHint:SetPoint("TOPLEFT", 12, -148)
     gearHint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
     local itemIconButton = CreateFrame("Button", nil, left, "BackdropTemplate")
     itemIconButton:SetSize(42, 42)
-    itemIconButton:SetPoint("TOPLEFT", 12, -250)
+    itemIconButton:SetPoint("TOPLEFT", 12, -168)
     ApplyBackdrop(itemIconButton, { 0.025, 0.022, 0.018, 1 }, COLORS.goldDim)
 
     local itemIcon = itemIconButton:CreateTexture(nil, "ARTWORK")
@@ -188,12 +170,46 @@ function GA:CreateDungeonRunPage(parent)
     self.DungeonMainHandLevel = itemLevel
 
     local itemMeta = CreateText(left, "GameFontDisableSmall", "")
-    itemMeta:SetPoint("TOPLEFT", 12, -300)
+    itemMeta:SetPoint("TOPLEFT", 12, -218)
     itemMeta:SetPoint("RIGHT", left, "RIGHT", -8, 0)
     itemMeta:SetJustifyH("LEFT")
     itemMeta:SetWordWrap(true)
     itemMeta:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
     self.DungeonMainHandMeta = itemMeta
+
+    local conversionTitle = CreateText(left, "GameFontNormalSmall", "ARCADE CONVERSION")
+    conversionTitle:SetPoint("TOPLEFT", 12, -252)
+    conversionTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    local arcadeDamage = CreateText(left, "GameFontNormal", "Damage --")
+    arcadeDamage:SetPoint("TOPLEFT", 12, -276)
+    arcadeDamage:SetPoint("RIGHT", left, "RIGHT", -10, 0)
+    arcadeDamage:SetJustifyH("LEFT")
+    arcadeDamage:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+    self.DungeonArcadeDamage = arcadeDamage
+
+    local arcadeStyle = CreateText(left, "GameFontHighlightSmall", "")
+    arcadeStyle:SetPoint("TOPLEFT", 12, -298)
+    arcadeStyle:SetPoint("RIGHT", left, "RIGHT", -10, 0)
+    arcadeStyle:SetJustifyH("LEFT")
+    arcadeStyle:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    self.DungeonArcadeStyle = arcadeStyle
+
+    local arcadeTraitName = CreateText(left, "GameFontNormalSmall", "")
+    arcadeTraitName:SetPoint("TOPLEFT", 12, -326)
+    arcadeTraitName:SetPoint("RIGHT", left, "RIGHT", -10, 0)
+    arcadeTraitName:SetJustifyH("LEFT")
+    arcadeTraitName:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    self.DungeonArcadeTraitName = arcadeTraitName
+
+    local arcadeTraitDesc = CreateText(left, "GameFontDisableSmall", "")
+    arcadeTraitDesc:SetPoint("TOPLEFT", 12, -346)
+    arcadeTraitDesc:SetWidth(156)
+    arcadeTraitDesc:SetJustifyH("LEFT")
+    arcadeTraitDesc:SetJustifyV("TOP")
+    arcadeTraitDesc:SetWordWrap(true)
+    arcadeTraitDesc:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    self.DungeonArcadeTraitDesc = arcadeTraitDesc
 
     local right = CreateFrame("Frame", nil, body, "BackdropTemplate")
     right:SetPoint("TOPRIGHT")
@@ -306,18 +322,18 @@ local function GetCompatItemInfo(itemInfo)
     return nil
 end
 
-local function GetCompatItemType(itemInfo)
+local function GetCompatItemInstant(itemInfo)
     if C_Item and C_Item.GetItemInfoInstant then
-        local _, itemType, itemSubType = C_Item.GetItemInfoInstant(itemInfo)
-        return itemType, itemSubType
+        local itemID, itemType, itemSubType, equipLoc = C_Item.GetItemInfoInstant(itemInfo)
+        return itemID, itemType, itemSubType, equipLoc
     end
 
     if type(GetItemInfoInstant) == "function" then
-        local _, itemType, itemSubType = GetItemInfoInstant(itemInfo)
-        return itemType, itemSubType
+        local itemID, itemType, itemSubType, equipLoc = GetItemInfoInstant(itemInfo)
+        return itemID, itemType, itemSubType, equipLoc
     end
 
-    return nil, nil
+    return nil, nil, nil, nil
 end
 
 function GA:RefreshMainHandInfo()
@@ -340,17 +356,27 @@ function GA:RefreshMainHandInfo()
         self.DungeonMainHandName:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
         self.DungeonMainHandLevel:SetText("")
         self.DungeonMainHandMeta:SetText("Equip a weapon to scan it.")
+        self.DungeonArcadeDamage:SetText("Damage --")
+        self.DungeonArcadeStyle:SetText("")
+        self.DungeonArcadeTraitName:SetText("")
+        self.DungeonArcadeTraitDesc:SetText("")
+        self.DungeonPower:SetText("--")
+        self.ArcadeMainHand = nil
         return
     end
 
     local name, _, quality, itemLevel, _, itemType, itemSubType = GetCompatItemInfo(itemLink)
+    local itemID, instantType, instantSubType, equipLoc = GetCompatItemInstant(itemLink)
 
-    -- Type/subtype are available through the instant API even if full item data
-    -- has not been cached yet.
-    if not itemType or not itemSubType then
-        local instantType, instantSubType = GetCompatItemType(itemLink)
-        itemType = itemType or instantType
-        itemSubType = itemSubType or instantSubType
+    itemType = itemType or instantType
+    itemSubType = itemSubType or instantSubType
+
+    if not itemLevel and C_Item and C_Item.GetDetailedItemLevelInfo then
+        itemLevel = C_Item.GetDetailedItemLevelInfo(itemLink)
+    end
+
+    if quality == nil and type(GetInventoryItemQuality) == "function" then
+        quality = GetInventoryItemQuality("player", slotID)
     end
 
     if not name then
@@ -372,22 +398,45 @@ function GA:RefreshMainHandInfo()
     local rarity = QUALITY_NAMES[quality] or "Unknown"
     local typeName = itemSubType or itemType or "Unknown type"
     self.DungeonMainHandMeta:SetText(rarity .. "  -  " .. typeName)
+
+    if self.WeaponGenerator and self.WeaponGenerator.Convert then
+        local weapon = self.WeaponGenerator:Convert({
+            itemID = itemID,
+            name = name,
+            itemLevel = itemLevel,
+            quality = quality,
+            itemType = itemType,
+            itemSubType = itemSubType,
+            equipLoc = equipLoc,
+        })
+
+        self.ArcadeMainHand = weapon
+
+        if weapon then
+            self.DungeonArcadeDamage:SetText(string.format("Damage %d - %d", weapon.damageMin, weapon.damageMax))
+            self.DungeonArcadeStyle:SetText(
+                string.format("%s  -  %s  -  Range %d", weapon.style, weapon.speed, weapon.range)
+            )
+            self.DungeonPower:SetText(string.format("%d-%d", weapon.damageMin, weapon.damageMax))
+
+            if weapon.traitName then
+                self.DungeonArcadeTraitName:SetText(weapon.traitName)
+                self.DungeonArcadeTraitDesc:SetText(weapon.traitDescription or "")
+            else
+                self.DungeonArcadeTraitName:SetText("NO SIGNATURE TRAIT")
+                self.DungeonArcadeTraitDesc:SetText("Uncommon or better weapons unlock their archetype trait.")
+            end
+        end
+    end
 end
 
 function GA:RefreshDungeonSummary()
-    if not self.DungeonPlayerName then
+    if not self.DungeonHealth then
         return
     end
 
-    local name = UnitName("player") or "Unknown"
-    local level = UnitLevel("player") or 0
-    local className = UnitClass("player") or "Adventurer"
     local maxHealth = UnitHealthMax("player") or 0
-
-    self.DungeonPlayerName:SetText(name)
-    self.DungeonPlayerMeta:SetText(string.format("Level %d %s", level, className))
     self.DungeonHealth:SetText(tostring(maxHealth))
-
     self:RefreshMainHandInfo()
 end
 

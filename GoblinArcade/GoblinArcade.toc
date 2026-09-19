@@ -2,9 +2,10 @@
 ## Title: GoblinArcade
 ## Notes: Tiny games for the downtime between adventures.
 ## Author: indarkbatta
-## Version: 0.2.3
+## Version: 0.3.0
 ## X-Category: Miscellaneous
 
 Core.lua
 UI.lua
+WeaponGenerator.lua
 DungeonRun.lua
