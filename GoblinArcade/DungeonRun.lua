@@ -66,16 +66,19 @@ local ENEMY_VISUALS = {
         gridTexture = KOBOLD_TEXTURE,
         portraitIcon = KOBOLD_PORTRAIT_ICON,
         gridTexCoord = { 0, 1, 0, 1 },
+        portraitTexCoord = { 0.08, 0.92, 0.08, 0.92 },
     },
     spider = {
         gridTexture = SPIDER_TEXTURE,
         portraitIcon = SPIDER_TEXTURE,
         gridTexCoord = { 0, 1, 0, 1 },
+        portraitTexCoord = { 0, 1, 0, 1 },
     },
     skeleton = {
         gridTexture = SKELETON_TEXTURE,
         portraitIcon = SKELETON_TEXTURE,
         gridTexCoord = { 0, 1, 0, 1 },
+        portraitTexCoord = { 0, 1, 0, 1 },
     },
 }
 
@@ -414,6 +417,8 @@ local function CreateFloorEnemies(enemyGenerator, playerLevel, floor, gearPressu
         enemy.texture = visual.gridTexture
         enemy.portraitIcon = visual.portraitIcon
         enemy.gridTexCoord = visual.gridTexCoord
+        enemy.portraitTexCoord = visual.portraitTexCoord
+        enemy.intent = "IDLE"
 
         enemies[#enemies + 1] = enemy
         used[CellKey(candidate.x, candidate.y)] = true
@@ -498,7 +503,7 @@ local function GetEnemyDisplayName(enemy)
         return "Enemy"
     end
 
-    local name = enemy.name or "Enemy"
+    local name = GetEnemyDisplayName(enemy)
     local rank = enemy.rank or "normal"
 
     if rank == "veteran" then
@@ -510,6 +515,19 @@ local function GetEnemyDisplayName(enemy)
     end
 
     return name
+end
+
+local ENEMY_INTENT_LABELS = {
+    IDLE = "WATCHING",
+    ALERTED = "ALERTED",
+    MOVING = "MOVING",
+    ATTACKING = "ATTACKING",
+    STAGGERED = "STAGGERED",
+}
+
+local function GetEnemyIntentLabel(enemy)
+    local intent = enemy and enemy.intent or "IDLE"
+    return ENEMY_INTENT_LABELS[intent] or tostring(intent)
 end
 
 local function GenerateFloorSetup(floorGenerator, enemyGenerator, playerLevel, floorNumber, gearPressure)
@@ -833,6 +851,13 @@ function GA:CreateDungeonRunPage(parent)
     enemyHealth:SetJustifyH("LEFT")
     enemyHealth:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
     self.DungeonEnemyHealth = enemyHealth
+
+    local enemyIntent = CreateText(enemyCard, "GameFontDisableSmall", "")
+    enemyIntent:SetPoint("TOPLEFT", enemyHealth, "BOTTOMLEFT", 0, -4)
+    enemyIntent:SetPoint("RIGHT", enemyCard, "RIGHT", -8, 0)
+    enemyIntent:SetJustifyH("LEFT")
+    enemyIntent:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    self.DungeonEnemyIntent = enemyIntent
 
     local runTitle = CreateText(right, "GameFontNormalSmall", "RUN")
     runTitle:SetPoint("TOPLEFT", 12, -126)
@@ -1503,9 +1528,33 @@ function GA:RefreshEnemyCombatCard()
                 string.format("%d / %d HP", enemy.hp or 0, enemy.maxHp or 0)
             )
 
+            if self.DungeonEnemyIntent then
+                local intent = enemy.intent or "IDLE"
+                self.DungeonEnemyIntent:SetText("INTENT: " .. GetEnemyIntentLabel(enemy))
+
+                if intent == "ATTACKING" then
+                    self.DungeonEnemyIntent:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+                elseif intent == "STAGGERED" or intent == "ALERTED" then
+                    self.DungeonEnemyIntent:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+                else
+                    self.DungeonEnemyIntent:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+                end
+            end
+
             if self.DungeonEnemyPortrait then
                 self.DungeonEnemyPortrait:SetTexture(enemy.portraitIcon or KOBOLD_PORTRAIT_ICON)
-                self.DungeonEnemyPortrait:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+
+                local portraitCoords = enemy.portraitTexCoord
+                if portraitCoords then
+                    self.DungeonEnemyPortrait:SetTexCoord(
+                        portraitCoords[1],
+                        portraitCoords[2],
+                        portraitCoords[3],
+                        portraitCoords[4]
+                    )
+                else
+                    self.DungeonEnemyPortrait:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+                end
             end
         else
             self.DungeonEnemyCard:Hide()
@@ -1633,7 +1682,7 @@ function GA:PlayerAttackEnemy(targetEnemy)
     self:AddCombatLog(
         string.format("%sYou hit the %s for %d damage. (%d/%d HP)",
             critical and "CRITICAL! " or "",
-            enemy.name or "enemy",
+            string.lower(GetEnemyDisplayName(enemy)),
             damage,
             enemy.hp,
             enemy.maxHp or enemy.hp),
@@ -1645,6 +1694,7 @@ function GA:PlayerAttackEnemy(targetEnemy)
         local staggerChance = tonumber(weapon.traitValue) or 0
         if staggerChance > 0 and math.random(1, 100) <= staggerChance then
             enemy.skipTurn = true
+            enemy.intent = "STAGGERED"
             staggered = true
             self:AddCombatLog(
                 string.format("STAGGER! The %s loses its next action.", enemy.name or "enemy"),
@@ -1841,6 +1891,8 @@ function GA:RenderDungeonGrid()
                             entry.marker:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
                         end
                     end
+                elseif not enemy.alerted then
+                    enemy.intent = "IDLE"
                 end
             end
         end
@@ -2316,6 +2368,7 @@ function GA:RunEnemyTurn()
     for _, enemy in ipairs(run.enemies) do
         if enemy.alive ~= false and run.active then
             if enemy.skipTurn then
+                enemy.intent = "STAGGERED"
                 enemy.skipTurn = false
 
                 if self:IsDungeonCellVisible(enemy.x, enemy.y) then
@@ -2335,6 +2388,7 @@ function GA:RunEnemyTurn()
 
                 if seesPlayer and not enemy.alerted then
                     enemy.alerted = true
+                    enemy.intent = "ALERTED"
 
                     if self:IsDungeonCellVisible(enemy.x, enemy.y) then
                         self:AddCombatLog(
@@ -2345,6 +2399,7 @@ function GA:RunEnemyTurn()
                 end
 
                 if IsAdjacent(enemy.x, enemy.y, run.playerX, run.playerY) then
+                    enemy.intent = "ATTACKING"
                     run.activeEnemyId = run.activeEnemyId or enemy.uid
 
                     local dodgeChance = stats.dodge or 0
@@ -2406,6 +2461,7 @@ function GA:RunEnemyTurn()
                         end
                     end
                 elseif enemy.alerted then
+                    enemy.intent = "ALERTED"
                     local movementSteps = GetEnemyMovementSteps(enemy, enemyPhase)
                     local movedSteps = 0
                     local visibleDuringMove = self:IsDungeonCellVisible(enemy.x, enemy.y)
@@ -2437,6 +2493,10 @@ function GA:RunEnemyTurn()
                         if self:IsDungeonCellVisible(enemy.x, enemy.y) then
                             visibleDuringMove = true
                         end
+                    end
+
+                    if movedSteps > 0 then
+                        enemy.intent = "MOVING"
                     end
 
                     if movedSteps > 0 and visibleDuringMove then

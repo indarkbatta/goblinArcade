@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.17.0**  
+Current addon version: **0.17.1**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -359,8 +359,9 @@ When there is no adjacent active enemy:
 
 When combat starts:
 
-- kobold card appears at the top
+- enemy card appears at the top
 - RUN stats shift below it
+- the card shows a live intent line: WATCHING / ALERTED / MOVING / ATTACKING / STAGGERED
 
 Relic slots were explicitly removed and should **not** be reintroduced unless requested.
 
@@ -746,7 +747,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.17.0**
+- **0.17.1**
 
 Recent gameplay foundation:
 
@@ -779,6 +780,8 @@ Recent gameplay foundation:
 - enemy tile backgrounds are no longer tinted red; only the enemy tile border is red
 - FloorGenerator v3 now creates bounded Normal / Veteran / Elite rank compositions without increasing enemy count
 - the target card prefixes Veteran / Elite ranks so stronger enemies are identifiable
+- enemy intent presentation is active on the right-side target card: WATCHING / ALERTED / MOVING / ATTACKING / STAGGERED
+- Spider/Skeleton custom target-card art now uses full-frame portrait coordinates instead of Blizzard-icon cropping
 
 ---
 
@@ -1262,43 +1265,46 @@ Randomness is appropriate in floor composition/density. It must remain bounded. 
 
 ## 25. Recommended next development steps
 
-Deterministic scaling, bounded density, multi-enemy support, three active archetypes, the 9-floor run loop, and bounded rank composition are complete. The most natural next slice is now **enemy intent / combat presentation**, followed by floor-layout variety.
+Deterministic scaling, bounded density, multi-enemy support, three active archetypes, the 9-floor run loop, bounded rank composition, and enemy intent presentation are complete. The next major slice should be **floor-layout variety**, with a small combat cleanup pass before or alongside it.
 
 Recommended order:
 
-1. **Enemy intent / combat presentation**
-   - ATTACKING
-   - MOVING
-   - STAGGERED
-   - maybe visible on the right target card
+1. **Combat cleanup**
+   - ordinary killing blows should still consume the enemy phase for other surviving enemies
+   - preserve current multi-enemy turn semantics
 
-2. **Abilities**
+2. **Floor-layout variety**
+   - multiple hand-authored floor templates first
+   - keep 25×25 world dimensions and the 7×7 camera
+   - procedural generation can come later
+
+3. **Abilities**
    - Warrior first
    - basic attack + 4 actives + passive is the longer-term design
    - current buttons 2/3 are placeholders
 
-3. **Potions**
+4. **Potions**
    - finite run resource
    - no unlimited healing
 
-4. **Dungeon generation**
+5. **Dungeon generation**
    - floor templates first
    - procedural generation later if needed
 
-5. **Floor objectives**
+6. **Floor objectives**
    - exit
    - elite
    - chest
    - shrine/shop
    - boss
 
-6. **More deterministic loot**
+7. **More deterministic loot**
    - armor
    - jewelry
    - weapons
    - clear archetype-based differences
 
-7. **Scores**
+8. **Scores**
    - run score summary
    - eventual local/group sharing
 
