@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.16.6**  
+Current addon version: **0.16.7**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -137,8 +137,8 @@ SavedVariables:
 
 Main window:
 
-- current size: **1600 × 1200**
-- enlarged in 0.16.5 so the 7×7 dungeon viewport can use true 128×128 tiles without sprite overlap
+- current size: **1384 × 944**
+- resized in 0.16.7 for the 7×7 viewport using 96×96 physical tiles
 - dark brown / black / gold visual language
 - flat UI, no rounded-corner aesthetic
 
@@ -208,16 +208,16 @@ World size:
 Viewport:
 
 - **7 × 7**
-- logical tile size: **128 × 128 px**
+- logical tile size: **96 × 96 px**
 - tile gap: **1 px**
-- rendered grid: **902 × 902 px**
+- rendered grid: **678 × 678 px**
 - creature sprite source-art standard: **128 × 128 px**
 - creature sprite render size: **96 × 96 px**
 - static/player markers use the huge game font for readability at the larger scale
 
 The viewport is a camera into the larger 25×25 world, not a scrollbar.
 
-Important visual rule: the user explicitly wants **large physical tiles, not sprites that overflow neighboring cells**. The current 0.16.6 test baseline uses true 128×128 logical tiles with 128×128 source art rendered at 96×96 inside a 7×7 viewport. Every creature texture remains fully contained inside its own tile.
+Important visual rule: the user explicitly wants **sprites fully contained inside their own cells**. The current 0.16.7 baseline uses 96×96 physical tiles with 128×128 source art rendered at 96×96 inside a 7×7 viewport. Every creature texture remains fully contained inside its own tile.
 
 Player starts around:
 
@@ -729,7 +729,7 @@ Current prototype limitation: the same static chest locations and prototype ches
 
 Latest visual changes before this handoff:
 
-1. Main window evolved from **1020 → 1100 → 1160 px**, and is now **1160 × 720** to support larger dungeon tiles.
+1. Main window is currently **1384 × 944** to support the 7×7 viewport with 96×96 tiles.
 2. Right combat panel widened to **182 px**, matching left run panel.
 3. Kobold card moved back to the **right side** at user's request.
 4. Kobold card uses the same horizontal dimensions as player card.
@@ -739,7 +739,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.16.6**
+- **0.16.7**
 
 Recent gameplay foundation:
 
@@ -761,11 +761,11 @@ Recent gameplay foundation:
 - Floor 9 exit completes the run
 - HP, equipment, backpack, score and total turns persist across floor transitions
 - frozen BEGIN RUN Gear Pressure persists across the entire 9-floor run
-- dungeon logical tiles are now 128×128 px for the current visual test
+- dungeon logical tiles are now 96×96 px
 - viewport remains 7×7
-- creature source-art standard is now 128×128 px
-- creature sprites render at 96×96 px inside 128×128 tiles and remain fully contained inside their own tile
-- main window is now 1600×1200 to accommodate the 902×902 grid
+- creature source-art standard remains 128×128 px
+- creature sprites render at 96×96 px inside 96×96 tiles and remain fully contained inside their own tile
+- main window is now 1384×944 to accommodate the 678×678 grid
 - Kobold grid art replaced with the new 128×128 custom `kobold.tga`; the temporary upload name `kobold02_128x128.tga` was removed
 
 ---
@@ -1339,9 +1339,9 @@ Before changing layout conventions, remember the user's current preferences:
 - no relic panel;
 - vision radius = 4;
 - map should not visually overlap side panels;
-- dungeon logical tile test baseline is 128×128 px;
+- dungeon logical tile baseline is 96×96 px;
 - viewport baseline is 7×7 visible tiles;
-- creature art test baseline is 128×128 source rendered at 96×96 px with no tile overflow;
+- creature art baseline is 128×128 source rendered at 96×96 px with no tile overflow;
 - fog should not show dotted borders;
 - item tooltips should show GoblinArcade stats, not WoW stats;
 - drag targets must visually highlight.
