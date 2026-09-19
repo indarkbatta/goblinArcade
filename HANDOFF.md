@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.16.7**  
+Current addon version: **0.16.8**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -125,7 +125,12 @@ Media:
 - `GoblinArcade/Media/Monsters/kobold.tga`
   - current Kobold grid sprite
   - 128×128 custom TGA
-  - replaced in 0.16.5 with the new user-supplied 128×128 artwork
+- `GoblinArcade/Media/Monsters/spider.tga`
+  - current Spider grid + target-card sprite
+  - 128×128 custom TGA
+- `GoblinArcade/Media/Monsters/skeleton.tga`
+  - current Skeleton grid + target-card sprite
+  - 128×128 custom TGA
 
 SavedVariables:
 
@@ -362,10 +367,10 @@ Enemy visuals currently use:
 
 - Kobold portrait: Blizzard candle-kobold icon
 - Kobold grid sprite: custom `Media/Monsters/kobold`
-- Spider: Blizzard spider ability icon for grid + target card
-- Skeleton: Blizzard skull icon for grid + target card
+- Spider: custom `Media/Monsters/spider` for grid + target card
+- Skeleton: custom `Media/Monsters/skeleton` for grid + target card
 
-These are functional prototype visuals; dedicated custom monster sprites can replace Spider/Skeleton later without changing the archetype logic.
+All three active archetypes now have dedicated custom grid artwork. Spider and Skeleton use their custom sprite art in the right-side target card as well.
 
 ---
 
@@ -739,7 +744,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.16.7**
+- **0.16.8**
 
 Recent gameplay foundation:
 
@@ -766,7 +771,9 @@ Recent gameplay foundation:
 - creature source-art standard remains 128×128 px
 - creature sprites render at 96×96 px inside 96×96 tiles and remain fully contained inside their own tile
 - main window is now 1384×944 to accommodate the 678×678 grid
-- Kobold grid art replaced with the new 128×128 custom `kobold.tga`; the temporary upload name `kobold02_128x128.tga` was removed
+- Kobold grid art uses the 128×128 custom `kobold.tga`
+- Spider and Skeleton now use dedicated 128×128 custom sprites for grid + target card
+- temporary upload names `spider01_128x128.tga` and `skeleton01_128x128.tga` were normalized to `spider.tga` and `skeleton.tga`
 
 ---
 
