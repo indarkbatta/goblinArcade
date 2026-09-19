@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.19.0**  
+Current addon version: **0.19.1**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -758,7 +758,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.19.0**
+- **0.19.1**
 
 Recent gameplay foundation:
 
@@ -804,6 +804,8 @@ Recent gameplay foundation:
 - closed doors display as +, block line of sight and enemy pathfinding, and open when the player bumps into them
 - opening a door costs one player turn and triggers the normal enemy phase; opened doors display as / and remain open for the floor
 - DungeonGenerator v3 assigns room roles: START / COMBAT / TREASURE / ELITE / SHRINE / EXIT / BOSS
+- DungeonGenerator v4 fixes door placement: doors are now true room/corridor thresholds in the one-tile wall band outside rooms, not arbitrary room-edge contacts
+- threshold detection requires room interior -> doorway -> continuing corridor, and contiguous doorway candidates collapse to one centered door
 - Floor 1-2 use START + COMBAT + TREASURE + EXIT; Shrine appears from Floor 3, Elite from Floor 5, Boss from Floor 9 when room count allows
 - enemy spawning is now room-based: ordinary enemies spawn only in COMBAT / ELITE / BOSS rooms, leaving START / TREASURE / SHRINE / EXIT rooms clear
 - ELITE rooms guarantee one Elite-ranked encounter anchor; BOSS rooms guarantee one Boss-ranked encounter anchor without increasing total enemy count
@@ -879,13 +881,15 @@ Multi-enemy support is now active in 0.14.2:
 
 ### Current map
 
-DungeonGenerator v3 is active in 0.19.0.
+DungeonGenerator v4 is active in 0.19.1.
 
 - map dimensions remain 25×25;
 - rooms are procedurally placed with one-cell separation;
 - all rooms are connected by carved L-corridors;
 - deeper floors receive a small number of extra loop connections;
-- corridor crossings on room boundaries become generated door cells;
+- genuine corridor crossings through the one-tile wall band around a room become generated door cells;
+- corridors merely running alongside a room no longer create false doors;
+- contiguous threshold candidates collapse to one centered doorway;
 - closed doors block LOS and enemy pathfinding until the player opens them;
 - opening a door is a one-turn bump action;
 - every generated room receives one gameplay role;
@@ -1416,7 +1420,7 @@ Before changing layout conventions, remember the user's current preferences:
 - creature art baseline is 128×128 source rendered at 96×96 px with no tile overflow;
 - enemy cells keep the terrain background and use only a red border for hostile highlighting;
 - active floors use the procedural DungeonGenerator; do not restore fixed start/exit/chest coordinates;
-- generated rooms use real threshold doors; closed doors block LOS and open on bump for one turn;
+- generated rooms use real room-to-corridor threshold doors in the wall band outside the room; closed doors block LOS and open on bump for one turn;
 - generated rooms have gameplay roles; START / TREASURE / SHRINE / EXIT stay free of ordinary enemy spawns;
 - minimap belongs in the lower-right run panel and respects Fog of War instead of revealing unexplored rooms;
 - fog should not show dotted borders;

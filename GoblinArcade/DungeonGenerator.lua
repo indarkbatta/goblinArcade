@@ -3,7 +3,7 @@ local _, GA = ...
 GA.DungeonGenerator = GA.DungeonGenerator or {}
 local DG = GA.DungeonGenerator
 
-DG.VERSION = 3
+DG.VERSION = 4
 
 local MODULUS = 2147483647
 local MULTIPLIER = 48271
@@ -198,30 +198,128 @@ local function CountKeys(values)
     return count
 end
 
-local function BuildDoorSet(rooms, walkable)
-    local doors = {}
+local function BuildRoomMembership(rooms)
+    local membership = {}
 
-    local function MarkDoor(x, y, outsideX, outsideY)
-        if walkable[CellKey(x, y)] and walkable[CellKey(outsideX, outsideY)] then
-            doors[CellKey(x, y)] = true
+    for roomIndex, room in ipairs(rooms) do
+        for y = room.y, room.y + room.h - 1 do
+            for x = room.x, room.x + room.w - 1 do
+                membership[CellKey(x, y)] = roomIndex
+            end
         end
     end
 
-    for _, room in ipairs(rooms) do
+    return membership
+end
+
+local function BuildDoorSet(rooms, walkable)
+    local doors = {}
+    local membership = BuildRoomMembership(rooms)
+
+    local function IsValidThreshold(roomIndex, doorX, doorY, insideX, insideY, outsideX, outsideY)
+        local doorKey = CellKey(doorX, doorY)
+        local insideKey = CellKey(insideX, insideY)
+        local outsideKey = CellKey(outsideX, outsideY)
+
+        -- The threshold itself must be corridor-carved space in the wall band,
+        -- the inward tile must belong to this room, and the corridor must
+        -- continue on the far side. This prevents doors from appearing on
+        -- arbitrary room-edge tiles or on corridors merely running alongside.
+        return walkable[doorKey] == true
+            and membership[doorKey] == nil
+            and walkable[insideKey] == true
+            and membership[insideKey] == roomIndex
+            and walkable[outsideKey] == true
+            and membership[outsideKey] ~= roomIndex
+    end
+
+    local function CommitSegment(segment)
+        if #segment == 0 then
+            return
+        end
+
+        local middle = math.floor((#segment + 1) / 2)
+        local candidate = segment[middle]
+        doors[CellKey(candidate.x, candidate.y)] = true
+    end
+
+    local function ScanSide(roomIndex, startValue, endValue, candidateFactory)
+        local segment = {}
+
+        for value = startValue, endValue do
+            local candidate = candidateFactory(value)
+
+            if IsValidThreshold(
+                roomIndex,
+                candidate.doorX,
+                candidate.doorY,
+                candidate.insideX,
+                candidate.insideY,
+                candidate.outsideX,
+                candidate.outsideY
+            ) then
+                segment[#segment + 1] = {
+                    x = candidate.doorX,
+                    y = candidate.doorY,
+                }
+            else
+                CommitSegment(segment)
+                segment = {}
+            end
+        end
+
+        CommitSegment(segment)
+    end
+
+    for roomIndex, room in ipairs(rooms) do
         local left = room.x
         local right = room.x + room.w - 1
         local top = room.y
         local bottom = room.y + room.h - 1
 
-        for x = left + 1, right - 1 do
-            MarkDoor(x, top, x, top - 1)
-            MarkDoor(x, bottom, x, bottom + 1)
-        end
+        ScanSide(roomIndex, left, right, function(x)
+            return {
+                doorX = x,
+                doorY = top - 1,
+                insideX = x,
+                insideY = top,
+                outsideX = x,
+                outsideY = top - 2,
+            }
+        end)
 
-        for y = top + 1, bottom - 1 do
-            MarkDoor(left, y, left - 1, y)
-            MarkDoor(right, y, right + 1, y)
-        end
+        ScanSide(roomIndex, left, right, function(x)
+            return {
+                doorX = x,
+                doorY = bottom + 1,
+                insideX = x,
+                insideY = bottom,
+                outsideX = x,
+                outsideY = bottom + 2,
+            }
+        end)
+
+        ScanSide(roomIndex, top, bottom, function(y)
+            return {
+                doorX = left - 1,
+                doorY = y,
+                insideX = left,
+                insideY = y,
+                outsideX = left - 2,
+                outsideY = y,
+            }
+        end)
+
+        ScanSide(roomIndex, top, bottom, function(y)
+            return {
+                doorX = right + 1,
+                doorY = y,
+                insideX = right,
+                insideY = y,
+                outsideX = right + 2,
+                outsideY = y,
+            }
+        end)
     end
 
     return doors
