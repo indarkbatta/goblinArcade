@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.24.0**  
+Current addon version: **0.24.1**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -50,11 +50,11 @@ Studio v0.1.0 is deliberately **static-first** for Vercel cost efficiency:
 - JSON export provides portable backups;
 - Lua export produces the shape expected at `GoblinArcade/Data/StudioData.lua`.
 
-The repo-level `vercel.json` serves `studio/index.html` at both `/` and `/studio`.
+The repo-level `vercel.json` keeps `/` as a real static `index.html` entrypoint and rewrites only `/studio` to that file. 0.24.1 also mirrors the same static entrypoint to `GoblinArcade/index.html` so the page still works if the Vercel project's Root Directory is configured as `GoblinArcade`. WoW ignores the HTML file.
 
 Direct **Publish to GitHub** is intentionally not exposed from the static page yet. It will be added as a protected, on-demand endpoint once an authenticated Vercel secret is available. Until then the public Studio cannot modify the repository, even if someone discovers its URL.
 
-The Vercel connector did not yet list the newly imported GoblinArcade project at implementation time, so verify the first deployment after the GitHub commit; do not touch the unrelated `liminal-space` Vercel project.
+The Vercel connector still does not list the newly imported GoblinArcade project, but the user confirmed the production domain is `goblin-arcade.vercel.app`. The initial 0.24.0 deployment returned Vercel 404 at the root despite being Ready; 0.24.1 fixes this by deploying a real root `index.html` instead of relying on a root rewrite. Do not touch the unrelated `liminal-space` Vercel project.
 
 Deployment is automatic through GitHub Actions.
 
@@ -155,8 +155,9 @@ Important addon files:
 
 Studio / web tooling:
 
-- `studio/index.html`
+- `index.html` and `studio/index.html`
   - GoblinArcade Studio v0.1.0
+  - root `index.html` is the canonical Vercel entrypoint; `/studio` rewrites to it
   - single-file static editor with no framework/build step
   - edits Classes, Abilities, Enemies, Ranks, Room Roles, Loot and Shrines
   - browser-local autosave via localStorage
@@ -803,7 +804,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.24.0**
+- **0.24.1**
 
 Recent gameplay foundation:
 
