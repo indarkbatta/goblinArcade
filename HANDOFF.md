@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.16.3**  
+Current addon version: **0.16.4**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -123,6 +123,9 @@ Important addon files:
 Media:
 
 - `GoblinArcade/Media/Monsters/kobold.tga`
+  - current Kobold grid sprite
+  - 64×64 custom TGA
+  - replaced in 0.16.4 with the new user-supplied artwork
 
 SavedVariables:
 
@@ -736,7 +739,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.16.2**
+- **0.16.4**
 
 Recent gameplay foundation:
 
@@ -763,6 +766,7 @@ Recent gameplay foundation:
 - creature source-art standard remains 64×64 px
 - creature sprites render at 56×56 px inside the larger tile
 - main window remains 1160×720
+- Kobold grid art replaced with the new 64×64 custom `kobold.tga`; the temporary upload name `kobold02_64x64.tga` was removed
 
 ---
 
@@ -1302,7 +1306,7 @@ These are useful sanity checks, not hard-coded gameplay requirements.
 Long-term dungeon concept:
 
 - 9 floors (**run progression implemented in 0.16.0**)
-- 13×13 camera viewport
+- 7×7 camera viewport
 - larger dungeon world underneath
 - movement consumes turns
 - bump combat
