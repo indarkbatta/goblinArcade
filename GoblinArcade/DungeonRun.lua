@@ -675,6 +675,139 @@ local function BuildRoomRoleText(counts)
     return table.concat(parts, " / ")
 end
 
+local function BuildInitialRoomStates(floorMap)
+    local states = {}
+
+    for _, room in ipairs(floorMap and floorMap.rooms or {}) do
+        local encounterRoom = room.role == "COMBAT"
+            or room.role == "ELITE"
+            or room.role == "BOSS"
+
+        states[room.index] = {
+            role = room.role,
+            cleared = not encounterRoom,
+            shrineUsed = false,
+            eliteRewardSpawned = false,
+            eliteRewardClaimed = false,
+        }
+    end
+
+    return states
+end
+
+local function GetRoomByIndex(floorMap, roomIndex)
+    if not floorMap or not roomIndex then
+        return nil
+    end
+
+    for _, room in ipairs(floorMap.rooms or {}) do
+        if room.index == roomIndex then
+            return room
+        end
+    end
+
+    return nil
+end
+
+local function IsBossAlive(run)
+    for _, enemy in ipairs(run and run.enemies or {}) do
+        if enemy.alive ~= false
+            and (enemy.rank == "boss" or enemy.roomRole == "BOSS") then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function IsDungeonExitLocked(run)
+    return run
+        and (run.floor or 1) >= 9
+        and IsBossAlive(run)
+end
+
+local function SpawnEliteReward(run, roomIndex)
+    if not run or not run.floorMap or not roomIndex then
+        return
+    end
+
+    run.roomStates = run.roomStates or {}
+    local state = run.roomStates[roomIndex]
+    if not state or state.eliteRewardSpawned then
+        return
+    end
+
+    local room = GetRoomByIndex(run.floorMap, roomIndex)
+    if not room or not room.center then
+        return
+    end
+
+    local key = CellKey(room.center.x, room.center.y)
+    local templateIndex = (((run.floor or 1) + roomIndex - 2) % #CHEST_LOOT_TEMPLATES) + 1
+    local loot = CopyTable(CHEST_LOOT_TEMPLATES[templateIndex])
+
+    loot.itemLevel = (loot.itemLevel or 1) + 2
+    loot.name = "Elite Cache: " .. (loot.name or "Dungeon Reward")
+
+    run.floorMap.markers[key] = {
+        text = "$",
+        color = "gold",
+        kind = "chest",
+        roomIndex = roomIndex,
+        rewardType = "elite",
+    }
+    run.chestLoot = run.chestLoot or {}
+    run.chestLoot[key] = loot
+    state.eliteRewardSpawned = true
+end
+
+local function UpdateEncounterRoomClear(self, run, defeatedEnemy)
+    if not run or not defeatedEnemy or not defeatedEnemy.roomIndex then
+        return
+    end
+
+    local roomIndex = defeatedEnemy.roomIndex
+    local roomRole = defeatedEnemy.roomRole
+    if roomRole ~= "COMBAT" and roomRole ~= "ELITE" and roomRole ~= "BOSS" then
+        return
+    end
+
+    for _, enemy in ipairs(run.enemies or {}) do
+        if enemy.alive ~= false and enemy.roomIndex == roomIndex then
+            return
+        end
+    end
+
+    run.roomStates = run.roomStates or {}
+    local state = run.roomStates[roomIndex] or { role = roomRole }
+    run.roomStates[roomIndex] = state
+
+    if state.cleared then
+        return
+    end
+
+    state.cleared = true
+
+    if roomRole == "ELITE" then
+        SpawnEliteReward(run, roomIndex)
+        self:AddCombatLog("ELITE ROOM CLEARED - a reward cache appears.", "system")
+    elseif roomRole == "BOSS" then
+        local room = GetRoomByIndex(run.floorMap, roomIndex)
+        if room and room.center then
+            local key = CellKey(room.center.x, room.center.y)
+            run.floorMap.markers[key] = {
+                text = "b",
+                color = "muted",
+                kind = "bossCleared",
+                roomIndex = roomIndex,
+            }
+        end
+        self:AddCombatLog("BOSS DEFEATED - THE WAY OUT OPENS.", "system")
+    else
+        self:AddCombatLog("ROOM CLEARED.", "system")
+    end
+end
+
 local function GetEnemyDisplayName(enemy)
     if not enemy then
         return "Enemy"
@@ -1106,7 +1239,58 @@ function GA:CreateDungeonRunPage(parent)
 
     self.DungeonGrid = CreateGrid(center)
 
-    local legend = CreateText(center, "GameFontDisableSmall", "@ YOU    ENEMY SPRITE    S TEST    $ CHEST    > EXIT")
+    local shrineFrame = CreateFrame("Frame", nil, center, "BackdropTemplate")
+    shrineFrame:SetSize(520, 190)
+    shrineFrame:SetPoint("CENTER", center, "CENTER", 0, 0)
+    shrineFrame:SetFrameLevel(center:GetFrameLevel() + 50)
+    shrineFrame:EnableMouse(true)
+    ApplyBackdrop(shrineFrame, { 0.025, 0.021, 0.017, 0.98 }, COLORS.gold)
+    shrineFrame:Hide()
+    self.DungeonShrineFrame = shrineFrame
+
+    local shrineTitle = CreateText(shrineFrame, "GameFontNormalLarge", "FORGOTTEN SHRINE")
+    shrineTitle:SetPoint("TOP", 0, -18)
+    shrineTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    local shrineText = CreateText(
+        shrineFrame,
+        "GameFontHighlightSmall",
+        "Choose one blessing. Each shrine can be used once."
+    )
+    shrineText:SetPoint("TOP", shrineTitle, "BOTTOM", 0, -10)
+    shrineText:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+
+    local restoreButton = CreateFlatButton(shrineFrame, "1  RESTORE", 148, 40)
+    restoreButton:SetPoint("BOTTOMLEFT", 16, 18)
+    restoreButton:SetScript("OnClick", function()
+        GA:ChooseShrineGift("restore")
+    end)
+
+    local blessingButton = CreateFlatButton(shrineFrame, "2  BLESSING", 148, 40)
+    blessingButton:SetPoint("BOTTOM", 0, 18)
+    blessingButton:SetScript("OnClick", function()
+        GA:ChooseShrineGift("blessing")
+    end)
+
+    local sacrificeButton = CreateFlatButton(shrineFrame, "3  SACRIFICE", 148, 40)
+    sacrificeButton:SetPoint("BOTTOMRIGHT", -16, 18)
+    sacrificeButton:SetScript("OnClick", function()
+        GA:ChooseShrineGift("sacrifice")
+    end)
+
+    local restoreDesc = CreateText(shrineFrame, "GameFontDisableSmall", "+25% max HP")
+    restoreDesc:SetPoint("BOTTOM", restoreButton, "TOP", 0, 5)
+    restoreDesc:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local blessingDesc = CreateText(shrineFrame, "GameFontDisableSmall", "+5% run damage")
+    blessingDesc:SetPoint("BOTTOM", blessingButton, "TOP", 0, 5)
+    blessingDesc:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local sacrificeDesc = CreateText(shrineFrame, "GameFontDisableSmall", "-15% max HP, +150 score")
+    sacrificeDesc:SetPoint("BOTTOM", sacrificeButton, "TOP", 0, 5)
+    sacrificeDesc:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local legend = CreateText(center, "GameFontDisableSmall", "@ YOU    ENEMY SPRITE    S SHRINE    $ CHEST    < / > STAIRS")
     legend:SetPoint("BOTTOM", 0, 9)
     legend:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
@@ -1332,6 +1516,19 @@ function GA:CreateDungeonRunPage(parent)
         -- it disabled for the entire run so WoW never receives movement keys.
         if pageFrame.SetPropagateKeyboardInput then
             pageFrame:SetPropagateKeyboardInput(false)
+        end
+
+        if GA.DungeonShrineFrame and GA.DungeonShrineFrame:IsShown() then
+            if key == "1" then
+                GA:ChooseShrineGift("restore")
+            elseif key == "2" then
+                GA:ChooseShrineGift("blessing")
+            elseif key == "3" then
+                GA:ChooseShrineGift("sacrifice")
+            elseif key == "ESCAPE" then
+                GA:CloseShrineChoice()
+            end
+            return
         end
 
         if key == "C" then
@@ -1842,6 +2039,7 @@ function GA:FailDungeonRun(reason)
 
     run.active = false
     run.failed = true
+    self:CloseShrineChoice()
 
     self:AddCombatLog(reason or "The run is over.", "warning")
 
@@ -1889,6 +2087,11 @@ function GA:PlayerAttackEnemy(targetEnemy)
     local critical = critChance > 0
         and math.random(1, 1000) <= math.floor(critChance * 10)
 
+    local shrineDamageBonus = math.max(0, tonumber(run.shrineDamageBonus) or 0)
+    if shrineDamageBonus > 0 then
+        damage = math.max(1, math.floor(damage * (1 + shrineDamageBonus) + 0.5))
+    end
+
     if critical then
         damage = math.max(1, math.floor(damage * 1.5 + 0.5))
     end
@@ -1932,6 +2135,8 @@ function GA:PlayerAttackEnemy(targetEnemy)
             string.format("%s defeated. +%d score.", GetEnemyDisplayName(enemy), scoreValue),
             "system"
         )
+
+        UpdateEncounterRoomClear(self, run, enemy)
 
         if self.DungeonRunStateText then
             self.DungeonRunStateText:SetText(
@@ -2093,7 +2298,15 @@ function GA:RefreshDungeonMiniMap()
                     local marker = markers[key]
                     local chestOpened = run.openedChests and run.openedChests[key]
                     if marker and not (marker.kind == "chest" and chestOpened) then
-                        if marker.kind == "exit" or marker.kind == "stairsUp" then
+                        if marker.kind == "exit" then
+                            if IsDungeonExitLocked(run) then
+                                state = "exit-locked"
+                                r, g, b, a = COLORS.red[1], COLORS.red[2], COLORS.red[3], 1
+                            else
+                                state = "exit"
+                                r, g, b, a = COLORS.green[1], COLORS.green[2], COLORS.green[3], 1
+                            end
+                        elseif marker.kind == "stairsUp" then
                             state = marker.kind
                             r, g, b, a = COLORS.green[1], COLORS.green[2], COLORS.green[3], 1
                         elseif marker.kind == "chest" then
@@ -2108,8 +2321,16 @@ function GA:RefreshDungeonMiniMap()
                                 r, g, b, a = COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 1
                             end
                         elseif marker.kind == "shrine" then
-                            state = "shrine"
-                            r, g, b, a = COLORS.green[1], COLORS.green[2], COLORS.green[3], 1
+                            local shrineUsed = marker.roomIndex
+                                and run.roomStates
+                                and run.roomStates[marker.roomIndex]
+                                and run.roomStates[marker.roomIndex].shrineUsed
+                            state = shrineUsed and "shrine-used" or "shrine"
+                            if shrineUsed then
+                                r, g, b, a = 0.18, 0.17, 0.12, 1
+                            else
+                                r, g, b, a = COLORS.green[1], COLORS.green[2], COLORS.green[3], 1
+                            end
                         elseif marker.kind == "elite" or marker.kind == "boss" then
                             state = marker.kind
                             r, g, b, a = COLORS.red[1], COLORS.red[2], COLORS.red[3], 1
@@ -2210,6 +2431,15 @@ function GA:RenderDungeonGrid()
                                 and run.openDoors
                                 and run.openDoors[worldKey]
                             entry.marker:SetText(doorOpen and "/" or "+")
+                        elseif staticMarker.kind == "exit" and IsDungeonExitLocked(run) then
+                            entry.marker:SetText("X")
+                        elseif staticMarker.kind == "shrine"
+                            and staticMarker.roomIndex
+                            and run
+                            and run.roomStates
+                            and run.roomStates[staticMarker.roomIndex]
+                            and run.roomStates[staticMarker.roomIndex].shrineUsed then
+                            entry.marker:SetText("s")
                         else
                             entry.marker:SetText(staticMarker.text)
                         end
@@ -2220,6 +2450,15 @@ function GA:RenderDungeonGrid()
                             entry.marker:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
                         elseif staticMarker.color == "gold" then
                             entry.marker:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+                        elseif staticMarker.kind == "exit" and IsDungeonExitLocked(run) then
+                            entry.marker:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+                        elseif staticMarker.kind == "shrine"
+                            and staticMarker.roomIndex
+                            and run
+                            and run.roomStates
+                            and run.roomStates[staticMarker.roomIndex]
+                            and run.roomStates[staticMarker.roomIndex].shrineUsed then
+                            entry.marker:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
                         elseif staticMarker.color == "green" then
                             entry.marker:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
                         elseif staticMarker.kind == "door" then
@@ -2410,6 +2649,8 @@ function GA:BeginDungeonRun()
         floorMap = floorMap,
         floorStates = {},
         roomRoleCounts = CopyTable(roomRoleCounts),
+        roomStates = BuildInitialRoomStates(floorMap),
+        shrineDamageBonus = 0,
         chestLoot = BuildFloorChestLoot(floorMap),
         densityProfile = CopyTable(densityProfile),
         walkableTiles = walkableTiles,
@@ -2558,6 +2799,7 @@ local function CaptureCurrentFloorState(run)
     return {
         floorMap = CopyTable(run.floorMap),
         roomRoleCounts = CopyTable(run.roomRoleCounts or {}),
+        roomStates = CopyTable(run.roomStates or {}),
         chestLoot = CopyTable(run.chestLoot or {}),
         openedChests = CopyTable(run.openedChests or {}),
         openDoors = CopyTable(run.openDoors or {}),
@@ -2586,6 +2828,7 @@ local function ApplyStoredFloorState(run, floorNumber, stored, entryDirection)
     run.floor = floorNumber
     run.floorMap = CopyTable(stored.floorMap)
     run.roomRoleCounts = CopyTable(stored.roomRoleCounts or {})
+    run.roomStates = CopyTable(stored.roomStates or {})
     run.chestLoot = CopyTable(stored.chestLoot or {})
     run.openedChests = CopyTable(stored.openedChests or {})
     run.openDoors = CopyTable(stored.openDoors or {})
@@ -2615,6 +2858,8 @@ local function ApplyStoredFloorState(run, floorNumber, stored, entryDirection)
 end
 
 function GA:ApplyDungeonFloor(floorNumber, entryDirection)
+    self:CloseShrineChoice()
+
     local run = self.RunState
     if not run or not run.active or not run.snapshot then
         return false
@@ -2659,6 +2904,7 @@ function GA:ApplyDungeonFloor(floorNumber, entryDirection)
         run.floor = floorNumber
         run.floorMap = floorMap
         run.roomRoleCounts = CopyTable(floorMap.roomRoleCounts or {})
+        run.roomStates = BuildInitialRoomStates(floorMap)
         run.chestLoot = BuildFloorChestLoot(floorMap)
         run.playerX = startX
         run.playerY = startY
@@ -2783,6 +3029,7 @@ function GA:CompleteDungeonRun()
 
     run.active = false
     run.completed = true
+    self:CloseShrineChoice()
 
     if self.DungeonFloorTitle then
         self.DungeonFloorTitle:SetText("RUN COMPLETE  -  FLOOR 9 CLEARED")
@@ -3105,8 +3352,111 @@ function GA:TryLootChest(x, y)
     run.openedChests[key] = true
     run.score = (run.score or 0) + 25
 
+    local marker = GetDungeonMarkers()[key]
+    if marker and marker.rewardType == "elite" and marker.roomIndex then
+        run.roomStates = run.roomStates or {}
+        local state = run.roomStates[marker.roomIndex]
+        if state then
+            state.eliteRewardClaimed = true
+        end
+    end
+
     self:AddCombatLog("Chest opened: " .. loot.name .. " added to your backpack.", "system")
     self:AddCombatLog("Press C to open your character sheet.", "system")
+    self:RefreshRunCounters()
+    self:RenderDungeonGrid()
+    return true
+end
+
+function GA:CloseShrineChoice()
+    if self.DungeonShrineFrame then
+        self.DungeonShrineFrame:Hide()
+    end
+    self.PendingShrineRoomIndex = nil
+end
+
+function GA:OpenShrineChoice(roomIndex)
+    local run = self.RunState
+    if not run or not run.active or not roomIndex then
+        return false
+    end
+
+    run.roomStates = run.roomStates or {}
+    local state = run.roomStates[roomIndex]
+    if not state or state.shrineUsed then
+        return false
+    end
+
+    self.PendingShrineRoomIndex = roomIndex
+    if self.DungeonShrineFrame then
+        self.DungeonShrineFrame:Show()
+    end
+
+    self:AddCombatLog("A forgotten shrine answers your presence.", "system")
+    return true
+end
+
+function GA:ChooseShrineGift(choice)
+    local run = self.RunState
+    local roomIndex = self.PendingShrineRoomIndex
+    if not run or not run.active or not roomIndex then
+        self:CloseShrineChoice()
+        return false
+    end
+
+    run.roomStates = run.roomStates or {}
+    local state = run.roomStates[roomIndex]
+    if not state or state.shrineUsed then
+        self:CloseShrineChoice()
+        return false
+    end
+
+    if choice == "restore" then
+        local amount = math.max(1, math.floor((run.playerMaxHealth or 1) * 0.25 + 0.5))
+        local before = run.playerHealth or 0
+        run.playerHealth = math.min(run.playerMaxHealth or before, before + amount)
+        local restored = run.playerHealth - before
+        self:AddCombatLog(
+            string.format("SHRINE - RESTORE: +%d HP.", restored),
+            "system"
+        )
+    elseif choice == "blessing" then
+        run.shrineDamageBonus = math.min(0.25, (run.shrineDamageBonus or 0) + 0.05)
+        self:AddCombatLog(
+            string.format(
+                "SHRINE - BLESSING: run damage bonus is now +%d%%.",
+                math.floor((run.shrineDamageBonus or 0) * 100 + 0.5)
+            ),
+            "system"
+        )
+    elseif choice == "sacrifice" then
+        local cost = math.max(1, math.floor((run.playerMaxHealth or 1) * 0.15 + 0.5))
+        run.playerHealth = math.max(1, (run.playerHealth or 1) - cost)
+        run.score = (run.score or 0) + 150
+        self:AddCombatLog(
+            string.format("SHRINE - SACRIFICE: -%d HP, +150 score.", cost),
+            "system"
+        )
+    else
+        return false
+    end
+
+    state.shrineUsed = true
+    state.shrineChoice = choice
+
+    local room = GetRoomByIndex(run.floorMap, roomIndex)
+    if room and room.center then
+        local key = CellKey(room.center.x, room.center.y)
+        local marker = run.floorMap.markers and run.floorMap.markers[key]
+        if marker and marker.kind == "shrine" then
+            marker.text = "s"
+            marker.color = "muted"
+            marker.used = true
+        end
+    end
+
+    self:CloseShrineChoice()
+    self:UpdateRunHealth()
     self:RefreshRunCounters()
     self:RenderDungeonGrid()
     return true
@@ -3148,6 +3498,16 @@ function GA:MoveDungeonPlayer(dx, dy)
         return
     end
 
+    local exitX, exitY = GetDungeonExit()
+    if nextX == exitX and nextY == exitY and IsDungeonExitLocked(run) then
+        if self.DungeonRunStateText then
+            self.DungeonRunStateText:SetText("SEALED - DEFEAT THE BOSS")
+            self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+        end
+        self:AddCombatLog("The exit is sealed while the boss still lives.", "warning")
+        return
+    end
+
     local blockingEnemy = GetEnemyAt(run, nextX, nextY)
     if blockingEnemy then
         run.activeEnemyId = blockingEnemy.uid
@@ -3181,9 +3541,23 @@ function GA:MoveDungeonPlayer(dx, dy)
         return
     end
 
-    local exitX, exitY = GetDungeonExit()
     if nextX == exitX and nextY == exitY then
         self:AdvanceDungeonFloor()
+        return
+    end
+
+    local marker = GetDungeonMarkers()[CellKey(nextX, nextY)]
+    local shrineState = marker
+        and marker.kind == "shrine"
+        and marker.roomIndex
+        and run.roomStates
+        and run.roomStates[marker.roomIndex]
+
+    if marker and marker.kind == "shrine" and (not shrineState or not shrineState.shrineUsed) then
+        self:RunEnemyTurn()
+        if run.active then
+            self:OpenShrineChoice(marker.roomIndex)
+        end
         return
     end
 

@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.20.1**  
+Current addon version: **0.21.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -737,6 +737,7 @@ A floor is generated only on its first visit. First-time generation creates its 
 Per-floor state preserved across backtracking includes:
 
 - generated floor map and room roles;
+- room clear / shrine used / Elite reward state;
 - explored Fog of War;
 - opened doors;
 - opened chests;
@@ -766,7 +767,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.20.1**
+- **0.21.0**
 
 Recent gameplay foundation:
 
@@ -819,6 +820,13 @@ Recent gameplay foundation:
 - visited floor state is preserved in-memory per floor, including generated layout, enemies/deaths/positions, opened doors, opened chests and explored Fog of War
 - returning upward places the player on the previous floor's > exit; descending again places the player on the deeper floor's < entrance without rerolling anything
 - 0.20.1 fixes floor-state helper declaration order so restore/capture functions are in lexical scope before ApplyDungeonFloor
+- 0.21.0 adds persistent per-room state for cleared encounters, shrine use and Elite rewards
+- COMBAT / ELITE / BOSS rooms become cleared when every enemy assigned to that room is dead
+- ELITE room clear replaces the ! marker with an Elite Cache chest containing a slightly stronger prototype loot item
+- Floor 9 exit is sealed while the Boss encounter is alive; the exit renders as X/red and unlocks immediately when the Boss room is cleared
+- Shrine rooms are interactive once per floor: RESTORE heals 25% max HP, BLESSING adds +5% run damage up to +25%, SACRIFICE costs 15% max HP (cannot kill) for +150 score
+- Shrine choices use a compact modal with mouse buttons and 1/2/3 keyboard shortcuts; used shrines remain visually dimmed
+- room state is included in bidirectional floor persistence, while Shrine damage blessing is run-global
 - Floor 1-2 use START + COMBAT + TREASURE + EXIT; Shrine appears from Floor 3, Elite from Floor 5, Boss from Floor 9 when room count allows
 - enemy spawning is now room-based: ordinary enemies spawn only in COMBAT / ELITE / BOSS rooms, leaving START / TREASURE / SHRINE / EXIT rooms clear
 - ELITE rooms guarantee one Elite-ranked encounter anchor; BOSS rooms guarantee one Boss-ranked encounter anchor without increasing total enemy count
@@ -1321,12 +1329,11 @@ Deterministic scaling, bounded density, multi-enemy support, three active archet
 
 Recommended order:
 
-1. **Room-role gameplay**
-   - test room/corridor/door/role readability in-game
+1. **Room-role gameplay polish**
+   - test Shrine modal, Elite Cache and Floor 9 exit lock in-game
    - tune room counts / sizes from screenshots
-   - implement Shrine interaction
-   - make Floor 9 Boss defeat unlock/guard the exit
-   - later add encounter rewards and room-clear feedback
+   - add stronger room-clear visual feedback
+   - later add more reward tables / Shrine choices
 
 2. **Abilities**
    - Warrior first
@@ -1437,6 +1444,8 @@ Before changing layout conventions, remember the user's current preferences:
 - generated rooms use real room-to-corridor threshold doors in the wall band outside the room; closed doors block LOS and open on bump for one turn;
 - generated rooms have gameplay roles; START / TREASURE / SHRINE / EXIT stay free of ordinary enemy spawns;
 - dungeon floors are bidirectional inside an active run: > descends and < returns, with visited floor state restored rather than regenerated;
+- Floor 9 exit stays locked while its Boss room still has a living boss;
+- Shrine / room-clear / Elite reward state must persist with the floor across backtracking;
 - minimap belongs in the lower-right run panel and respects Fog of War instead of revealing unexplored rooms;
 - fog should not show dotted borders;
 - item tooltips should show GoblinArcade stats, not WoW stats;
