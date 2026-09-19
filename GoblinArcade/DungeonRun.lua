@@ -2550,6 +2550,70 @@ function GA:BeginDungeonRun()
     self:RenderDungeonGrid()
 end
 
+local function CaptureCurrentFloorState(run)
+    if not run or not run.floor or not run.floorMap then
+        return nil
+    end
+
+    return {
+        floorMap = CopyTable(run.floorMap),
+        roomRoleCounts = CopyTable(run.roomRoleCounts or {}),
+        chestLoot = CopyTable(run.chestLoot or {}),
+        openedChests = CopyTable(run.openedChests or {}),
+        openDoors = CopyTable(run.openDoors or {}),
+        explored = CopyTable(run.explored or {}),
+        densityProfile = CopyTable(run.densityProfile or {}),
+        walkableTiles = run.walkableTiles,
+        baseEnemyCount = run.baseEnemyCount,
+        enemyCount = run.enemyCount,
+        enemyComposition = CopyTable(run.enemyComposition or {}),
+        enemyRankComposition = CopyTable(run.enemyRankComposition or {}),
+        enemies = CopyTable(run.enemies or {}),
+        enemyPhase = run.enemyPhase or 0,
+    }
+end
+
+local function SaveCurrentFloorState(run)
+    if not run or not run.floor then
+        return
+    end
+
+    run.floorStates = run.floorStates or {}
+    run.floorStates[run.floor] = CaptureCurrentFloorState(run)
+end
+
+local function ApplyStoredFloorState(run, floorNumber, stored, entryDirection)
+    run.floor = floorNumber
+    run.floorMap = CopyTable(stored.floorMap)
+    run.roomRoleCounts = CopyTable(stored.roomRoleCounts or {})
+    run.chestLoot = CopyTable(stored.chestLoot or {})
+    run.openedChests = CopyTable(stored.openedChests or {})
+    run.openDoors = CopyTable(stored.openDoors or {})
+    run.explored = CopyTable(stored.explored or {})
+    run.visible = {}
+    run.densityProfile = CopyTable(stored.densityProfile or {})
+    run.walkableTiles = stored.walkableTiles
+    run.baseEnemyCount = stored.baseEnemyCount
+    run.enemyCount = stored.enemyCount
+    run.enemyComposition = CopyTable(stored.enemyComposition or {})
+    run.enemyRankComposition = CopyTable(stored.enemyRankComposition or {})
+    run.enemies = CopyTable(stored.enemies or {})
+    run.activeEnemyId = nil
+    run.enemyPhase = stored.enemyPhase or 0
+
+    SetActiveFloorMap(run.floorMap)
+
+    if entryDirection == "up" then
+        local exitX, exitY = GetDungeonExit()
+        run.playerX = exitX
+        run.playerY = exitY
+    else
+        local startX, startY = GetDungeonStart()
+        run.playerX = startX
+        run.playerY = startY
+    end
+end
+
 function GA:ApplyDungeonFloor(floorNumber, entryDirection)
     local run = self.RunState
     if not run or not run.active or not run.snapshot then
@@ -2773,70 +2837,6 @@ function GA:CompleteDungeonRun()
     self:SetDungeonSetupMode(true)
     self:RefreshRunCounters()
     self:RenderDungeonGrid()
-end
-
-local function CaptureCurrentFloorState(run)
-    if not run or not run.floor or not run.floorMap then
-        return nil
-    end
-
-    return {
-        floorMap = CopyTable(run.floorMap),
-        roomRoleCounts = CopyTable(run.roomRoleCounts or {}),
-        chestLoot = CopyTable(run.chestLoot or {}),
-        openedChests = CopyTable(run.openedChests or {}),
-        openDoors = CopyTable(run.openDoors or {}),
-        explored = CopyTable(run.explored or {}),
-        densityProfile = CopyTable(run.densityProfile or {}),
-        walkableTiles = run.walkableTiles,
-        baseEnemyCount = run.baseEnemyCount,
-        enemyCount = run.enemyCount,
-        enemyComposition = CopyTable(run.enemyComposition or {}),
-        enemyRankComposition = CopyTable(run.enemyRankComposition or {}),
-        enemies = CopyTable(run.enemies or {}),
-        enemyPhase = run.enemyPhase or 0,
-    }
-end
-
-local function SaveCurrentFloorState(run)
-    if not run or not run.floor then
-        return
-    end
-
-    run.floorStates = run.floorStates or {}
-    run.floorStates[run.floor] = CaptureCurrentFloorState(run)
-end
-
-local function ApplyStoredFloorState(run, floorNumber, stored, entryDirection)
-    run.floor = floorNumber
-    run.floorMap = CopyTable(stored.floorMap)
-    run.roomRoleCounts = CopyTable(stored.roomRoleCounts or {})
-    run.chestLoot = CopyTable(stored.chestLoot or {})
-    run.openedChests = CopyTable(stored.openedChests or {})
-    run.openDoors = CopyTable(stored.openDoors or {})
-    run.explored = CopyTable(stored.explored or {})
-    run.visible = {}
-    run.densityProfile = CopyTable(stored.densityProfile or {})
-    run.walkableTiles = stored.walkableTiles
-    run.baseEnemyCount = stored.baseEnemyCount
-    run.enemyCount = stored.enemyCount
-    run.enemyComposition = CopyTable(stored.enemyComposition or {})
-    run.enemyRankComposition = CopyTable(stored.enemyRankComposition or {})
-    run.enemies = CopyTable(stored.enemies or {})
-    run.activeEnemyId = nil
-    run.enemyPhase = stored.enemyPhase or 0
-
-    SetActiveFloorMap(run.floorMap)
-
-    if entryDirection == "up" then
-        local exitX, exitY = GetDungeonExit()
-        run.playerX = exitX
-        run.playerY = exitY
-    else
-        local startX, startY = GetDungeonStart()
-        run.playerX = startX
-        run.playerY = startY
-    end
 end
 
 function GA:AdvanceDungeonFloor()

@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.20.0**  
+Current addon version: **0.20.1**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -766,7 +766,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.20.0**
+- **0.20.1**
 
 Recent gameplay foundation:
 
@@ -818,6 +818,7 @@ Recent gameplay foundation:
 - floors are now bidirectionally traversable during a run: > descends, < returns to the previous floor
 - visited floor state is preserved in-memory per floor, including generated layout, enemies/deaths/positions, opened doors, opened chests and explored Fog of War
 - returning upward places the player on the previous floor's > exit; descending again places the player on the deeper floor's < entrance without rerolling anything
+- 0.20.1 fixes floor-state helper declaration order so restore/capture functions are in lexical scope before ApplyDungeonFloor
 - Floor 1-2 use START + COMBAT + TREASURE + EXIT; Shrine appears from Floor 3, Elite from Floor 5, Boss from Floor 9 when room count allows
 - enemy spawning is now room-based: ordinary enemies spawn only in COMBAT / ELITE / BOSS rooms, leaving START / TREASURE / SHRINE / EXIT rooms clear
 - ELITE rooms guarantee one Elite-ranked encounter anchor; BOSS rooms guarantee one Boss-ranked encounter anchor without increasing total enemy count
