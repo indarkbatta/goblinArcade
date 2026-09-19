@@ -12,6 +12,87 @@ local function CopyTable(value)
     return copy
 end
 
+local EQUIPMENT_SLOTS = {
+    { key = "head", slotID = 1, label = "Head" },
+    { key = "neck", slotID = 2, label = "Neck" },
+    { key = "shoulder", slotID = 3, label = "Shoulder" },
+    { key = "chest", slotID = 5, label = "Chest" },
+    { key = "waist", slotID = 6, label = "Waist" },
+    { key = "legs", slotID = 7, label = "Legs" },
+    { key = "feet", slotID = 8, label = "Feet" },
+    { key = "wrist", slotID = 9, label = "Wrist" },
+    { key = "hands", slotID = 10, label = "Hands" },
+    { key = "finger1", slotID = 11, label = "Finger 1" },
+    { key = "finger2", slotID = 12, label = "Finger 2" },
+    { key = "trinket1", slotID = 13, label = "Trinket 1" },
+    { key = "trinket2", slotID = 14, label = "Trinket 2" },
+    { key = "back", slotID = 15, label = "Back" },
+    { key = "mainhand", slotID = 16, label = "Main Hand" },
+    { key = "offhand", slotID = 17, label = "Off Hand" },
+}
+
+local function GetItemSnapshot(itemLink, icon, slotKey)
+    if not itemLink then
+        return nil
+    end
+
+    local name
+    local quality
+    local equipLoc
+
+    if C_Item and C_Item.GetItemInfo then
+        local a, _, c = C_Item.GetItemInfo(itemLink)
+        if type(a) == "table" then
+            name = a.itemName or a.name
+            quality = a.itemQuality or a.quality
+        else
+            name = a
+            quality = c
+        end
+    elseif type(GetItemInfo) == "function" then
+        local a, _, c = GetItemInfo(itemLink)
+        name = a
+        quality = c
+    end
+
+    if C_Item and C_Item.GetItemInfoInstant then
+        local _, _, _, instantEquipLoc = C_Item.GetItemInfoInstant(itemLink)
+        equipLoc = instantEquipLoc
+    elseif type(GetItemInfoInstant) == "function" then
+        local _, _, _, instantEquipLoc = GetItemInfoInstant(itemLink)
+        equipLoc = instantEquipLoc
+    end
+
+    return {
+        source = "wow",
+        sourceSlot = slotKey,
+        name = name or itemLink:match("%[(.-)%]") or "Equipped item",
+        link = itemLink,
+        icon = icon,
+        quality = quality,
+        equipLoc = equipLoc,
+    }
+end
+
+function GA:GetEquipmentSlotDefinitions()
+    return EQUIPMENT_SLOTS
+end
+
+function GA:SnapshotCurrentEquipment()
+    local equipment = {}
+
+    for _, slot in ipairs(EQUIPMENT_SLOTS) do
+        local link = GetInventoryItemLink("player", slot.slotID)
+        local icon = GetInventoryItemTexture("player", slot.slotID)
+
+        if link then
+            equipment[slot.key] = GetItemSnapshot(link, icon, slot.key)
+        end
+    end
+
+    return equipment
+end
+
 local function GetDB()
     GoblinArcadeDB = GoblinArcadeDB or {}
     GoblinArcadeDB.version = GoblinArcadeDB.version or 1
@@ -41,6 +122,7 @@ function GA:InitializeCharacterRoster()
     character.raceName = UnitRace("player") or ""
     character.maxHealth = UnitHealthMax("player") or character.maxHealth or 0
     character.updatedAt = time and time() or 0
+    character.equipment = self:SnapshotCurrentEquipment()
 
     db.characters[key] = character
     db.lastCharacterKey = key
@@ -68,6 +150,7 @@ function GA:SyncCurrentCharacterRoster(weapon, source)
     character.raceName = UnitRace("player") or ""
     character.maxHealth = UnitHealthMax("player") or 0
     character.updatedAt = time and time() or 0
+    character.equipment = self:SnapshotCurrentEquipment()
 
     source = source or {}
 
@@ -87,6 +170,10 @@ function GA:SyncCurrentCharacterRoster(weapon, source)
         character.weaponItemLevel = source.weaponItemLevel or weapon.itemLevel
         character.weaponQuality = source.weaponQuality or weapon.quality
         character.weaponSubtype = source.weaponSubtype or weapon.style
+
+        if character.equipment and character.equipment.mainhand then
+            character.equipment.mainhand.arcadeWeapon = CopyTable(weapon)
+        end
     end
 
     db.characters[key] = character

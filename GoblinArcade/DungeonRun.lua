@@ -71,6 +71,28 @@ local STATIC_MARKERS = {
 local KOBOLD_START_X = 11
 local KOBOLD_START_Y = 4
 local KOBOLD_TEXTURE = "Interface\\AddOns\\GoblinArcade\\Media\\Monsters\\kobold"
+local KOBOLD_PORTRAIT_ICON = "Interface\\Icons\\inv_misc_candlekobold_color1"
+
+local CHEST_LOOT = {
+    ["9:11"] = {
+        name = "Candlekeeper's Charm",
+        icon = KOBOLD_PORTRAIT_ICON,
+        equipLoc = "INVTYPE_TRINKET",
+        compatibleSlots = { trinket1 = true, trinket2 = true },
+        slotLabel = "Trinket",
+        description = "Warm wax hums faintly in your palm. Prototype dungeon loot.",
+        source = "dungeon",
+    },
+    ["17:15"] = {
+        name = "Waxbound Ring",
+        icon = "Interface\\Icons\\INV_Jewelry_Ring_03",
+        equipLoc = "INVTYPE_FINGER",
+        compatibleSlots = { finger1 = true, finger2 = true },
+        slotLabel = "Finger",
+        description = "A crude ring sealed with kobold wax. Prototype dungeon loot.",
+        source = "dungeon",
+    },
+}
 
 local function CellKey(x, y)
     return tostring(x) .. ":" .. tostring(y)
@@ -289,7 +311,7 @@ function GA:CreateDungeonRunPage(parent)
     title:SetPoint("TOPLEFT", 18, -16)
     title:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
-    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  FIRST COMBAT BUILD")
+    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  INVENTORY + COMBAT UI")
     subtitle:SetPoint("TOPRIGHT", -18, -22)
     subtitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
@@ -449,11 +471,46 @@ function GA:CreateDungeonRunPage(parent)
     relicTitle:SetPoint("TOPLEFT", 12, -12)
     relicTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
+    self.DungeonRelicWidgets = { relicTitle }
+
     for i = 1, 6 do
         local col = (i - 1) % 2
         local row = math.floor((i - 1) / 2)
-        CreateRelicSlot(right, i, 12 + col * 58, -38 - row * 58)
+        local relicSlot = CreateRelicSlot(right, i, 12 + col * 58, -38 - row * 58)
+        self.DungeonRelicWidgets[#self.DungeonRelicWidgets + 1] = relicSlot
     end
+
+    local enemyCard = CreateFrame("Frame", nil, right, "BackdropTemplate")
+    enemyCard:SetPoint("TOPLEFT", 10, -10)
+    enemyCard:SetSize(118, 202)
+    ApplyBackdrop(enemyCard, { 0.080, 0.035, 0.030, 1 }, COLORS.red)
+    enemyCard:Hide()
+    self.DungeonEnemyCard = enemyCard
+
+    local enemyTitle = CreateText(enemyCard, "GameFontNormalSmall", "COMBAT TARGET")
+    enemyTitle:SetPoint("TOP", 0, -10)
+    enemyTitle:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+
+    local enemyIconBorder = CreateFrame("Frame", nil, enemyCard, "BackdropTemplate")
+    enemyIconBorder:SetSize(76, 76)
+    enemyIconBorder:SetPoint("TOP", 0, -34)
+    ApplyBackdrop(enemyIconBorder, { 0.02, 0.02, 0.02, 1 }, COLORS.red)
+
+    local enemyPortrait = enemyIconBorder:CreateTexture(nil, "ARTWORK")
+    enemyPortrait:SetPoint("TOPLEFT", 3, -3)
+    enemyPortrait:SetPoint("BOTTOMRIGHT", -3, 3)
+    enemyPortrait:SetTexture(KOBOLD_PORTRAIT_ICON)
+    self.DungeonEnemyPortrait = enemyPortrait
+
+    local enemyName = CreateText(enemyCard, "GameFontNormal", "Kobold")
+    enemyName:SetPoint("TOP", enemyIconBorder, "BOTTOM", 0, -8)
+    enemyName:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+    self.DungeonEnemyName = enemyName
+
+    local enemyHealth = CreateText(enemyCard, "GameFontHighlightSmall", "")
+    enemyHealth:SetPoint("TOP", enemyName, "BOTTOM", 0, -7)
+    enemyHealth:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+    self.DungeonEnemyHealth = enemyHealth
 
     local runTitle = CreateText(right, "GameFontNormalSmall", "RUN")
     runTitle:SetPoint("TOPLEFT", 12, -228)
@@ -687,6 +744,10 @@ function GA:CreateDungeonRunPage(parent)
     end)
     self.DungeonSetupBeginButton = setupBegin
 
+    if self.CreateCharacterSheet then
+        self:CreateCharacterSheet(page)
+    end
+
     page:EnableKeyboard(true)
     if page.SetPropagateKeyboardInput then
         page:SetPropagateKeyboardInput(true)
@@ -706,6 +767,19 @@ function GA:CreateDungeonRunPage(parent)
         -- it disabled for the entire run so WoW never receives movement keys.
         if pageFrame.SetPropagateKeyboardInput then
             pageFrame:SetPropagateKeyboardInput(false)
+        end
+
+        if key == "C" then
+            GA:ToggleCharacterSheet()
+            return
+        end
+
+        if GA.CharacterSheetFrame and GA.CharacterSheetFrame:IsShown() then
+            if key == "ESCAPE" then
+                GA.CharacterSheetFrame:Hide()
+                GA:CancelCharacterItemDrag()
+            end
+            return
         end
 
         if key == "ESCAPE" then
@@ -1091,6 +1165,36 @@ function GA:RefreshMainHandInfo(force)
     end
 end
 
+function GA:RefreshEnemyCombatCard()
+    local run = self.RunState
+    local enemy = run and run.enemy
+    local inCombat = run
+        and run.active
+        and enemy
+        and enemy.alive ~= false
+        and IsAdjacent(run.playerX, run.playerY, enemy.x, enemy.y)
+
+    if self.DungeonEnemyCard then
+        if inCombat then
+            self.DungeonEnemyCard:Show()
+            self.DungeonEnemyName:SetText(enemy.name or "Kobold")
+            self.DungeonEnemyHealth:SetText(
+                string.format("%d / %d HP", enemy.hp or 0, enemy.maxHp or 0)
+            )
+        else
+            self.DungeonEnemyCard:Hide()
+        end
+    end
+
+    for _, widget in ipairs(self.DungeonRelicWidgets or {}) do
+        if inCombat then
+            widget:Hide()
+        else
+            widget:Show()
+        end
+    end
+end
+
 function GA:RefreshActionButtons()
     local run = self.RunState
     local enemy = run and run.enemy
@@ -1142,6 +1246,10 @@ function GA:FailDungeonRun(reason)
         self.DungeonRunPage:SetPropagateKeyboardInput(true)
     end
 
+    if self.CharacterSheetFrame then
+        self.CharacterSheetFrame:Hide()
+    end
+    self:CancelCharacterItemDrag()
     self:RefreshActionButtons()
     self:SetDungeonRunPortraitMode(false)
     self:SetRunMode(false)
@@ -1164,13 +1272,9 @@ function GA:PlayerAttackEnemy()
         return false
     end
 
-    local weapon = run.snapshot and run.snapshot.weapon
-    if not weapon then
-        return false
-    end
-
-    local minimum = math.max(1, tonumber(weapon.damageMin) or 1)
-    local maximum = math.max(minimum, tonumber(weapon.damageMax) or minimum)
+    local weapon = self:GetCurrentRunWeapon()
+    local minimum = weapon and math.max(1, tonumber(weapon.damageMin) or 1) or 1
+    local maximum = weapon and math.max(minimum, tonumber(weapon.damageMax) or minimum) or 2
     local damage = math.random(minimum, maximum)
 
     enemy.hp = math.max(0, (enemy.hp or enemy.maxHp or 1) - damage)
@@ -1186,7 +1290,7 @@ function GA:PlayerAttackEnemy()
     )
 
     local staggered = false
-    if enemy.hp > 0 and weapon.traitName == "STAGGER" then
+    if enemy.hp > 0 and weapon and weapon.traitName == "STAGGER" then
         local staggerChance = tonumber(weapon.traitValue) or 0
         if staggerChance > 0 and math.random(1, 100) <= staggerChance then
             enemy.skipTurn = true
@@ -1355,8 +1459,13 @@ function GA:RenderDungeonGrid()
                 -- Static landmarks are remembered after discovery. They are
                 -- bright while visible and muted when only remembered.
                 if explored then
-                    local staticMarker = STATIC_MARKERS[CellKey(worldX, worldY)]
-                    if staticMarker then
+                    local worldKey = CellKey(worldX, worldY)
+                    local staticMarker = STATIC_MARKERS[worldKey]
+                    local chestOpened = run
+                        and run.openedChests
+                        and run.openedChests[worldKey]
+
+                    if staticMarker and not (staticMarker.text == "$" and chestOpened) then
                         entry.marker:SetText(staticMarker.text)
 
                         if not visible then
@@ -1420,6 +1529,11 @@ function GA:RenderDungeonGrid()
     end
 
     self:RefreshActionButtons()
+    self:RefreshEnemyCombatCard()
+
+    if self.CharacterSheetFrame and self.CharacterSheetFrame:IsShown() then
+        self:RefreshCharacterSheet()
+    end
 end
 
 function GA:RefreshRunCounters()
@@ -1473,6 +1587,9 @@ function GA:BeginDungeonRun()
         playerY = START_Y,
         playerHealth = maxHealth,
         playerMaxHealth = maxHealth,
+        equipment = CopyTable(selected.equipment or {}),
+        backpack = {},
+        openedChests = {},
         explored = {},
         visible = {},
         enemy = {
@@ -1504,8 +1621,12 @@ function GA:BeginDungeonRun()
         },
     }
 
+    if self.RunState.equipment and self.RunState.equipment.mainhand then
+        self.RunState.equipment.mainhand.arcadeWeapon = CopyTable(selectedWeapon)
+    end
+
     self:UpdateRunHealth()
-    self.DungeonPower:SetText(string.format("%d-%d", selectedWeapon.damageMin, selectedWeapon.damageMax))
+    self:RefreshRunWeaponFromEquipment()
     self.DungeonArcadeDamage:SetText(string.format("Damage %d - %d", selectedWeapon.damageMin, selectedWeapon.damageMax))
     self.DungeonArcadeStyle:SetText(string.format(
         "%s  -  %s  -  Range %d",
@@ -1556,6 +1677,7 @@ function GA:BeginDungeonRun()
             KOBOLD_DAMAGE_MAX),
         "system"
     )
+    self:AddCombatLog("Press C for character sheet and backpack.", "system")
 
     self:RefreshRunCounters()
     self:RenderDungeonGrid()
@@ -1586,6 +1708,11 @@ function GA:CompleteTestFloor()
     end
 
     self:AddCombatLog(string.format("Test floor cleared in %d turns.", run.turns), "system")
+
+    if self.CharacterSheetFrame then
+        self.CharacterSheetFrame:Hide()
+    end
+    self:CancelCharacterItemDrag()
 
     if self.DungeonRunPage and self.DungeonRunPage.SetPropagateKeyboardInput then
         self.DungeonRunPage:SetPropagateKeyboardInput(true)
@@ -1705,6 +1832,34 @@ function GA:RunEnemyTurn()
     end
 end
 
+function GA:TryLootChest(x, y)
+    local run = self.RunState
+    if not run or not run.active then
+        return false
+    end
+
+    local key = CellKey(x, y)
+    local loot = CHEST_LOOT[key]
+    if not loot or (run.openedChests and run.openedChests[key]) then
+        return false
+    end
+
+    if not self:AddItemToBackpack(loot) then
+        self:AddCombatLog("Your backpack is full. The chest remains unopened.", "warning")
+        return false
+    end
+
+    run.openedChests = run.openedChests or {}
+    run.openedChests[key] = true
+    run.score = (run.score or 0) + 25
+
+    self:AddCombatLog("Chest opened: " .. loot.name .. " added to your backpack.", "system")
+    self:AddCombatLog("Press C to open your character sheet.", "system")
+    self:RefreshRunCounters()
+    self:RenderDungeonGrid()
+    return true
+end
+
 function GA:MoveDungeonPlayer(dx, dy)
     local run = self.RunState
     if not run or not run.active then
@@ -1750,6 +1905,7 @@ function GA:MoveDungeonPlayer(dx, dy)
 
     self:RefreshRunCounters()
     self:RenderDungeonGrid()
+    self:TryLootChest(nextX, nextY)
 
     if nextX == EXIT_X and nextY == EXIT_Y then
         self:CompleteTestFloor()
