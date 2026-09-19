@@ -116,19 +116,12 @@ function GA:CreateDungeonRunPage(parent)
     left:SetWidth(150)
     ApplyBackdrop(left, { 0.050, 0.043, 0.034, 1 }, COLORS.goldDim)
 
-    local portraitBorder = CreateFrame("Frame", nil, left, "BackdropTemplate")
-    portraitBorder:SetSize(58, 58)
-    portraitBorder:SetPoint("TOPLEFT", 12, -12)
-    ApplyBackdrop(portraitBorder, { 0.02, 0.02, 0.02, 1 }, COLORS.gold)
-
-    local portrait = portraitBorder:CreateTexture(nil, "ARTWORK")
-    portrait:SetPoint("TOPLEFT", 2, -2)
-    portrait:SetPoint("BOTTOMRIGHT", -2, 2)
-    portrait:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-    self.DungeonPortrait = portrait
+    local characterTitle = CreateText(left, "GameFontNormalSmall", "CHARACTER")
+    characterTitle:SetPoint("TOPLEFT", 12, -14)
+    characterTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
     local playerName = CreateText(left, "GameFontNormal", "")
-    playerName:SetPoint("TOPLEFT", portraitBorder, "BOTTOMLEFT", 0, -8)
+    playerName:SetPoint("TOPLEFT", 12, -38)
     playerName:SetPoint("RIGHT", left, "RIGHT", -10, 0)
     playerName:SetJustifyH("LEFT")
     playerName:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
@@ -142,24 +135,24 @@ function GA:CreateDungeonRunPage(parent)
     self.DungeonPlayerMeta = playerMeta
 
     local statsTitle = CreateText(left, "GameFontNormalSmall", "RUN STATS")
-    statsTitle:SetPoint("TOPLEFT", 12, -128)
+    statsTitle:SetPoint("TOPLEFT", 12, -92)
     statsTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
-    self.DungeonHealth = CreateStatRow(left, "HEALTH", "--", -152)
-    self.DungeonPower = CreateStatRow(left, "POWER", "--", -176)
-    self.DungeonDodge = CreateStatRow(left, "DODGE", "--", -200)
+    self.DungeonHealth = CreateStatRow(left, "HEALTH", "--", -116)
+    self.DungeonPower = CreateStatRow(left, "POWER", "--", -140)
+    self.DungeonDodge = CreateStatRow(left, "DODGE", "--", -164)
 
     local gearTitle = CreateText(left, "GameFontNormalSmall", "GEAR INPUT")
-    gearTitle:SetPoint("TOPLEFT", 12, -244)
+    gearTitle:SetPoint("TOPLEFT", 12, -206)
     gearTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
     local gearHint = CreateText(left, "GameFontHighlightSmall", "Main hand")
-    gearHint:SetPoint("TOPLEFT", 12, -268)
+    gearHint:SetPoint("TOPLEFT", 12, -230)
     gearHint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
     local itemIconButton = CreateFrame("Button", nil, left, "BackdropTemplate")
     itemIconButton:SetSize(42, 42)
-    itemIconButton:SetPoint("TOPLEFT", 12, -288)
+    itemIconButton:SetPoint("TOPLEFT", 12, -250)
     ApplyBackdrop(itemIconButton, { 0.025, 0.022, 0.018, 1 }, COLORS.goldDim)
 
     local itemIcon = itemIconButton:CreateTexture(nil, "ARTWORK")
@@ -195,7 +188,7 @@ function GA:CreateDungeonRunPage(parent)
     self.DungeonMainHandLevel = itemLevel
 
     local itemMeta = CreateText(left, "GameFontDisableSmall", "")
-    itemMeta:SetPoint("TOPLEFT", 12, -338)
+    itemMeta:SetPoint("TOPLEFT", 12, -300)
     itemMeta:SetPoint("RIGHT", left, "RIGHT", -8, 0)
     itemMeta:SetJustifyH("LEFT")
     itemMeta:SetWordWrap(true)
@@ -394,10 +387,6 @@ function GA:RefreshDungeonSummary()
     self.DungeonPlayerName:SetText(name)
     self.DungeonPlayerMeta:SetText(string.format("Level %d %s", level, className))
     self.DungeonHealth:SetText(tostring(maxHealth))
-
-    if self.DungeonPortrait then
-        SetPortraitTexture(self.DungeonPortrait, "player")
-    end
 
     self:RefreshMainHandInfo()
 end
