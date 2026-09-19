@@ -1,0 +1,894 @@
+# GoblinArcade — Handoff
+
+Last updated: 2026-09-19  
+Current addon version: **0.13.4**  
+Repository: `indarkbatta/goblinArcade`  
+Default branch: `main`
+
+## 1. Project goal
+
+GoblinArcade is a WoW Forever addon that provides small arcade-style games for downtime inside World of Warcraft.
+
+The current flagship mode is a **turn-based roguelike dungeon crawler** where the player's real WoW character matters:
+
+- the selected WoW character is snapshotted into the run;
+- equipped WoW gear is converted into deterministic roguelike gear;
+- dungeon loot can be equipped inside GoblinArcade;
+- the real WoW character and equipment are never modified by GoblinArcade;
+- movement, combat, fog of war, inventory and enemy interaction all happen inside the addon UI.
+
+The core product principle is:
+
+> **Your WoW character matters.**
+
+Do not replace this with a generic roguelike character progression system.
+
+---
+
+## 2. WoW / deployment environment
+
+WoW Forever beta:
+
+- Interface: `16001`
+- around WoW Forever 1.60.x
+- beta client folder commonly: `_classic_beta_`
+- addon target folder:
+  `World of Warcraft\_classic_beta_\Interface\AddOns\GoblinArcade`
+
+Deployment is automatic through GitHub Actions.
+
+Workflow:
+
+- `.github/workflows/deploy.yml`
+- runs on Windows self-hosted runner
+- runner name: `DESKTOP-C573AAV`
+- main branch push triggers deployment
+- deploy mirrors `GoblinArcade/` into the live WoW AddOns folder
+- do not ask the user to manually copy files
+- after deploy, user typically tests with `/reload`
+
+The user prefers:
+- direct implementation;
+- small iterative changes;
+- no long implementation plans unless explicitly requested;
+- screenshots/errors after each iteration;
+- automatic deploy rather than manual build/copy steps.
+
+---
+
+## 3. Current file layout
+
+Important addon files:
+
+- `GoblinArcade/Core.lua`
+  - addon bootstrap
+  - slash commands
+  - version
+  - player login setup
+
+- `GoblinArcade/UI.lua`
+  - main shell
+  - Home
+  - navigation rail
+  - combat log rail
+  - global UI helpers/colors
+
+- `GoblinArcade/DungeonRun.lua`
+  - main dungeon mode
+  - lobby
+  - grid / camera
+  - movement
+  - LOS / fog of war
+  - enemy AI
+  - combat
+  - chest loot
+  - run state
+  - dungeon UI
+
+- `GoblinArcade/WeaponGenerator.lua`
+  - deterministic weapon conversion
+
+- `GoblinArcade/ItemGenerator.lua`
+  - deterministic armor/jewelry/offhand conversion
+
+- `GoblinArcade/CharacterRoster.lua`
+  - account-wide character roster
+  - snapshots current character and equipment
+  - SavedVariables integration
+
+- `GoblinArcade/CharacterSheet.lua`
+  - `C` character sheet
+  - equipment slots
+  - backpack
+  - drag & drop
+  - converted gear stats
+  - tooltip rendering
+
+- `GoblinArcade/GoblinArcade.toc`
+- `GoblinArcade/GoblinArcade_Camelot.toc`
+
+Media:
+
+- `GoblinArcade/Media/Monsters/kobold.tga`
+
+SavedVariables:
+
+- `GoblinArcadeDB`
+
+---
+
+## 4. Current UI state
+
+Main window:
+
+- current size: **1100 × 630**
+- widened from 1020 to avoid the dungeon overlapping the side panels
+- dark brown / black / gold visual language
+- flat UI, no rounded-corner aesthetic
+
+Header:
+
+- `GOBLIN ARCADE`
+- subtitle:
+  `Azeroth's least responsible use of downtime.`
+
+### Home
+
+Home deliberately contains **only**:
+
+> Goblin Arcade - created by Midnight Traveler.
+
+Do not add status cards, explanatory text, launch buttons, feature lists, etc. unless the user explicitly asks.
+
+### Main navigation
+
+Left navigation rail contains:
+
+- HOME
+- DUNGEON RUN
+- SCORES (disabled)
+- SETTINGS (disabled)
+
+The character portrait was intentionally removed from the main navigation rail.
+
+---
+
+## 5. Dungeon Run lobby
+
+Choosing DUNGEON RUN first opens a lobby rather than the dungeon itself.
+
+Lobby:
+
+- heading: `DUNGEON RUN`
+- `CHOOSE A HERO`
+- left panel: `CHARACTERS`
+- right panel: `SELECTED HERO`
+- the two panels are intentionally the **same size: 330 × 392**
+- `BEGIN RUN` lives inside the Selected Hero panel
+
+Character roster behavior:
+
+- WoW addons cannot inspect arbitrary offline alts.
+- a character appears after the user logs into that character at least once with GoblinArcade loaded.
+- the addon caches that character's last synced data in `GoblinArcadeDB`.
+- current character shows live data.
+- offline alts use cached data.
+
+Labels:
+
+- current character:
+  `CURRENT CHARACTER - LIVE DATA`
+- alt:
+  `ALT - LAST SYNCED DATA`
+
+---
+
+## 6. Dungeon world / camera
+
+World size:
+
+- **25 × 25**
+
+Viewport:
+
+- **13 × 13**
+
+The viewport is a camera into the larger world, not a scrollbar.
+
+Player starts around:
+
+- `7,7`
+
+Exit:
+
+- `23,23`
+
+The camera follows the player and clamps at world boundaries.
+
+Current test map uses static walls and markers.
+
+Static marker meanings:
+
+- `S` = current prototype/test marker
+- `$` = chest
+- `>` = exit
+
+The map is still a prototype layout and should eventually be replaced by dungeon generation / floor templates.
+
+---
+
+## 7. Fog of War / LOS
+
+Current player vision radius:
+
+- **4 tiles**
+
+This was explicitly requested by the user.
+
+Rules:
+
+- walls block LOS;
+- currently visible terrain is fully rendered;
+- previously explored terrain remains dimmed;
+- never-seen terrain is almost black;
+- unseen cells have **no visible border** to avoid the dotted/grid artifact;
+- enemies are drawn only when currently visible;
+- static discovered landmarks may remain visible in dim form as memory.
+
+LOS currently uses deterministic line tracing.
+
+---
+
+## 8. Keyboard behavior
+
+During an active run:
+
+- GoblinArcade takes keyboard focus;
+- movement keys do not move the real WoW character.
+
+Movement keys:
+
+- WASD
+- arrow keys
+
+Other controls:
+
+- `1` = Attack
+- `C` = character sheet
+- `ESC` closes character sheet first; otherwise closes addon
+
+Do not allow movement input to propagate to WoW while a run is active.
+
+---
+
+## 9. Combat log
+
+During a run, the normal left navigation rail disappears and is replaced by a Combat Log.
+
+Combat log includes:
+
+- run started;
+- loadout locked;
+- movement;
+- blocked movement;
+- enemy movement;
+- aggro;
+- damage;
+- dodge;
+- block;
+- critical hits;
+- stagger;
+- chest loot;
+- kill score;
+- run end.
+
+The combat log is intentionally part of the run-mode presentation.
+
+---
+
+## 10. Player card / enemy card layout
+
+### Player card
+
+Inside Dungeon Run, left side:
+
+- **158 × 92**
+- portrait: **64 × 64**
+- portrait left
+- name + metadata right
+
+Player card appears at the top of the left run panel.
+
+### Enemy card
+
+The user explicitly wants the enemy card on the **right side**, not left.
+
+Current right run panel width:
+
+- **182 px**
+
+This intentionally matches the left run panel width.
+
+Kobold combat target card:
+
+- **158 × 92**
+- same horizontal visual rhythm as the player card
+- portrait left
+- name + HP right
+- gold frame style, not a giant red standalone card
+- HP text may stay red
+
+When there is no adjacent active enemy:
+
+- target card hides
+- RUN / FLOOR / SCORE / TURNS move up to the top of the right panel
+
+When combat starts:
+
+- kobold card appears at the top
+- RUN stats shift below it
+
+Relic slots were explicitly removed and should **not** be reintroduced unless requested.
+
+Kobold portrait uses Blizzard icon:
+
+- `Interface\Icons\inv_misc_candlekobold_color1`
+
+Grid monster uses custom:
+
+- `Interface\AddOns\GoblinArcade\Media\Monsters\kobold`
+
+---
+
+## 11. Current combat prototype
+
+Current kobold:
+
+- HP: **36**
+- damage: **4–7**
+- starts around `11,4`
+
+Enemy awareness:
+
+- the kobold does not automatically know the player across the entire map;
+- it can detect the player within enemy vision range + line of sight;
+- after alerting, it chases using deterministic BFS pathfinding.
+
+Player combat:
+
+- moving into the enemy tile triggers bump attack;
+- `1 ATTACK` also attacks if adjacent;
+- each attack costs one turn;
+- damage uses the active GoblinArcade weapon;
+- no weapon = unarmed fallback damage.
+
+Kobold attacks when adjacent.
+
+Death ends the run.
+
+Kobold kill currently gives:
+
+- **+100 score**
+
+Chest loot currently gives:
+
+- **+25 score**
+
+Combat randomness is allowed in actual combat rolls. The user's objection to randomness was specifically about **gear conversion**.
+
+---
+
+## 12. Weapon conversion
+
+File:
+
+- `WeaponGenerator.lua`
+
+Critical design rule:
+
+> **Gear conversion must never use RNG.**
+
+The user explicitly rejected seeded/hash-based or reroll-like generation.
+
+Conversion is deterministic and transparent:
+
+- same WoW item metadata → same GoblinArcade item;
+- subtype defines fixed archetype;
+- item level defines power budget;
+- rarity strengthens the predefined behavior;
+- no rolled affixes.
+
+Examples:
+
+- Dagger → fast / backstab
+- Sword → balanced / guard
+- Axe → cleave
+- Mace → stagger
+- Staff → reach / sweep
+- Polearm → reach / impale
+- Bow → ranged / precise
+- Gun → ranged / impact
+- Crossbow → ranged / puncture
+- Wand → ranged / focus
+- Fist → fast / flurry
+
+Current user's main weapon example:
+
+Heavy Copper Maul:
+
+- Two-Handed Mace
+- Damage 14–19
+- Slow
+- Range 1
+- STAGGER
+- 15% chance to delay target's next action
+
+STAGGER is an in-combat probability, not a conversion reroll.
+
+---
+
+## 13. Armor / item conversion
+
+File:
+
+- `ItemGenerator.lua`
+
+Current generator version:
+
+- **2**
+
+Armor/jewelry conversion is also fully deterministic.
+
+Converted stats include:
+
+- Health
+- Armor
+- Dodge
+- Crit
+- Block
+
+Current slot philosophy:
+
+- Chest → strongest HP source + armor
+- Legs → strong HP + armor
+- Head → moderate HP + armor
+- Shoulders → moderate HP + armor
+- Feet → Dodge focus
+- Wrist → Dodge
+- Hands → Crit
+- Rings → Crit / Dodge
+- Trinkets → mixed Crit / Dodge
+- Cloak → Dodge
+- Shield → Armor + Block
+- caster off-hand / holdable → Focus / Crit
+
+Main armor HP sources are explicitly:
+
+- Head
+- Shoulders
+- Chest
+- Legs
+
+HP scales deterministically with:
+
+- item level;
+- rarity;
+- armor material.
+
+Gear conversion must remain fixed and explainable.
+
+---
+
+## 14. Converted stats affect combat
+
+Current aggregate GoblinArcade stats:
+
+- bonus HP
+- Armor
+- Dodge
+- Crit
+- Block
+
+Effects:
+
+- Health increases run max HP;
+- Armor mitigates incoming damage;
+- Dodge can avoid an enemy attack;
+- Crit causes 150% player damage;
+- Block can halve an incoming hit.
+
+Health equipment swapping preserves health ratio.
+
+Important:
+
+Changing gear must **not** allow free healing.
+
+Example:
+
+- 50% current health before gear change
+- new max HP after gear change
+- current HP becomes approximately 50% of the new max HP
+
+---
+
+## 15. Character sheet
+
+Hotkey:
+
+- `C`
+
+The sheet resembles a WoW character + backpack arrangement.
+
+It contains:
+
+- character portrait
+- character name / level / race / class
+- current health
+- converted aggregate stats
+- equipment slots
+- backpack
+
+Aggregate stats are deliberately stacked vertically to avoid overlap:
+
+- Health x / y
+- HP Bonus +N
+- Armor N
+- Dodge N%
+- Crit N%
+- Block N%
+
+Do not return these to one wide horizontal line.
+
+---
+
+## 16. Item tooltips
+
+Inside GoblinArcade character sheet, item tooltips intentionally show **only GoblinArcade stats**.
+
+Do not show the normal WoW stat tooltip there.
+
+Tooltip should include:
+
+- item name in rarity color
+- GoblinArcade role/style
+- converted stats
+- trait if available
+
+Example armor tooltip:
+
+```
+Chainmail Vest
+Bulwark
+Health +12
+Armor +6
+
+BULWARK
++6 Armor.
+```
+
+Example weapon tooltip:
+
+```
+Heavy Copper Maul
+Weapon
+Damage 14 - 19
+Two-Handed Mace - SLOW - Range 1
+
+STAGGER
+15% chance to delay the target's next action.
+```
+
+---
+
+## 17. Inventory / drag and drop
+
+The run snapshots the character's actual equipped WoW items into an internal GoblinArcade inventory.
+
+This inventory is separate from real WoW equipment.
+
+Character sheet supports drag & drop:
+
+- equipment → backpack
+- backpack → equipment
+- equipment → compatible equipment slot
+
+Slot compatibility is enforced.
+
+When dragging:
+
+- valid equipment slots glow **green**
+- valid backpack cells glow **gold**
+- invalid equipment slots are dimmed
+
+This highlighting behavior was explicitly requested and should be preserved.
+
+Changing main hand updates:
+
+- run damage
+- weapon archetype
+- weapon trait
+
+Removing the main hand results in unarmed fallback.
+
+---
+
+## 18. Dungeon loot
+
+Current prototype chest loot includes:
+
+### Candlekeeper's Charm
+
+- Trinket
+- GoblinArcade-converted
+- goes into backpack
+
+### Waxbound Ring
+
+- Ring
+- GoblinArcade-converted
+- goes into backpack
+
+Chest marker disappears after opening.
+
+Loot can be equipped via the `C` character sheet.
+
+Future dungeon loot should follow the same deterministic conversion system.
+
+---
+
+## 19. Run snapshot behavior
+
+At BEGIN RUN:
+
+- selected character snapshot is frozen;
+- WoW gear changes outside GoblinArcade should not alter an active run;
+- run maintains its own equipment state.
+
+The active run keeps:
+
+- character snapshot
+- equipment
+- backpack
+- current/max HP
+- converted stats
+- exploration
+- visibility
+- score
+- turn count
+- enemy state
+- opened chests
+
+---
+
+## 20. Recent UI fixes
+
+Latest visual changes before this handoff:
+
+1. Main window widened from **1020 → 1100 px**.
+2. Right combat panel widened to **182 px**, matching left run panel.
+3. Kobold card moved back to the **right side** at user's request.
+4. Kobold card uses the same horizontal dimensions as player card.
+5. Relic UI removed completely.
+6. Fog-of-war unseen borders set transparent to eliminate visible dots around the map.
+7. Remembered floor borders made subtler.
+
+Latest code version at handoff:
+
+- **0.13.4**
+
+Latest known main commit before this handoff:
+
+- `bb37d0c682f2874a44b7ab956e29dd8eb34bf954`
+- message: `Widen dungeon canvas and clean fog borders`
+
+---
+
+## 21. Important UX decisions from the user
+
+Preserve these unless user explicitly changes direction:
+
+- UI should be compact and game-like.
+- No giant input fields.
+- No unnecessary rounded corners.
+- Avoid duplicate portraits.
+- Dungeon should feel like a real roguelike, not a debug grid.
+- The character should matter.
+- Gear conversion must be deterministic.
+- Dungeon randomness belongs in gameplay, not conversion.
+- Character selection belongs before BEGIN RUN.
+- Home should remain minimal.
+- Relic slots are currently unwanted.
+- Enemy combat card belongs on the **right**.
+- Vision radius is **4**.
+- Fog of war and LOS are important.
+- User prefers screenshot-driven iteration.
+
+---
+
+## 22. Known technical debt / cautions
+
+### DungeonRun.lua is very large
+
+It currently contains:
+
+- map/world logic;
+- UI construction;
+- combat;
+- LOS;
+- camera;
+- loot;
+- run lifecycle;
+- enemy AI.
+
+It is now ~70k bytes and is becoming a maintenance risk.
+
+A later refactor should split it into modules such as:
+
+- `DungeonWorld.lua`
+- `DungeonUI.lua`
+- `DungeonCombat.lua`
+- `DungeonAI.lua`
+- `DungeonLoot.lua`
+
+Do **not** perform a large refactor without preserving current behavior and testing via /reload.
+
+### Current enemy system
+
+Only one real enemy exists.
+
+Pathfinding currently assumes a simple single-enemy model.
+
+Multi-enemy support will need:
+
+- occupancy handling;
+- collision between enemies;
+- turn order;
+- target selection;
+- enemy IDs / collections rather than `run.enemy`.
+
+### Current map
+
+The 25×25 map is still manually defined.
+
+Future floors should likely be generated from:
+
+- room templates;
+- corridors;
+- objective placement;
+- enemy spawn tables;
+- chest spawn tables.
+
+### Current static `S` markers
+
+These are prototype/test markers and have no proper gameplay system yet.
+
+---
+
+## 23. Recommended next development steps
+
+The most natural next slice is **enemy variety + proper floor gameplay**, not another broad UI rewrite.
+
+Recommended order:
+
+1. **Second enemy type**
+   - e.g. spider or skeleton
+   - distinct portrait/icon
+   - distinct AI profile
+   - enemy collection instead of single `run.enemy`
+
+2. **Enemy intent / combat presentation**
+   - ATTACKING
+   - MOVING
+   - STAGGERED
+   - maybe visible on the right target card
+
+3. **Abilities**
+   - Warrior first
+   - basic attack + 4 actives + passive is the longer-term design
+   - current buttons 2/3 are placeholders
+
+4. **Potions**
+   - finite run resource
+   - no unlimited healing
+
+5. **Dungeon generation**
+   - floor templates first
+   - procedural generation later if needed
+
+6. **Floor objectives**
+   - exit
+   - elite
+   - chest
+   - shrine/shop
+   - boss
+
+7. **More deterministic loot**
+   - armor
+   - jewelry
+   - weapons
+   - clear archetype-based differences
+
+8. **Scores**
+   - run score summary
+   - eventual local/group sharing
+
+---
+
+## 24. Development workflow for the next context
+
+When modifying code:
+
+1. Fetch the current file from `main` before editing.
+2. Use the current SHA for `update_file`.
+3. Prefer atomic multi-file commits when possible to avoid multiple redundant deployments.
+4. Push to `main`.
+5. GitHub Actions deploys automatically.
+6. Tell the user to test with `/reload`.
+7. Ask for a screenshot/error only after implementation if needed.
+
+Do not assume an earlier file snapshot is still current.
+
+---
+
+## 25. Current test character
+
+Current frequently tested character:
+
+- **Max Carnage**
+- Orc Warrior
+- Level 13
+
+Known example run values around this development stage:
+
+- base health around 358
+- Heavy Copper Maul
+- GoblinArcade damage 14–19
+- STAGGER 15%
+
+These are useful sanity checks, not hard-coded gameplay requirements.
+
+---
+
+## 26. Product direction
+
+Long-term dungeon concept:
+
+- 9 floors
+- 13×13 camera viewport
+- larger dungeon world underneath
+- movement consumes turns
+- bump combat
+- class abilities
+- enemy AI variety
+- persistent HP during run
+- limited potion
+- dungeon loot
+- character gear conversion
+- chest / shrine / shop / elite / boss layers
+- score summary on death / completion
+
+There should be no separate roguelike XP system replacing WoW progression.
+
+WoW character level and WoW gear are the foundation.
+
+---
+
+## 27. Final reminder
+
+This project is being built by rapid visual iteration.
+
+Before changing layout conventions, remember the user's current preferences:
+
+- enemy card on the right;
+- player card on the left;
+- both use matching horizontal card proportions;
+- right and left side panels are 182 px;
+- Home is minimal;
+- no relic panel;
+- vision radius = 4;
+- map should not visually overlap side panels;
+- fog should not show dotted borders;
+- item tooltips should show GoblinArcade stats, not WoW stats;
+- drag targets must visually highlight.
+
+Preserve those decisions unless the user explicitly asks to change them.
