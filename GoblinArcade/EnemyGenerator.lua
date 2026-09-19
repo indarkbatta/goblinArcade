@@ -3,7 +3,7 @@ local _, GA = ...
 GA.EnemyGenerator = GA.EnemyGenerator or {}
 local EG = GA.EnemyGenerator
 
-EG.VERSION = 2
+EG.VERSION = 3
 
 local GEAR_SLOTS = {
     "head",
@@ -57,6 +57,7 @@ local ARCHETYPES = {
         hpMultiplier = 0.95,
         damageMultiplier = 0.90,
         visionRadius = 6,
+        movementPattern = "normal",
         baseScore = 100,
     },
     spider = {
@@ -64,6 +65,7 @@ local ARCHETYPES = {
         hpMultiplier = 0.70,
         damageMultiplier = 0.80,
         visionRadius = 7,
+        movementPattern = "quick",
         baseScore = 90,
     },
     skeleton = {
@@ -71,6 +73,7 @@ local ARCHETYPES = {
         hpMultiplier = 1.20,
         damageMultiplier = 1.00,
         visionRadius = 5,
+        movementPattern = "slow",
         baseScore = 125,
     },
     brute = {
@@ -274,6 +277,7 @@ function EG:CreateEnemy(options)
         damageMin = damageMin,
         damageMax = damageMax,
         visionRadius = archetype.visionRadius,
+        movementPattern = archetype.movementPattern or "normal",
         scoreValue = scoreValue,
         alive = true,
         alerted = false,

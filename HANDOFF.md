@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.14.2**  
+Current addon version: **0.15.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -343,13 +343,14 @@ When combat starts:
 
 Relic slots were explicitly removed and should **not** be reintroduced unless requested.
 
-Kobold portrait uses Blizzard icon:
+Enemy visuals currently use:
 
-- `Interface\Icons\inv_misc_candlekobold_color1`
+- Kobold portrait: Blizzard candle-kobold icon
+- Kobold grid sprite: custom `Media/Monsters/kobold`
+- Spider: Blizzard spider ability icon for grid + target card
+- Skeleton: Blizzard skull icon for grid + target card
 
-Grid monster uses custom:
-
-- `Interface\AddOns\GoblinArcade\Media\Monsters\kobold`
+These are functional prototype visuals; dedicated custom monster sprites can replace Spider/Skeleton later without changing the archetype logic.
 
 ---
 
@@ -357,8 +358,11 @@ Grid monster uses custom:
 
 Current floor enemies:
 
-- Floor 1 now spawns a bounded random population of Kobolds instead of one fixed Kobold
+- Floor 1 spawns a bounded mixed population rather than one fixed Kobold
 - level, HP and damage are generated deterministically by `EnemyGenerator.lua`
+- Kobold is the baseline pursuer
+- Spider is a low-HP, high-vision quick pursuer
+- Skeleton is a higher-HP, lower-vision slow pursuer
 - effective level depends on selected character level + floor + rank
 - HP and damage also receive frozen BEGIN RUN Gear Pressure
 - the target card displays the generated enemy level
@@ -689,7 +693,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.14.2**
+- **0.15.0**
 
 Recent gameplay foundation:
 
@@ -700,8 +704,12 @@ Recent gameplay foundation:
 - EnemyGenerator v2 applies separate Floor HP (+6% per floor after Floor 1) and Floor Damage (+4% per floor after Floor 1) pressure
 - FloorGenerator v1 rolls bounded QUIET / STANDARD / CROWDED population profiles
 - DungeonRun now supports multiple simultaneously living enemies with collision-aware movement
-- Floor 1 currently generates roughly 6–8 Kobolds on the current 25×25 test map
-- future enemy archetypes already have generator profiles for kobold, spider, skeleton and brute
+- Floor 1 currently generates roughly 6–8 total enemies on the current 25×25 test map
+- FloorGenerator v2 assigns bounded Kobold / Spider / Skeleton compositions within the same density budget
+- EnemyGenerator v3 exposes deterministic movement patterns for enemy archetypes
+- Spider moves 1 tile normally and 2 tiles on every second enemy phase
+- Skeleton attacks every phase in melee but only advances on every second enemy phase
+- Brute remains generator-only / future content
 
 ---
 
@@ -767,7 +775,7 @@ Multi-enemy support is now active in 0.14.2:
 - multiple adjacent enemies can each attack during the enemy turn;
 - the right combat card follows the active adjacent target.
 
-Current 0.14.2 floor population is still Kobold-only. Archetype variety remains the next content layer.
+0.15.0 adds active Kobold + Spider + Skeleton archetypes to the multi-enemy framework. Floor composition is budgeted rather than additive, so archetype variety does not increase total density.
 
 ### Current map
 
@@ -995,10 +1003,16 @@ After level and Gear Pressure are calculated, individual enemy archetypes modify
 
 Current generator profiles:
 
-- Kobold: HP ×0.95, damage ×0.90, vision 6
-- Spider: HP ×0.70, damage ×0.80, vision 7
-- Skeleton: HP ×1.20, damage ×1.00, vision 5
-- Brute: HP ×1.50, damage ×1.25, vision 5
+- Kobold: HP ×0.95, damage ×0.90, vision 6, NORMAL movement
+- Spider: HP ×0.70, damage ×0.80, vision 7, QUICK movement
+- Skeleton: HP ×1.20, damage ×1.00, vision 5, SLOW movement
+- Brute: HP ×1.50, damage ×1.25, vision 5, generator-only future content
+
+Movement behavior:
+
+- NORMAL: 1 movement tile per enemy phase while alerted.
+- QUICK: 1 movement tile normally, 2 tiles on every second enemy phase.
+- SLOW: 0 movement tiles on one phase, 1 tile on the next; melee attacks are not slowed.
 
 Current ranks:
 
@@ -1091,6 +1105,41 @@ Current implementation uses:
 - a uniqueness-preserving fallback if a future map is too constrained for the preferred spacing;
 - all static marker cells are reserved from ordinary enemy spawning.
 
+### Archetype composition
+
+Implemented in FloorGenerator v2. Enemy archetypes **share the existing density budget**.
+
+Current floor weights:
+
+```
+Floor 1–2:
+Kobold 80%
+Spider 20%
+Skeleton 0%
+
+Floor 3–4:
+Kobold 60%
+Spider 30%
+Skeleton 10%
+
+Floor 5–6:
+Kobold 45%
+Spider 30%
+Skeleton 25%
+
+Floor 7–8:
+Kobold 35%
+Spider 30%
+Skeleton 35%
+
+Floor 9:
+Kobold 25%
+Spider 25%
+Skeleton 50%
+```
+
+The generator converts these weights into bounded integer counts for the floor, then shuffles the archetype plan before assigning spawn locations. This prevents extreme rolls such as an early floor accidentally becoming all Spiders.
+
 ### Rank interaction
 
 Veteran / Elite / Boss enemies should generally **replace part of the normal enemy budget**, not simply be added on top of the body count.
@@ -1113,15 +1162,14 @@ Randomness is appropriate in floor composition/density. It must remain bounded. 
 
 ## 25. Recommended next development steps
 
-Deterministic scaling, bounded density and the basic multi-enemy framework are complete. The most natural next slice is now **enemy archetype variety and rank composition**, not another broad UI rewrite.
+Deterministic scaling, bounded density, multi-enemy support and the first three active archetypes are complete. The most natural next slice is now **rank composition + enemy intent presentation**, not another broad UI rewrite.
 
 Recommended order:
 
-1. **Second enemy type**
-   - e.g. spider or skeleton
-   - distinct portrait/icon
-   - distinct AI profile
-   - use the existing multi-enemy collection and density budget
+1. **Rank composition**
+   - Veteran and Elite replace normal enemies inside the same population budget
+   - later floors allow higher rank percentages
+   - Boss remains a floor/objective-specific case
 
 2. **Enemy intent / combat presentation**
    - ATTACKING

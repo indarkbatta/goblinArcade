@@ -54,6 +54,24 @@ local STATIC_MARKERS = {
 local KOBOLD_TEXTURE = "Interface\\AddOns\\GoblinArcade\\Media\\Monsters\\kobold"
 local KOBOLD_PORTRAIT_ICON = "Interface\\Icons\\inv_misc_candlekobold_color1"
 
+local ENEMY_VISUALS = {
+    kobold = {
+        gridTexture = KOBOLD_TEXTURE,
+        portraitIcon = KOBOLD_PORTRAIT_ICON,
+        gridTexCoord = { 0, 1, 0, 1 },
+    },
+    spider = {
+        gridTexture = "Interface\\Icons\\Ability_Hunter_Pet_Spider",
+        portraitIcon = "Interface\\Icons\\Ability_Hunter_Pet_Spider",
+        gridTexCoord = { 0.08, 0.92, 0.08, 0.92 },
+    },
+    skeleton = {
+        gridTexture = "Interface\\Icons\\INV_Misc_Bone_HumanSkull_01",
+        portraitIcon = "Interface\\Icons\\INV_Misc_Bone_HumanSkull_01",
+        gridTexCoord = { 0.08, 0.92, 0.08, 0.92 },
+    },
+}
+
 local CHEST_LOOT = {
     ["9:11"] = {
         name = "Candlekeeper's Charm",
@@ -353,7 +371,7 @@ local function IsTooCloseToSpawnedEnemy(enemies, x, y, minimumDistance)
     return false
 end
 
-local function CreateFloorEnemies(enemyGenerator, playerLevel, floor, gearPressure, enemyCount)
+local function CreateFloorEnemies(enemyGenerator, playerLevel, floor, gearPressure, archetypePlan)
     local candidates = {}
 
     for y = 1, GRID_HEIGHT do
@@ -370,19 +388,24 @@ local function CreateFloorEnemies(enemyGenerator, playerLevel, floor, gearPressu
     local used = {}
 
     local function AddEnemyAt(candidate)
+        local nextIndex = #enemies + 1
+        local archetype = archetypePlan[nextIndex] or "kobold"
+        local visual = ENEMY_VISUALS[archetype] or ENEMY_VISUALS.kobold
+
         local enemy = enemyGenerator:CreateEnemy({
-            archetype = "kobold",
+            archetype = archetype,
             rank = "normal",
             playerLevel = playerLevel,
             floor = floor,
             gearPressure = gearPressure,
         })
 
-        enemy.uid = "enemy-" .. tostring(#enemies + 1)
+        enemy.uid = "enemy-" .. tostring(nextIndex)
         enemy.x = candidate.x
         enemy.y = candidate.y
-        enemy.texture = KOBOLD_TEXTURE
-        enemy.portraitIcon = KOBOLD_PORTRAIT_ICON
+        enemy.texture = visual.gridTexture
+        enemy.portraitIcon = visual.portraitIcon
+        enemy.gridTexCoord = visual.gridTexCoord
 
         enemies[#enemies + 1] = enemy
         used[CellKey(candidate.x, candidate.y)] = true
@@ -390,7 +413,7 @@ local function CreateFloorEnemies(enemyGenerator, playerLevel, floor, gearPressu
 
     -- First pass keeps enemies comfortably separated.
     for _, candidate in ipairs(candidates) do
-        if #enemies >= enemyCount then
+        if #enemies >= #archetypePlan then
             break
         end
 
@@ -407,9 +430,9 @@ local function CreateFloorEnemies(enemyGenerator, playerLevel, floor, gearPressu
     -- Fallback only matters on unusually constrained future maps. It preserves
     -- uniqueness and safety rules but relaxes anti-clustering before reducing
     -- the requested floor population.
-    if #enemies < enemyCount then
+    if #enemies < #archetypePlan then
         for _, candidate in ipairs(candidates) do
-            if #enemies >= enemyCount then
+            if #enemies >= #archetypePlan then
                 break
             end
 
@@ -420,6 +443,35 @@ local function CreateFloorEnemies(enemyGenerator, playerLevel, floor, gearPressu
     end
 
     return enemies
+end
+
+local function GetEnemyMovementSteps(enemy, enemyPhase)
+    local pattern = enemy and enemy.movementPattern or "normal"
+
+    if pattern == "quick" then
+        -- Spider: always moves at least once, and gets a predictable second
+        -- movement step every second enemy phase.
+        return enemyPhase % 2 == 0 and 2 or 1
+    end
+
+    if pattern == "slow" then
+        -- Skeleton: attacks normally in melee, but only advances every other
+        -- enemy phase while chasing.
+        return enemyPhase % 2 == 0 and 1 or 0
+    end
+
+    return 1
+end
+
+local function BuildCompositionText(counts)
+    counts = counts or {}
+
+    return string.format(
+        "%d Kobold / %d Spider / %d Skeleton",
+        counts.kobold or 0,
+        counts.spider or 0,
+        counts.skeleton or 0
+    )
 end
 
 local function SetCharacterVisual(texture, character)
@@ -497,7 +549,7 @@ function GA:CreateDungeonRunPage(parent)
     title:SetPoint("TOPLEFT", 18, -16)
     title:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
-    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  DETERMINISTIC ENEMY SCALING")
+    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  ENEMY ARCHETYPES + SCALING")
     subtitle:SetPoint("TOPRIGHT", -18, -22)
     subtitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
@@ -1365,6 +1417,7 @@ function GA:RefreshEnemyCombatCard()
 
             if self.DungeonEnemyPortrait then
                 self.DungeonEnemyPortrait:SetTexture(enemy.portraitIcon or KOBOLD_PORTRAIT_ICON)
+                self.DungeonEnemyPortrait:SetTexCoord(0.08, 0.92, 0.08, 0.92)
             end
         else
             self.DungeonEnemyCard:Hide()
@@ -1721,6 +1774,14 @@ function GA:RenderDungeonGrid()
                     enemyCell.frame:SetBackdropBorderColor(COLORS.red[1], COLORS.red[2], COLORS.red[3], 1)
                     enemyCell.marker:SetText("")
                     enemyCell.enemyIcon:SetTexture(enemy.texture or KOBOLD_TEXTURE)
+
+                    local coords = enemy.gridTexCoord
+                    if coords then
+                        enemyCell.enemyIcon:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
+                    else
+                        enemyCell.enemyIcon:SetTexCoord(0, 1, 0, 1)
+                    end
+
                     enemyCell.enemyIcon:Show()
                 end
             end
@@ -1815,12 +1876,17 @@ function GA:BeginDungeonRun()
         densityProfile
     )
 
+    local archetypePlan, archetypeCounts = self.FloorGenerator:CreateArchetypePlan(
+        enemyCount,
+        floor
+    )
+
     local floorEnemies = CreateFloorEnemies(
         self.EnemyGenerator,
         level,
         floor,
         gearPressure,
-        enemyCount
+        archetypePlan
     )
 
     local sampleEnemy = floorEnemies[1]
@@ -1846,8 +1912,10 @@ function GA:BeginDungeonRun()
         walkableTiles = walkableTiles,
         baseEnemyCount = baseEnemyCount,
         enemyCount = #floorEnemies,
+        enemyComposition = CopyTable(archetypeCounts),
         enemies = floorEnemies,
         activeEnemyId = nil,
+        enemyPhase = 0,
         snapshot = {
             characterKey = selected.key,
             name = name,
@@ -1923,6 +1991,10 @@ function GA:BeginDungeonRun()
             walkableTiles
         ),
         "enemy"
+    )
+    self:AddCombatLog(
+        "Composition: " .. BuildCompositionText(archetypeCounts) .. ".",
+        "system"
     )
     self:AddCombatLog("Vision radius: 4. Walls block line of sight.", "system")
     self:AddCombatLog(
@@ -2006,6 +2078,8 @@ function GA:RunEnemyTurn()
     end
 
     local stats = run.arcadeStats or {}
+    run.enemyPhase = (run.enemyPhase or 0) + 1
+    local enemyPhase = run.enemyPhase
 
     for _, enemy in ipairs(run.enemies) do
         if enemy.alive ~= false and run.active then
@@ -2100,25 +2174,46 @@ function GA:RunEnemyTurn()
                         end
                     end
                 elseif enemy.alerted then
-                    local occupied = BuildOccupiedEnemyCells(run, enemy.uid)
-                    local wasVisible = self:IsDungeonCellVisible(enemy.x, enemy.y)
-                    local nextX, nextY = FindNextStep(
-                        enemy.x,
-                        enemy.y,
-                        run.playerX,
-                        run.playerY,
-                        occupied
-                    )
+                    local movementSteps = GetEnemyMovementSteps(enemy, enemyPhase)
+                    local movedSteps = 0
+                    local visibleDuringMove = self:IsDungeonCellVisible(enemy.x, enemy.y)
 
-                    if nextX and nextY
-                        and not (nextX == run.playerX and nextY == run.playerY)
-                        and not occupied[CellKey(nextX, nextY)] then
+                    for _ = 1, movementSteps do
+                        if IsAdjacent(enemy.x, enemy.y, run.playerX, run.playerY) then
+                            break
+                        end
+
+                        local occupied = BuildOccupiedEnemyCells(run, enemy.uid)
+                        local nextX, nextY = FindNextStep(
+                            enemy.x,
+                            enemy.y,
+                            run.playerX,
+                            run.playerY,
+                            occupied
+                        )
+
+                        if not nextX or not nextY
+                            or (nextX == run.playerX and nextY == run.playerY)
+                            or occupied[CellKey(nextX, nextY)] then
+                            break
+                        end
 
                         enemy.x = nextX
                         enemy.y = nextY
+                        movedSteps = movedSteps + 1
 
-                        local nowVisible = self:IsDungeonCellVisible(enemy.x, enemy.y)
-                        if wasVisible or nowVisible then
+                        if self:IsDungeonCellVisible(enemy.x, enemy.y) then
+                            visibleDuringMove = true
+                        end
+                    end
+
+                    if movedSteps > 0 and visibleDuringMove then
+                        if enemy.movementPattern == "quick" and movedSteps > 1 then
+                            self:AddCombatLog(
+                                (enemy.name or "Enemy") .. " scuttles quickly closer.",
+                                "enemy"
+                            )
+                        else
                             self:AddCombatLog(
                                 (enemy.name or "Enemy") .. " moves closer.",
                                 "enemy"
