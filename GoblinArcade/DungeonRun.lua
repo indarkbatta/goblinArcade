@@ -679,6 +679,40 @@ local function GetStudioShrineChoice(choiceId)
     return nil
 end
 
+local function GetRunProgression()
+    local fallback = { xpPerDanger = 8, firstLevelXp = 100, levelGrowth = 1.22, maxRunLevel = 60 }
+    for _, record in ipairs(GA.StudioData and GA.StudioData.progression or {}) do
+        if record.id == "run_xp" then
+            return {
+                xpPerDanger = math.max(1, tonumber(record.xpPerDanger) or fallback.xpPerDanger),
+                firstLevelXp = math.max(1, tonumber(record.firstLevelXp) or fallback.firstLevelXp),
+                levelGrowth = math.max(1, tonumber(record.levelGrowth) or fallback.levelGrowth),
+                maxRunLevel = math.max(1, math.floor(tonumber(record.maxRunLevel) or fallback.maxRunLevel)),
+            }
+        end
+    end
+    return fallback
+end
+
+local function GetRunXpRequired(run)
+    local progression = run and run.progression or GetRunProgression()
+    local levelsGained = math.max(0, tonumber(run and run.levelsGained) or 0)
+    return math.max(1, math.floor(progression.firstLevelXp * (progression.levelGrowth ^ levelsGained) + 0.5))
+end
+
+local function GetClassAbilityIdSet(classId, level)
+    local result = {}
+    local normalizedClass = string.lower(tostring(classId or ""))
+    local currentLevel = math.max(1, tonumber(level) or 1)
+    for _, ability in ipairs(GA.StudioData and GA.StudioData.abilities or {}) do
+        if string.lower(tostring(ability.classId or "")) == normalizedClass
+            and (tonumber(ability.learnLevel) or 1) <= currentLevel then
+            result[ability.id] = true
+        end
+    end
+    return result
+end
+
 local function BuildRoomRoleText(counts)
     counts = counts or {}
 
@@ -1214,8 +1248,10 @@ function GA:CreateDungeonRunPage(parent)
     self.DungeonRunTitle = runTitle
 
     self.DungeonFloorValue, self.DungeonFloorLabel = CreateStatRow(right, "FLOOR", "1 / 9", -150)
-    self.DungeonScoreValue, self.DungeonScoreLabel = CreateStatRow(right, "SCORE", "0", -174)
-    self.DungeonTurnsValue, self.DungeonTurnsLabel = CreateStatRow(right, "TURNS", "0", -198)
+    self.DungeonLevelValue, self.DungeonLevelLabel = CreateStatRow(right, "LEVEL", "--", -174)
+    self.DungeonXpValue, self.DungeonXpLabel = CreateStatRow(right, "XP", "--", -198)
+    self.DungeonScoreValue, self.DungeonScoreLabel = CreateStatRow(right, "SCORE", "0", -222)
+    self.DungeonTurnsValue, self.DungeonTurnsLabel = CreateStatRow(right, "TURNS", "0", -246)
 
     local miniMapLabel = CreateText(right, "GameFontNormalSmall", "MAP")
     miniMapLabel:SetPoint("BOTTOMLEFT", 12, 224)
@@ -1804,7 +1840,7 @@ function GA:SetDungeonRunPortraitMode(active)
         if active then
             local snapshot = self.RunState and self.RunState.snapshot
             local name = snapshot and snapshot.name or UnitName("player") or "Unknown"
-            local level = snapshot and snapshot.level or UnitLevel("player") or 0
+            local level = self.RunState and self.RunState.runLevel or snapshot and snapshot.level or UnitLevel("player") or 0
             local className = snapshot and snapshot.className or UnitClass("player") or "Adventurer"
 
             self.DungeonRunPortraitName:SetText(name)
@@ -2016,7 +2052,11 @@ function GA:RefreshEnemyCombatCard()
 
             if self.DungeonEnemyIntent then
                 local intent = enemy.intent or "IDLE"
-                self.DungeonEnemyIntent:SetText("INTENT: " .. GetEnemyIntentLabel(enemy))
+                self.DungeonEnemyIntent:SetText(string.format(
+                    "DANGER %d  %s",
+                    enemy.dangerRating or 1,
+                    GetEnemyIntentLabel(enemy)
+                ))
 
                 if intent == "ATTACKING" then
                     self.DungeonEnemyIntent:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
@@ -2065,13 +2105,17 @@ function GA:RefreshEnemyCombatCard()
         if inCombat then
             self.DungeonRunTitle:SetPoint("TOPLEFT", 12, -126)
             PositionRunRow(self.DungeonFloorLabel, self.DungeonFloorValue, -150)
-            PositionRunRow(self.DungeonScoreLabel, self.DungeonScoreValue, -174)
-            PositionRunRow(self.DungeonTurnsLabel, self.DungeonTurnsValue, -198)
+            PositionRunRow(self.DungeonLevelLabel, self.DungeonLevelValue, -174)
+            PositionRunRow(self.DungeonXpLabel, self.DungeonXpValue, -198)
+            PositionRunRow(self.DungeonScoreLabel, self.DungeonScoreValue, -222)
+            PositionRunRow(self.DungeonTurnsLabel, self.DungeonTurnsValue, -246)
         else
             self.DungeonRunTitle:SetPoint("TOPLEFT", 12, -14)
             PositionRunRow(self.DungeonFloorLabel, self.DungeonFloorValue, -38)
-            PositionRunRow(self.DungeonScoreLabel, self.DungeonScoreValue, -62)
-            PositionRunRow(self.DungeonTurnsLabel, self.DungeonTurnsValue, -86)
+            PositionRunRow(self.DungeonLevelLabel, self.DungeonLevelValue, -62)
+            PositionRunRow(self.DungeonXpLabel, self.DungeonXpValue, -86)
+            PositionRunRow(self.DungeonScoreLabel, self.DungeonScoreValue, -110)
+            PositionRunRow(self.DungeonTurnsLabel, self.DungeonTurnsValue, -134)
         end
     end
 end
@@ -2133,6 +2177,53 @@ function GA:FailDungeonRun(reason)
     self:SetRunMode(false)
     self:RefreshMainHandInfo(true)
     self:SetDungeonSetupMode(true)
+end
+
+function GA:GrantRunExperience(amount)
+    local run = self.RunState
+    if not run or not run.active then return end
+    local gainedXp = math.max(0, math.floor(tonumber(amount) or 0))
+    if gainedXp <= 0 then return end
+
+    run.totalRunXp = (run.totalRunXp or 0) + gainedXp
+    if (run.runLevel or 1) >= (run.progression and run.progression.maxRunLevel or 60) then
+        self:RefreshRunCounters()
+        return
+    end
+
+    run.runXp = (run.runXp or 0) + gainedXp
+    while run.runLevel < run.progression.maxRunLevel do
+        local required = GetRunXpRequired(run)
+        if run.runXp < required then break end
+        run.runXp = run.runXp - required
+        run.runLevel = run.runLevel + 1
+        run.levelsGained = (run.levelsGained or 0) + 1
+
+        local previousAbilities = run.unlockedAbilities or {}
+        local nextAbilities = GetClassAbilityIdSet(run.classId, run.runLevel)
+        local unlockedNames = {}
+        for _, ability in ipairs(GA.StudioData and GA.StudioData.abilities or {}) do
+            if nextAbilities[ability.id] and not previousAbilities[ability.id] then
+                unlockedNames[#unlockedNames + 1] = ability.name or ability.id
+            end
+        end
+        run.unlockedAbilities = nextAbilities
+
+        self:AddCombatLog(string.format("LEVEL UP! %s is now Level %d.", run.snapshot.name or "Hero", run.runLevel), "system")
+        if #unlockedNames > 0 then
+            self:AddCombatLog("New abilities: " .. table.concat(unlockedNames, ", ") .. ".", "player")
+        end
+        if self.DungeonRunStateText then
+            self.DungeonRunStateText:SetText("LEVEL UP!  LEVEL " .. run.runLevel)
+            self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+        end
+    end
+
+    if run.runLevel >= run.progression.maxRunLevel then run.runXp = 0 end
+    if self.DungeonRunPortraitMeta then
+        self.DungeonRunPortraitMeta:SetText(string.format("Level %d %s", run.runLevel or run.snapshot.level or 1, run.snapshot.className or "Adventurer"))
+    end
+    self:RefreshRunCounters()
 end
 
 function GA:PlayerAttackEnemy(targetEnemy)
@@ -2202,11 +2293,13 @@ function GA:PlayerAttackEnemy(targetEnemy)
         end
 
         local scoreValue = enemy.scoreValue or 100
+        local xpValue = enemy.xpValue or math.max(1, (enemy.dangerRating or 1) * 8)
         run.score = (run.score or 0) + scoreValue
         self:AddCombatLog(
-            string.format("%s defeated. +%d score.", GetEnemyDisplayName(enemy), scoreValue),
+            string.format("%s defeated. +%d score, +%d XP.", GetEnemyDisplayName(enemy), scoreValue, xpValue),
             "system"
         )
+        self:GrantRunExperience(xpValue)
 
         UpdateEncounterRoomClear(self, run, enemy)
 
@@ -2616,6 +2709,18 @@ function GA:RefreshRunCounters()
     if self.DungeonFloorValue then
         self.DungeonFloorValue:SetText(string.format("%d / 9", run and run.floor or 1))
     end
+    if self.DungeonLevelValue then
+        self.DungeonLevelValue:SetText(tostring(run and run.runLevel or "--"))
+    end
+    if self.DungeonXpValue then
+        if run and run.runLevel and run.progression and run.runLevel >= run.progression.maxRunLevel then
+            self.DungeonXpValue:SetText("MAX")
+        elseif run then
+            self.DungeonXpValue:SetText(string.format("%d / %d", run.runXp or 0, GetRunXpRequired(run)))
+        else
+            self.DungeonXpValue:SetText("--")
+        end
+    end
     if self.DungeonScoreValue then
         self.DungeonScoreValue:SetText(tostring(run and run.score or 0))
     end
@@ -2649,6 +2754,8 @@ function GA:BeginDungeonRun()
     local name = selected.name or "Unknown"
     local level = selected.level or 0
     local className = selected.className or "Adventurer"
+    local classId = string.lower(tostring(selected.classFile or className or ""))
+    local progression = GetRunProgression()
     local maxHealth = self:ScaleCombatValue(selected.maxHealth or 0)
     local floor = 1
 
@@ -2708,6 +2815,14 @@ function GA:BeginDungeonRun()
         floor = floor,
         score = 0,
         turns = 0,
+        startLevel = level,
+        runLevel = level,
+        runXp = 0,
+        totalRunXp = 0,
+        levelsGained = 0,
+        progression = CopyTable(progression),
+        classId = classId,
+        unlockedAbilities = GetClassAbilityIdSet(classId, level),
         playerX = startX,
         playerY = startY,
         playerHealth = maxHealth,
@@ -2838,13 +2953,17 @@ function GA:BeginDungeonRun()
     self:AddCombatLog("Vision radius: 4. Walls block line of sight.", "system")
     self:AddCombatLog(
         string.format(
-            "Scaling locked: Lv %d, gear %d/%d (%.2fx), overgear %.0f%%.",
+            "Scaling starts at Lv %d, gear %d/%d (%.2fx), overgear %.0f%%.",
             level,
             gearPressure.actualGearSum,
             gearPressure.expectedGearSum,
             gearPressure.gearIndex,
             gearPressure.overgear * 100
         ),
+        "system"
+    )
+    self:AddCombatLog(
+        string.format("Run progression: Level %d, %d XP to next level. Run levels reset after the run.", level, GetRunXpRequired(self.RunState)),
         "system"
     )
     if sampleEnemy then
@@ -2970,7 +3089,7 @@ function GA:ApplyDungeonFloor(floorNumber, entryDirection)
         floorSetup = GenerateFloorSetup(
             self.FloorGenerator,
             self.EnemyGenerator,
-            run.snapshot.level or 1,
+            run.runLevel or run.snapshot.level or 1,
             floorNumber,
             run.gearPressure or {},
             floorMap

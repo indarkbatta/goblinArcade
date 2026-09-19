@@ -3,7 +3,7 @@ local _, GA = ...
 GA.EnemyGenerator = GA.EnemyGenerator or {}
 local EG = GA.EnemyGenerator
 
-EG.VERSION = 5
+EG.VERSION = 6
 
 local GEAR_SLOTS = {
     "head",
@@ -30,24 +30,28 @@ local RANKS = {
         hpMultiplier = 1.00,
         damageMultiplier = 1.00,
         scoreMultiplier = 1.00,
+        xpMultiplier = 1.00,
     },
     veteran = {
         levelBonus = 1,
         hpMultiplier = 1.25,
         damageMultiplier = 1.10,
         scoreMultiplier = 1.30,
+        xpMultiplier = 1.35,
     },
     elite = {
         levelBonus = 2,
         hpMultiplier = 1.60,
         damageMultiplier = 1.25,
         scoreMultiplier = 1.80,
+        xpMultiplier = 2.00,
     },
     boss = {
         levelBonus = 3,
         hpMultiplier = 2.80,
         damageMultiplier = 1.45,
         scoreMultiplier = 3.00,
+        xpMultiplier = 5.00,
     },
 }
 
@@ -59,6 +63,7 @@ local ARCHETYPES = {
         visionRadius = 6,
         movementPattern = "normal",
         baseScore = 100,
+        dangerRating = 2,
     },
     spider = {
         name = "Spider",
@@ -67,6 +72,7 @@ local ARCHETYPES = {
         visionRadius = 7,
         movementPattern = "quick",
         baseScore = 90,
+        dangerRating = 2,
     },
     skeleton = {
         name = "Skeleton",
@@ -75,6 +81,7 @@ local ARCHETYPES = {
         visionRadius = 5,
         movementPattern = "slow",
         baseScore = 125,
+        dangerRating = 3,
     },
     brute = {
         name = "Brute",
@@ -82,6 +89,7 @@ local ARCHETYPES = {
         damageMultiplier = 1.25,
         visionRadius = 5,
         baseScore = 160,
+        dangerRating = 4,
     },
 }
 
@@ -106,6 +114,7 @@ local function GetRankDefinition(rankName)
         hpMultiplier = tonumber(record.hpMultiplier) or fallback.hpMultiplier,
         damageMultiplier = tonumber(record.damageMultiplier) or fallback.damageMultiplier,
         scoreMultiplier = tonumber(record.scoreMultiplier) or fallback.scoreMultiplier,
+        xpMultiplier = tonumber(record.xpMultiplier) or fallback.xpMultiplier or 1,
     }
 end
 
@@ -123,7 +132,17 @@ local function GetArchetypeDefinition(archetypeName)
         visionRadius = tonumber(record.visionRadius) or fallback.visionRadius,
         movementPattern = string.lower(tostring(record.movement or fallback.movementPattern or "normal")),
         baseScore = tonumber(record.baseScore) or fallback.baseScore,
+        dangerRating = math.max(1, math.min(10, tonumber(record.dangerRating) or fallback.dangerRating or 1)),
     }
+end
+
+local function GetXpPerDanger()
+    for _, record in ipairs(GA.StudioData and GA.StudioData.progression or {}) do
+        if record.id == "run_xp" then
+            return math.max(1, tonumber(record.xpPerDanger) or 8)
+        end
+    end
+    return 8
 end
 
 local function Clamp(value, minimum, maximum)
@@ -302,6 +321,7 @@ function EG:CreateEnemy(options)
     local damageMin = GA:ScaleCombatValue(rawDamageMin)
     local damageMax = math.max(damageMin, GA:ScaleCombatValue(rawDamageMax))
     local scoreValue = math.max(1, Round(archetype.baseScore * rank.scoreMultiplier))
+    local xpValue = math.max(1, Round((archetype.dangerRating or 1) * GetXpPerDanger() * (rank.xpMultiplier or 1)))
 
     return {
         generatorVersion = self.VERSION,
@@ -324,6 +344,9 @@ function EG:CreateEnemy(options)
         visionRadius = archetype.visionRadius,
         movementPattern = archetype.movementPattern or "normal",
         scoreValue = scoreValue,
+        dangerRating = archetype.dangerRating or 1,
+        rankXpMultiplier = rank.xpMultiplier or 1,
+        xpValue = xpValue,
         alive = true,
         alerted = false,
         skipTurn = false,
