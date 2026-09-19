@@ -4,7 +4,7 @@ GA = GA or {}
 _G.GoblinArcade = GA
 
 GA.name = "GoblinArcade"
-GA.version = "0.8.0"
+GA.version = "0.9.0"
 
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
@@ -30,6 +30,10 @@ end
 
 eventFrame:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_LOGIN" then
+        if GA.InitializeCharacterRoster then
+            GA:InitializeCharacterRoster()
+        end
+
         GA:CreateMainFrame()
         GA:RefreshPlayerSummary()
         print("|cffffc928GoblinArcade|r loaded. Type |cff7fd5ff/ga|r to open it.")

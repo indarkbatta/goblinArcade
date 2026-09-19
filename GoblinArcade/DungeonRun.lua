@@ -206,6 +206,28 @@ local function IsAdjacent(x1, y1, x2, y2)
     return math.abs(x1 - x2) + math.abs(y1 - y2) == 1
 end
 
+local function SetCharacterVisual(texture, character)
+    if not texture then
+        return
+    end
+
+    local currentKey = GA.GetCurrentCharacterKey and GA:GetCurrentCharacterKey()
+    if character and character.key == currentKey then
+        texture:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+        SetPortraitTexture(texture, "player")
+        return
+    end
+
+    local coords = character and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[character.classFile]
+    if coords then
+        texture:SetTexture("Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES")
+        texture:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
+    else
+        texture:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+        texture:SetTexCoord(0, 1, 0, 1)
+    end
+end
+
 local function CreateGrid(parent)
     local grid = CreateFrame("Frame", nil, parent, "BackdropTemplate")
     grid:SetSize(350, 350)
@@ -259,7 +281,7 @@ function GA:CreateDungeonRunPage(parent)
     title:SetPoint("TOPLEFT", 18, -16)
     title:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
-    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  LOS + FOG OF WAR")
+    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  CHARACTER ROSTER")
     subtitle:SetPoint("TOPRIGHT", -18, -22)
     subtitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
@@ -489,6 +511,164 @@ function GA:CreateDungeonRunPage(parent)
     state:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
     self.DungeonRunStateText = state
 
+    local setup = CreateFrame("Frame", nil, page, "BackdropTemplate")
+    setup:SetPoint("TOPLEFT", 1, -1)
+    setup:SetPoint("BOTTOMRIGHT", -1, 1)
+    setup:SetFrameLevel(page:GetFrameLevel() + 20)
+    ApplyBackdrop(setup, { 0.040, 0.034, 0.027, 1 }, COLORS.goldDim)
+    self.DungeonSetupFrame = setup
+
+    local setupTitle = CreateText(setup, "GameFontNormalHuge", "DUNGEON RUN")
+    setupTitle:SetPoint("TOPLEFT", 26, -22)
+    setupTitle:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+
+    local setupSubtitle = CreateText(setup, "GameFontNormal", "CHOOSE A HERO")
+    setupSubtitle:SetPoint("TOPLEFT", setupTitle, "BOTTOMLEFT", 0, -10)
+    setupSubtitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    local setupHint = CreateText(setup, "GameFontHighlightSmall",
+        "Characters are remembered after you log into them once. Offline alts use their last synced GoblinArcade loadout.")
+    setupHint:SetPoint("TOPLEFT", setupSubtitle, "BOTTOMLEFT", 0, -8)
+    setupHint:SetWidth(670)
+    setupHint:SetJustifyH("LEFT")
+    setupHint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local rosterPanel = CreateFrame("Frame", nil, setup, "BackdropTemplate")
+    rosterPanel:SetPoint("TOPLEFT", 26, -112)
+    rosterPanel:SetSize(330, 392)
+    ApplyBackdrop(rosterPanel, { 0.050, 0.043, 0.034, 1 }, COLORS.goldDim)
+    rosterPanel:EnableMouseWheel(true)
+    self.DungeonRosterPanel = rosterPanel
+
+    local rosterTitle = CreateText(rosterPanel, "GameFontNormalSmall", "CHARACTERS")
+    rosterTitle:SetPoint("TOPLEFT", 12, -12)
+    rosterTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    self.DungeonCharacterRows = {}
+    for i = 1, 6 do
+        local row = CreateFrame("Button", nil, rosterPanel, "BackdropTemplate")
+        row:SetSize(304, 50)
+        row:SetPoint("TOPLEFT", 12, -38 - ((i - 1) * 56))
+        ApplyBackdrop(row, { 0.060, 0.052, 0.042, 1 }, COLORS.goldDim)
+
+        local icon = row:CreateTexture(nil, "ARTWORK")
+        icon:SetSize(36, 36)
+        icon:SetPoint("LEFT", 7, 0)
+
+        local nameText = CreateText(row, "GameFontNormal", "")
+        nameText:SetPoint("TOPLEFT", 52, -8)
+        nameText:SetPoint("RIGHT", -8, 0)
+        nameText:SetJustifyH("LEFT")
+        nameText:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+
+        local metaText = CreateText(row, "GameFontHighlightSmall", "")
+        metaText:SetPoint("BOTTOMLEFT", 52, 8)
+        metaText:SetPoint("RIGHT", -8, 0)
+        metaText:SetJustifyH("LEFT")
+        metaText:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+        row.icon = icon
+        row.nameText = nameText
+        row.metaText = metaText
+        row:SetScript("OnClick", function(button)
+            if button.characterKey then
+                GA:SelectDungeonCharacter(button.characterKey)
+            end
+        end)
+        self.DungeonCharacterRows[i] = row
+    end
+
+    rosterPanel:SetScript("OnMouseWheel", function(_, delta)
+        local roster = GA:GetCharacterRoster()
+        local maxOffset = math.max(0, #roster - #GA.DungeonCharacterRows)
+        GA.DungeonRosterOffset = math.max(0, math.min(maxOffset, (GA.DungeonRosterOffset or 0) - delta))
+        GA:RefreshDungeonCharacterSelection()
+    end)
+
+    local selectedPanel = CreateFrame("Frame", nil, setup, "BackdropTemplate")
+    selectedPanel:SetPoint("TOPLEFT", rosterPanel, "TOPRIGHT", 14, 0)
+    selectedPanel:SetPoint("BOTTOMRIGHT", -26, 68)
+    ApplyBackdrop(selectedPanel, { 0.050, 0.043, 0.034, 1 }, COLORS.goldDim)
+
+    local selectedTitle = CreateText(selectedPanel, "GameFontNormalSmall", "SELECTED HERO")
+    selectedTitle:SetPoint("TOPLEFT", 16, -14)
+    selectedTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    local selectedIconBorder = CreateFrame("Frame", nil, selectedPanel, "BackdropTemplate")
+    selectedIconBorder:SetSize(82, 82)
+    selectedIconBorder:SetPoint("TOPLEFT", 16, -42)
+    ApplyBackdrop(selectedIconBorder, { 0.02, 0.02, 0.02, 1 }, COLORS.gold)
+
+    local selectedIcon = selectedIconBorder:CreateTexture(nil, "ARTWORK")
+    selectedIcon:SetPoint("TOPLEFT", 3, -3)
+    selectedIcon:SetPoint("BOTTOMRIGHT", -3, 3)
+    self.DungeonSelectedCharacterIcon = selectedIcon
+
+    local selectedName = CreateText(selectedPanel, "GameFontNormalLarge", "")
+    selectedName:SetPoint("TOPLEFT", selectedIconBorder, "TOPRIGHT", 14, -7)
+    selectedName:SetPoint("RIGHT", -16, 0)
+    selectedName:SetJustifyH("LEFT")
+    selectedName:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+    self.DungeonSelectedCharacterName = selectedName
+
+    local selectedMeta = CreateText(selectedPanel, "GameFontHighlightSmall", "")
+    selectedMeta:SetPoint("TOPLEFT", selectedName, "BOTTOMLEFT", 0, -7)
+    selectedMeta:SetPoint("RIGHT", -16, 0)
+    selectedMeta:SetJustifyH("LEFT")
+    selectedMeta:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    self.DungeonSelectedCharacterMeta = selectedMeta
+
+    local selectedSource = CreateText(selectedPanel, "GameFontDisableSmall", "")
+    selectedSource:SetPoint("TOPLEFT", selectedMeta, "BOTTOMLEFT", 0, -8)
+    selectedSource:SetPoint("RIGHT", -16, 0)
+    selectedSource:SetJustifyH("LEFT")
+    selectedSource:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    self.DungeonSelectedCharacterSource = selectedSource
+
+    local loadoutTitle = CreateText(selectedPanel, "GameFontNormalSmall", "CACHED LOADOUT")
+    loadoutTitle:SetPoint("TOPLEFT", 16, -146)
+    loadoutTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    local loadoutWeapon = CreateText(selectedPanel, "GameFontNormal", "")
+    loadoutWeapon:SetPoint("TOPLEFT", 16, -174)
+    loadoutWeapon:SetPoint("RIGHT", -16, 0)
+    loadoutWeapon:SetJustifyH("LEFT")
+    loadoutWeapon:SetWordWrap(true)
+    loadoutWeapon:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+    self.DungeonSelectedWeaponName = loadoutWeapon
+
+    local loadoutStats = CreateText(selectedPanel, "GameFontHighlightSmall", "")
+    loadoutStats:SetPoint("TOPLEFT", loadoutWeapon, "BOTTOMLEFT", 0, -8)
+    loadoutStats:SetPoint("RIGHT", -16, 0)
+    loadoutStats:SetJustifyH("LEFT")
+    loadoutStats:SetWordWrap(true)
+    loadoutStats:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    self.DungeonSelectedWeaponStats = loadoutStats
+
+    local loadoutTrait = CreateText(selectedPanel, "GameFontNormalSmall", "")
+    loadoutTrait:SetPoint("TOPLEFT", loadoutStats, "BOTTOMLEFT", 0, -14)
+    loadoutTrait:SetPoint("RIGHT", -16, 0)
+    loadoutTrait:SetJustifyH("LEFT")
+    loadoutTrait:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    self.DungeonSelectedWeaponTrait = loadoutTrait
+
+    local selectedNote = CreateText(selectedPanel, "GameFontDisableSmall",
+        "To refresh an alt's gear, log into that character once and open GoblinArcade.")
+    selectedNote:SetPoint("BOTTOMLEFT", 16, 18)
+    selectedNote:SetPoint("RIGHT", -16, 0)
+    selectedNote:SetJustifyH("LEFT")
+    selectedNote:SetWordWrap(true)
+    selectedNote:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local setupBegin = CreateFlatButton(setup, "BEGIN RUN", 180, 42)
+    setupBegin:SetPoint("BOTTOM", 0, 16)
+    setupBegin:SetEnabled(false)
+    setupBegin.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    setupBegin:SetScript("OnClick", function()
+        GA:BeginDungeonRun()
+    end)
+    self.DungeonSetupBeginButton = setupBegin
+
     page:EnableKeyboard(true)
     if page.SetPropagateKeyboardInput then
         page:SetPropagateKeyboardInput(true)
@@ -535,7 +715,118 @@ function GA:CreateDungeonRunPage(parent)
     end)
 
     self:RenderDungeonGrid()
+    self:SetDungeonSetupMode(true)
     return page
+end
+
+function GA:SetDungeonSetupMode(active)
+    if not self.DungeonSetupFrame then
+        return
+    end
+
+    if active then
+        self.DungeonSetupFrame:Show()
+        self:SetRunMode(false)
+        self:RefreshDungeonCharacterSelection()
+    else
+        self.DungeonSetupFrame:Hide()
+    end
+end
+
+function GA:RefreshDungeonCharacterSelection()
+    if not self.DungeonSetupFrame or not self.GetCharacterRoster then
+        return
+    end
+
+    local roster = self:GetCharacterRoster()
+    local currentKey = self:GetCurrentCharacterKey()
+    local selected = self:GetSelectedDungeonCharacter()
+
+    if not selected and #roster > 0 then
+        self:SelectDungeonCharacter(roster[1].key)
+        return
+    end
+
+    local offset = self.DungeonRosterOffset or 0
+    local maxOffset = math.max(0, #roster - #self.DungeonCharacterRows)
+    if offset > maxOffset then
+        offset = maxOffset
+        self.DungeonRosterOffset = offset
+    end
+
+    for i, row in ipairs(self.DungeonCharacterRows or {}) do
+        local character = roster[offset + i]
+        if character then
+            row.characterKey = character.key
+            row:Show()
+            SetCharacterVisual(row.icon, character)
+            row.nameText:SetText(character.name or "Unknown")
+            row.metaText:SetText(string.format(
+                "Level %d %s %s%s",
+                character.level or 0,
+                character.raceName or "",
+                character.className or "Adventurer",
+                character.key == currentKey and "  -  CURRENT" or ""
+            ))
+
+            if selected and character.key == selected.key then
+                row:SetBackdropColor(0.15, 0.105, 0.045, 1)
+                row:SetBackdropBorderColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 1)
+            else
+                row:SetBackdropColor(0.060, 0.052, 0.042, 1)
+                row:SetBackdropBorderColor(COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 1)
+            end
+        else
+            row.characterKey = nil
+            row:Hide()
+        end
+    end
+
+    if not selected then
+        return
+    end
+
+    SetCharacterVisual(self.DungeonSelectedCharacterIcon, selected)
+    self.DungeonSelectedCharacterName:SetText(selected.name or "Unknown")
+    self.DungeonSelectedCharacterMeta:SetText(string.format(
+        "Level %d %s %s  -  %s",
+        selected.level or 0,
+        selected.raceName or "",
+        selected.className or "Adventurer",
+        selected.realm or "Unknown Realm"
+    ))
+    self.DungeonSelectedCharacterSource:SetText(
+        selected.key == currentKey and "CURRENT CHARACTER - LIVE DATA" or "ALT - LAST SYNCED DATA"
+    )
+
+    local weapon = selected.weapon
+    if weapon then
+        self.DungeonSelectedWeaponName:SetText(selected.weaponName or weapon.sourceName or "Cached main hand")
+        self.DungeonSelectedWeaponStats:SetText(string.format(
+            "%s  -  Damage %d-%d  -  %s  -  Range %d",
+            weapon.style or "Weapon",
+            weapon.damageMin or 0,
+            weapon.damageMax or 0,
+            weapon.speed or "NORMAL",
+            weapon.range or 1
+        ))
+        if weapon.traitName then
+            self.DungeonSelectedWeaponTrait:SetText(weapon.traitName .. "  -  " .. (weapon.traitDescription or ""))
+        else
+            self.DungeonSelectedWeaponTrait:SetText("NO SIGNATURE TRAIT")
+        end
+
+        self.DungeonSetupBeginButton:SetEnabled(true)
+        self.DungeonSetupBeginButton.label:SetText("BEGIN RUN")
+        self.DungeonSetupBeginButton.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    else
+        self.DungeonSelectedWeaponName:SetText("No cached main-hand weapon")
+        self.DungeonSelectedWeaponStats:SetText("Log into this character and equip a weapon to sync it.")
+        self.DungeonSelectedWeaponTrait:SetText("")
+        self.DungeonSetupBeginButton:SetEnabled(false)
+        self.DungeonSetupBeginButton.label:SetText("NO LOADOUT")
+        self.DungeonSetupBeginButton.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    end
 end
 
 function GA:SetDungeonRunPortraitMode(active)
@@ -589,7 +880,10 @@ function GA:SetDungeonRunPortraitMode(active)
             self.DungeonRunPortraitMeta:SetText(string.format("Level %d %s", level, className))
 
             if self.DungeonRunPortrait then
-                SetPortraitTexture(self.DungeonRunPortrait, "player")
+                SetCharacterVisual(self.DungeonRunPortrait, {
+                    key = snapshot and snapshot.characterKey,
+                    classFile = snapshot and snapshot.classFile,
+                })
             end
 
             self.DungeonRunPortraitFrame:Show()
@@ -680,6 +974,10 @@ function GA:RefreshMainHandInfo(force)
         self.DungeonPower:SetText("--")
         self.ArcadeMainHand = nil
 
+        if self.SyncCurrentCharacterRoster then
+            self:SyncCurrentCharacterRoster(nil, { clearWeapon = true })
+        end
+
         if self.DungeonBeginButton and not (self.RunState and self.RunState.active) then
             self.DungeonBeginButton:SetEnabled(false)
             self.DungeonBeginButton.label:SetText("BEGIN RUN")
@@ -748,6 +1046,17 @@ function GA:RefreshMainHandInfo(force)
             else
                 self.DungeonArcadeTraitName:SetText("NO SIGNATURE TRAIT")
                 self.DungeonArcadeTraitDesc:SetText("Uncommon or better weapons unlock their archetype trait.")
+            end
+
+            if self.SyncCurrentCharacterRoster then
+                self:SyncCurrentCharacterRoster(weapon, {
+                    weaponName = name,
+                    weaponIcon = texture,
+                    weaponLink = itemLink,
+                    weaponItemLevel = itemLevel,
+                    weaponQuality = quality,
+                    weaponSubtype = itemSubType or itemType,
+                })
             end
 
             if self.DungeonBeginButton and not (self.RunState and self.RunState.active) then
@@ -977,19 +1286,27 @@ function GA:BeginDungeonRun()
         return
     end
 
-    self:RefreshMainHandInfo(true)
-    if not self.ArcadeMainHand then
+    local currentKey = self.GetCurrentCharacterKey and self:GetCurrentCharacterKey()
+    local selected = self.GetSelectedDungeonCharacter and self:GetSelectedDungeonCharacter()
+
+    if selected and selected.key == currentKey then
+        self:RefreshMainHandInfo(true)
+        selected = self:GetSelectedDungeonCharacter()
+    end
+
+    if not selected or not selected.weapon then
         if self.DungeonRunStateText then
-            self.DungeonRunStateText:SetText("EQUIP A MAIN-HAND WEAPON")
+            self.DungeonRunStateText:SetText("SELECT A CHARACTER WITH A CACHED LOADOUT")
             self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
         end
         return
     end
 
-    local name = UnitName("player") or "Unknown"
-    local level = UnitLevel("player") or 0
-    local className = UnitClass("player") or "Adventurer"
-    local maxHealth = UnitHealthMax("player") or 0
+    local name = selected.name or "Unknown"
+    local level = selected.level or 0
+    local className = selected.className or "Adventurer"
+    local maxHealth = selected.maxHealth or 0
+    local selectedWeapon = CopyTable(selected.weapon)
 
     self.RunState = {
         active = true,
@@ -1009,17 +1326,31 @@ function GA:BeginDungeonRun()
             texture = KOBOLD_TEXTURE,
         },
         snapshot = {
+            characterKey = selected.key,
             name = name,
             level = level,
             className = className,
+            classFile = selected.classFile,
+            raceName = selected.raceName,
+            realm = selected.realm,
             maxHealth = maxHealth,
-            mainHandLink = self.DungeonMainHandLink,
-            weapon = CopyTable(self.ArcadeMainHand),
+            mainHandLink = selected.weaponLink,
+            weaponIcon = selected.weaponIcon,
+            weapon = selectedWeapon,
         },
     }
 
     self.DungeonHealth:SetText(tostring(maxHealth))
-    self.DungeonPower:SetText(string.format("%d-%d", self.RunState.snapshot.weapon.damageMin, self.RunState.snapshot.weapon.damageMax))
+    self.DungeonPower:SetText(string.format("%d-%d", selectedWeapon.damageMin, selectedWeapon.damageMax))
+    self.DungeonArcadeDamage:SetText(string.format("Damage %d - %d", selectedWeapon.damageMin, selectedWeapon.damageMax))
+    self.DungeonArcadeStyle:SetText(string.format(
+        "%s  -  %s  -  Range %d",
+        selectedWeapon.style or "Weapon",
+        selectedWeapon.speed or "NORMAL",
+        selectedWeapon.range or 1
+    ))
+    self.DungeonArcadeTraitName:SetText(selectedWeapon.traitName or "NO SIGNATURE TRAIT")
+    self.DungeonArcadeTraitDesc:SetText(selectedWeapon.traitDescription or "")
 
     if self.DungeonBeginButton then
         self.DungeonBeginButton:SetEnabled(false)
@@ -1040,6 +1371,7 @@ function GA:BeginDungeonRun()
         self.DungeonRunPage:SetPropagateKeyboardInput(false)
     end
 
+    self:SetDungeonSetupMode(false)
     self:SetRunMode(true)
     self:SetDungeonRunPortraitMode(true)
     self:ResetCombatLog()
@@ -1091,6 +1423,7 @@ function GA:CompleteTestFloor()
     self:SetDungeonRunPortraitMode(false)
     self:SetRunMode(false)
     self:RefreshMainHandInfo(true)
+    self:SetDungeonSetupMode(true)
     self:RefreshRunCounters()
     self:RenderDungeonGrid()
 end
@@ -1200,6 +1533,7 @@ function GA:RefreshDungeonSummary()
     end
 
     if self.RunState and self.RunState.active and self.RunState.snapshot then
+        self:SetDungeonSetupMode(false)
         self:SetRunMode(true)
         self:SetDungeonRunPortraitMode(true)
 
@@ -1221,6 +1555,7 @@ function GA:RefreshDungeonSummary()
 
     self:SetRunMode(false)
     self:SetDungeonRunPortraitMode(false)
+    self:SetDungeonSetupMode(true)
 
     if self.DungeonRunPage and self.DungeonRunPage.SetPropagateKeyboardInput then
         self.DungeonRunPage:SetPropagateKeyboardInput(true)
