@@ -218,6 +218,7 @@ function GA:RecalculateRunGearStats()
     end
 
     local stats = {
+        health = 0,
         armor = 0,
         dodge = 0,
         crit = 0,
@@ -229,6 +230,7 @@ function GA:RecalculateRunGearStats()
         local converted = item and item.arcadeItem
 
         if converted then
+            stats.health = stats.health + (converted.health or 0)
             stats.armor = stats.armor + (converted.armor or 0)
             stats.dodge = stats.dodge + (converted.dodge or 0)
             stats.crit = stats.crit + (converted.crit or 0)
@@ -241,6 +243,21 @@ function GA:RecalculateRunGearStats()
     stats.block = math.min(40, stats.block)
     run.arcadeStats = stats
 
+    local oldMaxHealth = math.max(1, run.playerMaxHealth or run.baseMaxHealth or 1)
+    local oldHealth = math.max(0, run.playerHealth or oldMaxHealth)
+    local healthRatio = math.min(1, oldHealth / oldMaxHealth)
+    local baseMaxHealth = run.baseMaxHealth
+        or (run.snapshot and run.snapshot.maxHealth)
+        or oldMaxHealth
+
+    run.baseMaxHealth = baseMaxHealth
+    run.playerMaxHealth = math.max(1, baseMaxHealth + stats.health)
+    run.playerHealth = math.max(0, math.floor(run.playerMaxHealth * healthRatio + 0.5))
+
+    if self.UpdateRunHealth then
+        self:UpdateRunHealth()
+    end
+
     if self.DungeonDodge then
         self.DungeonDodge:SetText(string.format("%.1f%%", stats.dodge))
     end
@@ -248,7 +265,8 @@ function GA:RecalculateRunGearStats()
     if self.CharacterSheetStats then
         self.CharacterSheetStats:SetText(
             string.format(
-                "Armor %d   Dodge %.1f%%   Crit %.1f%%   Block %.1f%%",
+                "HP +%d   Armor %d   Dodge %.1f%%   Crit %.1f%%   Block %.1f%%",
+                stats.health,
                 stats.armor,
                 stats.dodge,
                 stats.crit,
@@ -433,8 +451,9 @@ local function AddArcadeConversionToTooltip(item)
 
     GameTooltip:AddLine(
         string.format(
-            "%s  |  Armor %d  |  Dodge %.1f%%  |  Crit %.1f%%  |  Block %.1f%%",
+            "%s  |  HP +%d  |  Armor %d  |  Dodge %.1f%%  |  Crit %.1f%%  |  Block %.1f%%",
             converted.style or "Gear",
+            converted.health or 0,
             converted.armor or 0,
             converted.dodge or 0,
             converted.crit or 0,
