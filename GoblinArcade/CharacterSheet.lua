@@ -176,6 +176,156 @@ function GA:RefreshRunWeaponFromEquipment()
     end
 end
 
+function GA:EnsureArcadeItemConversion(item)
+    if not item then
+        return nil
+    end
+
+    if item.arcadeItem or item.arcadeWeapon then
+        return item
+    end
+
+    local metadata = {
+        itemID = item.itemID,
+        name = item.name,
+        itemLevel = item.itemLevel,
+        quality = item.quality,
+        itemType = item.itemType,
+        itemSubType = item.itemSubType,
+        equipLoc = item.equipLoc,
+    }
+
+    local weaponEquipLoc = item.equipLoc == "INVTYPE_WEAPON"
+        or item.equipLoc == "INVTYPE_WEAPONMAINHAND"
+        or item.equipLoc == "INVTYPE_WEAPONOFFHAND"
+        or item.equipLoc == "INVTYPE_2HWEAPON"
+        or item.equipLoc == "INVTYPE_RANGED"
+        or item.equipLoc == "INVTYPE_RANGEDRIGHT"
+
+    if weaponEquipLoc and self.WeaponGenerator and self.WeaponGenerator.Convert then
+        item.arcadeWeapon = self.WeaponGenerator:Convert(metadata)
+    elseif self.ItemGenerator and self.ItemGenerator.Convert then
+        item.arcadeItem = self.ItemGenerator:Convert(metadata)
+    end
+
+    return item
+end
+
+function GA:RecalculateRunGearStats()
+    local run = self.RunState
+    if not run then
+        return
+    end
+
+    local stats = {
+        armor = 0,
+        dodge = 0,
+        crit = 0,
+        block = 0,
+    }
+
+    for _, item in pairs(run.equipment or {}) do
+        self:EnsureArcadeItemConversion(item)
+        local converted = item and item.arcadeItem
+
+        if converted then
+            stats.armor = stats.armor + (converted.armor or 0)
+            stats.dodge = stats.dodge + (converted.dodge or 0)
+            stats.crit = stats.crit + (converted.crit or 0)
+            stats.block = stats.block + (converted.block or 0)
+        end
+    end
+
+    stats.dodge = math.min(35, stats.dodge)
+    stats.crit = math.min(50, stats.crit)
+    stats.block = math.min(40, stats.block)
+    run.arcadeStats = stats
+
+    if self.DungeonDodge then
+        self.DungeonDodge:SetText(string.format("%.1f%%", stats.dodge))
+    end
+
+    if self.CharacterSheetStats then
+        self.CharacterSheetStats:SetText(
+            string.format(
+                "Armor %d   Dodge %.1f%%   Crit %.1f%%   Block %.1f%%",
+                stats.armor,
+                stats.dodge,
+                stats.crit,
+                stats.block
+            )
+        )
+    end
+end
+
+function GA:CanDropCharacterItem(drag, targetType, targetKey)
+    if not drag or not drag.item then
+        return false
+    end
+
+    if drag.sourceType == targetType and drag.sourceKey == targetKey then
+        return true
+    end
+
+    local targetItem = self:GetCharacterInventoryItem(targetType, targetKey)
+
+    if targetType == "equipment"
+        and not self:IsArcadeItemCompatible(drag.item, targetKey) then
+        return false
+    end
+
+    if targetItem
+        and drag.sourceType == "equipment"
+        and not self:IsArcadeItemCompatible(targetItem, drag.sourceKey) then
+        return false
+    end
+
+    return true
+end
+
+function GA:ClearCharacterDropHighlights()
+    for _, button in pairs(self.CharacterEquipmentButtons or {}) do
+        button:SetBackdropColor(0.035, 0.030, 0.024, 1)
+        button:SetBackdropBorderColor(COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 1)
+    end
+
+    for _, button in ipairs(self.CharacterBackpackButtons or {}) do
+        button:SetBackdropColor(0.035, 0.030, 0.024, 1)
+        button:SetBackdropBorderColor(COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 1)
+    end
+end
+
+function GA:HighlightCharacterDropTargets()
+    local drag = self.CharacterDragState
+    if not drag then
+        return
+    end
+
+    for key, button in pairs(self.CharacterEquipmentButtons or {}) do
+        local valid = self:CanDropCharacterItem(drag, "equipment", key)
+
+        if valid then
+            button:SetBackdropColor(0.055, 0.16, 0.065, 1)
+            button:SetBackdropBorderColor(COLORS.green[1], COLORS.green[2], COLORS.green[3], 1)
+        else
+            button:SetBackdropColor(0.022, 0.020, 0.018, 1)
+            button:SetBackdropBorderColor(0.15, 0.13, 0.10, 1)
+        end
+    end
+
+    for i, button in ipairs(self.CharacterBackpackButtons or {}) do
+        local valid = self:CanDropCharacterItem(drag, "backpack", i)
+
+        if valid then
+            button:SetBackdropColor(0.11, 0.085, 0.035, 1)
+            button:SetBackdropBorderColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 1)
+        else
+            button:SetBackdropColor(0.022, 0.020, 0.018, 1)
+            button:SetBackdropBorderColor(0.15, 0.13, 0.10, 1)
+        end
+    end
+end
+
 function GA:BeginCharacterItemDrag(sourceType, sourceKey)
     local item = self:GetCharacterInventoryItem(sourceType, sourceKey)
     if not item then
@@ -193,18 +343,29 @@ function GA:BeginCharacterItemDrag(sourceType, sourceKey)
         self.CharacterDragGhost.icon:SetTexture(item.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
         self.CharacterDragGhost:Show()
     end
+
+    self:HighlightCharacterDropTargets()
 end
 
 function GA:CancelCharacterItemDrag()
     self.CharacterDragState = nil
+
     if self.CharacterDragGhost then
         self.CharacterDragGhost:Hide()
     end
+
+    self:ClearCharacterDropHighlights()
 end
 
 function GA:DropCharacterItem(targetType, targetKey)
     local drag = self.CharacterDragState
     if not drag then
+        return false
+    end
+
+    if not self:CanDropCharacterItem(drag, targetType, targetKey) then
+        self:AddCombatLog("That item cannot be placed there.", "warning")
+        self:CancelCharacterItemDrag()
         return false
     end
 
@@ -216,28 +377,80 @@ function GA:DropCharacterItem(targetType, targetKey)
     local sourceItem = drag.item
     local targetItem = self:GetCharacterInventoryItem(targetType, targetKey)
 
-    if targetType == "equipment" and not self:IsArcadeItemCompatible(sourceItem, targetKey) then
-        self:AddCombatLog("That item does not fit the " .. tostring(targetKey) .. " slot.", "warning")
-        self:CancelCharacterItemDrag()
-        return false
-    end
-
-    if targetItem and drag.sourceType == "equipment"
-        and not self:IsArcadeItemCompatible(targetItem, drag.sourceKey) then
-        self:AddCombatLog("The displaced item cannot move into that equipment slot.", "warning")
-        self:CancelCharacterItemDrag()
-        return false
-    end
-
     self:SetCharacterInventoryItem(drag.sourceType, drag.sourceKey, targetItem)
     self:SetCharacterInventoryItem(targetType, targetKey, sourceItem)
     self:CancelCharacterItemDrag()
 
-    self:RefreshCharacterSheet()
     self:RefreshRunWeaponFromEquipment()
+    self:RecalculateRunGearStats()
+    self:RefreshCharacterSheet()
     self:RefreshActionButtons()
 
     return true
+end
+
+local function AddArcadeConversionToTooltip(item)
+    if not item then
+        return
+    end
+
+    GA:EnsureArcadeItemConversion(item)
+
+    local weapon = item.arcadeWeapon
+    local converted = item.arcadeItem
+
+    if not weapon and not converted then
+        return
+    end
+
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine("GoblinArcade Conversion", 1, 0.72, 0.12)
+
+    if weapon then
+        GameTooltip:AddLine(
+            string.format(
+                "%s  |  Damage %d-%d  |  %s  |  Range %d",
+                weapon.style or "Weapon",
+                weapon.damageMin or 0,
+                weapon.damageMax or 0,
+                weapon.speed or "NORMAL",
+                weapon.range or 1
+            ),
+            0.92, 0.89, 0.82,
+            true
+        )
+
+        if weapon.traitName then
+            GameTooltip:AddLine(
+                weapon.traitName .. " - " .. (weapon.traitDescription or ""),
+                1, 0.72, 0.12,
+                true
+            )
+        end
+
+        return
+    end
+
+    GameTooltip:AddLine(
+        string.format(
+            "%s  |  Armor %d  |  Dodge %.1f%%  |  Crit %.1f%%  |  Block %.1f%%",
+            converted.style or "Gear",
+            converted.armor or 0,
+            converted.dodge or 0,
+            converted.crit or 0,
+            converted.block or 0
+        ),
+        0.92, 0.89, 0.82,
+        true
+    )
+
+    if converted.traitName then
+        GameTooltip:AddLine(
+            converted.traitName .. " - " .. (converted.traitDescription or ""),
+            1, 0.72, 0.12,
+            true
+        )
+    end
 end
 
 local function ShowItemTooltip(button)
@@ -252,14 +465,17 @@ local function ShowItemTooltip(button)
         GameTooltip:SetHyperlink(item.link)
     else
         GameTooltip:SetText(item.name or "Dungeon item", 1, 0.82, 0.22)
+
         if item.description then
             GameTooltip:AddLine(item.description, 0.8, 0.8, 0.8, true)
         end
+
         if item.equipLoc then
             GameTooltip:AddLine(item.slotLabel or item.equipLoc, 0.6, 0.6, 0.6, true)
         end
     end
 
+    AddArcadeConversionToTooltip(item)
     GameTooltip:Show()
 end
 
@@ -346,6 +562,11 @@ function GA:CreateCharacterSheet(parent)
     health:SetPoint("TOP", charMeta, "BOTTOM", 0, -18)
     health:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
     self.CharacterSheetHealth = health
+
+    local arcadeStats = CreateText(gearPanel, "GameFontHighlightSmall", "")
+    arcadeStats:SetPoint("TOP", health, "BOTTOM", 0, -6)
+    arcadeStats:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    self.CharacterSheetStats = arcadeStats
 
     local leftSlots = { "head", "neck", "shoulder", "back", "chest", "wrist", "hands", "waist" }
     local rightSlots = { "legs", "feet", "finger1", "finger2", "trinket1", "trinket2", "mainhand", "offhand" }
@@ -460,6 +681,8 @@ function GA:RefreshCharacterSheet()
         string.format("Health %d / %d", run.playerHealth or 0, run.playerMaxHealth or 0)
     )
 
+    self:RecalculateRunGearStats()
+
     for key, button in pairs(self.CharacterEquipmentButtons or {}) do
         local item = run.equipment and run.equipment[key]
         button.gaItem = item
@@ -511,7 +734,9 @@ function GA:AddItemToBackpack(item)
 
     for i = 1, BACKPACK_SLOTS do
         if not run.backpack[i] then
-            run.backpack[i] = CopyTable(item)
+            local storedItem = CopyTable(item)
+            self:EnsureArcadeItemConversion(storedItem)
+            run.backpack[i] = storedItem
 
             if self.CharacterSheetFrame and self.CharacterSheetFrame:IsShown() then
                 self:RefreshCharacterSheet()
