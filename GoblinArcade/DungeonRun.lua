@@ -16,7 +16,7 @@ local function CreateStatRow(parent, labelText, valueText, y)
     value:SetJustifyH("RIGHT")
     value:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
-    return value
+    return value, label
 end
 
 local function CreateRelicSlot(parent, index, x, y)
@@ -32,24 +32,35 @@ local function CreateRelicSlot(parent, index, x, y)
     return slot
 end
 
-local GRID_WIDTH = 13
-local GRID_HEIGHT = 13
+local GRID_WIDTH = 25
+local GRID_HEIGHT = 25
+local VIEWPORT_WIDTH = 13
+local VIEWPORT_HEIGHT = 13
 local START_X = 7
 local START_Y = 7
-local EXIT_X = 12
-local EXIT_Y = 11
+local EXIT_X = 23
+local EXIT_Y = 23
 
 local STATIC_WALLS = {
     ["4:3"] = true, ["4:4"] = true, ["4:5"] = true,
     ["9:2"] = true, ["9:3"] = true,
     ["3:9"] = true, ["4:9"] = true, ["5:9"] = true,
     ["10:8"] = true, ["10:9"] = true, ["10:10"] = true,
+
+    ["14:5"] = true, ["14:6"] = true, ["14:7"] = true, ["14:8"] = true,
+    ["15:12"] = true, ["16:12"] = true, ["17:12"] = true, ["18:12"] = true,
+    ["7:15"] = true, ["8:15"] = true, ["9:15"] = true, ["10:15"] = true,
+    ["19:16"] = true, ["19:17"] = true, ["19:18"] = true, ["19:19"] = true,
+    ["12:20"] = true, ["13:20"] = true, ["14:20"] = true,
+    ["21:9"] = true, ["22:9"] = true,
 }
 
 local STATIC_MARKERS = {
     ["3:6"] = { text = "S", color = "muted" },
     ["9:11"] = { text = "$", color = "gold" },
-    ["12:11"] = { text = ">", color = "green" },
+    ["17:15"] = { text = "$", color = "gold" },
+    ["21:20"] = { text = "S", color = "muted" },
+    ["23:23"] = { text = ">", color = "green" },
 }
 
 local KOBOLD_START_X = 11
@@ -161,18 +172,13 @@ local function CreateGrid(parent)
 
     grid.cells = {}
 
-    for row = 1, GRID_HEIGHT do
-        for col = 1, GRID_WIDTH do
+    for row = 1, VIEWPORT_HEIGHT do
+        for col = 1, VIEWPORT_WIDTH do
             local cell = CreateFrame("Frame", nil, grid, "BackdropTemplate")
             cell:SetSize(size, size)
             cell:SetPoint("TOPLEFT", (col - 1) * stride, -((row - 1) * stride))
 
-            local wall = IsDungeonWall(col, row)
-            if wall then
-                ApplyBackdrop(cell, { 0.12, 0.095, 0.06, 1 }, { 0.20, 0.16, 0.09, 1 })
-            else
-                ApplyBackdrop(cell, { 0.055, 0.048, 0.038, 1 }, { 0.09, 0.075, 0.055, 1 })
-            end
+            ApplyBackdrop(cell, { 0.055, 0.048, 0.038, 1 }, { 0.09, 0.075, 0.055, 1 })
 
             local enemyIcon = cell:CreateTexture(nil, "OVERLAY")
             enemyIcon:SetSize(22, 22)
@@ -188,7 +194,8 @@ local function CreateGrid(parent)
                 frame = cell,
                 marker = marker,
                 enemyIcon = enemyIcon,
-                wall = wall,
+                worldX = col,
+                worldY = row,
             }
         end
     end
@@ -206,13 +213,13 @@ function GA:CreateDungeonRunPage(parent)
     title:SetPoint("TOPLEFT", 18, -16)
     title:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
-    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  RUN MODE PROTOTYPE")
+    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  CAMERA WORLD PROTOTYPE")
     subtitle:SetPoint("TOPRIGHT", -18, -22)
     subtitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
     local body = CreateFrame("Frame", nil, page)
     body:SetPoint("TOPLEFT", 18, -58)
-    body:SetPoint("BOTTOMRIGHT", -18, 78)
+    body:SetPoint("BOTTOMRIGHT", -18, 100)
 
     local left = CreateFrame("Frame", nil, body, "BackdropTemplate")
     left:SetPoint("TOPLEFT")
@@ -223,10 +230,11 @@ function GA:CreateDungeonRunPage(parent)
     local statsTitle = CreateText(left, "GameFontNormalSmall", "RUN STATS")
     statsTitle:SetPoint("TOPLEFT", 12, -14)
     statsTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    self.DungeonStatsTitle = statsTitle
 
-    self.DungeonHealth = CreateStatRow(left, "HEALTH", "--", -38)
-    self.DungeonPower = CreateStatRow(left, "WEAPON", "--", -62)
-    self.DungeonDodge = CreateStatRow(left, "DODGE", "--", -86)
+    self.DungeonHealth, self.DungeonHealthLabel = CreateStatRow(left, "HEALTH", "--", -38)
+    self.DungeonPower, self.DungeonPowerLabel = CreateStatRow(left, "WEAPON", "--", -62)
+    self.DungeonDodge, self.DungeonDodgeLabel = CreateStatRow(left, "DODGE", "--", -86)
 
     local gearTitle = CreateText(left, "GameFontNormalSmall", "WOW GEAR INPUT")
     gearTitle:SetPoint("TOPLEFT", 12, -126)
@@ -234,7 +242,7 @@ function GA:CreateDungeonRunPage(parent)
 
     local runPortraitFrame = CreateFrame("Frame", nil, left, "BackdropTemplate")
     runPortraitFrame:SetSize(158, 92)
-    runPortraitFrame:SetPoint("TOPLEFT", 12, -126)
+    runPortraitFrame:SetPoint("TOPLEFT", 12, -14)
     ApplyBackdrop(runPortraitFrame, { 0.035, 0.030, 0.024, 1 }, COLORS.goldDim)
     runPortraitFrame:Hide()
     self.DungeonRunPortraitFrame = runPortraitFrame
@@ -393,7 +401,7 @@ function GA:CreateDungeonRunPage(parent)
     center:SetPoint("BOTTOMRIGHT", right, "BOTTOMLEFT", -8, 0)
     ApplyBackdrop(center, { 0.040, 0.035, 0.028, 1 }, COLORS.goldDim)
 
-    local floor = CreateText(center, "GameFontNormalSmall", "FLOOR 1  -  THE TEST CELLAR")
+    local floor = CreateText(center, "GameFontNormalSmall", "FLOOR 1  -  THE TEST CELLAR  -  25x25")
     floor:SetPoint("TOP", 0, -10)
     floor:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
     self.DungeonFloorTitle = floor
@@ -407,11 +415,11 @@ function GA:CreateDungeonRunPage(parent)
     local actionBar = CreateFrame("Frame", nil, page, "BackdropTemplate")
     actionBar:SetPoint("BOTTOMLEFT", 18, 16)
     actionBar:SetPoint("BOTTOMRIGHT", -18, 16)
-    actionBar:SetHeight(50)
+    actionBar:SetHeight(72)
     ApplyBackdrop(actionBar, { 0.050, 0.043, 0.034, 1 }, COLORS.goldDim)
 
     local actionLabel = CreateText(actionBar, "GameFontNormalSmall", "ACTIONS")
-    actionLabel:SetPoint("LEFT", 12, 0)
+    actionLabel:SetPoint("BOTTOMLEFT", 12, 14)
     actionLabel:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
     local actions = {
@@ -423,13 +431,15 @@ function GA:CreateDungeonRunPage(parent)
 
     for i, action in ipairs(actions) do
         local button = CreateFlatButton(actionBar, action[1] .. "  " .. action[2], 116, 32)
-        button:SetPoint("LEFT", 88 + (i - 1) * 124, 0)
+        button:SetPoint("BOTTOMLEFT", 88 + (i - 1) * 124, 8)
         button:SetEnabled(false)
         button.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
     end
 
     local state = CreateText(actionBar, "GameFontDisableSmall", "READY - BEGIN A RUN")
-    state:SetPoint("RIGHT", -12, 0)
+    state:SetPoint("TOPLEFT", 12, -8)
+    state:SetPoint("TOPRIGHT", -12, -8)
+    state:SetJustifyH("RIGHT")
     state:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
     self.DungeonRunStateText = state
 
@@ -491,6 +501,35 @@ function GA:SetDungeonRunPortraitMode(active)
                 widget:Show()
             end
         end
+    end
+
+    local function PositionStatRow(label, value, y)
+        if label then
+            label:ClearAllPoints()
+            label:SetPoint("TOPLEFT", 12, y)
+        end
+        if value then
+            value:ClearAllPoints()
+            value:SetPoint("TOPRIGHT", -12, y)
+        end
+    end
+
+    if active then
+        if self.DungeonStatsTitle then
+            self.DungeonStatsTitle:ClearAllPoints()
+            self.DungeonStatsTitle:SetPoint("TOPLEFT", 12, -120)
+        end
+        PositionStatRow(self.DungeonHealthLabel, self.DungeonHealth, -144)
+        PositionStatRow(self.DungeonPowerLabel, self.DungeonPower, -168)
+        PositionStatRow(self.DungeonDodgeLabel, self.DungeonDodge, -192)
+    else
+        if self.DungeonStatsTitle then
+            self.DungeonStatsTitle:ClearAllPoints()
+            self.DungeonStatsTitle:SetPoint("TOPLEFT", 12, -14)
+        end
+        PositionStatRow(self.DungeonHealthLabel, self.DungeonHealth, -38)
+        PositionStatRow(self.DungeonPowerLabel, self.DungeonPower, -62)
+        PositionStatRow(self.DungeonDodgeLabel, self.DungeonDodge, -86)
     end
 
     if self.DungeonRunPortraitFrame then
@@ -674,16 +713,53 @@ function GA:RefreshMainHandInfo(force)
     end
 end
 
+local function Clamp(value, minimum, maximum)
+    if value < minimum then
+        return minimum
+    end
+    if value > maximum then
+        return maximum
+    end
+    return value
+end
+
+function GA:UpdateDungeonCamera()
+    local run = self.RunState
+    local focusX = run and run.playerX or START_X
+    local focusY = run and run.playerY or START_Y
+
+    local halfW = math.floor(VIEWPORT_WIDTH / 2)
+    local halfH = math.floor(VIEWPORT_HEIGHT / 2)
+    local maxCameraX = GRID_WIDTH - VIEWPORT_WIDTH + 1
+    local maxCameraY = GRID_HEIGHT - VIEWPORT_HEIGHT + 1
+
+    self.DungeonCameraX = Clamp(focusX - halfW, 1, maxCameraX)
+    self.DungeonCameraY = Clamp(focusY - halfH, 1, maxCameraY)
+end
+
 function GA:RenderDungeonGrid()
     if not self.DungeonGrid or not self.DungeonGrid.cells then
         return
     end
 
-    for y = 1, GRID_HEIGHT do
-        for x = 1, GRID_WIDTH do
-            local entry = self.DungeonGrid.cells[CellKey(x, y)]
+    self:UpdateDungeonCamera()
+
+    local cameraX = self.DungeonCameraX or 1
+    local cameraY = self.DungeonCameraY or 1
+
+    for viewY = 1, VIEWPORT_HEIGHT do
+        for viewX = 1, VIEWPORT_WIDTH do
+            local entry = self.DungeonGrid.cells[CellKey(viewX, viewY)]
             if entry then
-                if entry.wall then
+                local worldX = cameraX + viewX - 1
+                local worldY = cameraY + viewY - 1
+                local wall = IsDungeonWall(worldX, worldY)
+
+                entry.worldX = worldX
+                entry.worldY = worldY
+                entry.wall = wall
+
+                if wall then
                     entry.frame:SetBackdropColor(0.12, 0.095, 0.06, 1)
                     entry.frame:SetBackdropBorderColor(0.20, 0.16, 0.09, 1)
                 else
@@ -696,7 +772,7 @@ function GA:RenderDungeonGrid()
                     entry.enemyIcon:Hide()
                 end
 
-                local staticMarker = STATIC_MARKERS[CellKey(x, y)]
+                local staticMarker = STATIC_MARKERS[CellKey(worldX, worldY)]
                 if staticMarker then
                     entry.marker:SetText(staticMarker.text)
 
@@ -722,25 +798,34 @@ function GA:RenderDungeonGrid()
     }
 
     if enemy then
-        local enemyCell = self.DungeonGrid.cells[CellKey(enemy.x, enemy.y)]
-        if enemyCell and enemyCell.enemyIcon then
-            enemyCell.frame:SetBackdropColor(0.16, 0.055, 0.045, 1)
-            enemyCell.frame:SetBackdropBorderColor(COLORS.red[1], COLORS.red[2], COLORS.red[3], 1)
-            enemyCell.marker:SetText("")
-            enemyCell.enemyIcon:SetTexture(enemy.texture or KOBOLD_TEXTURE)
-            enemyCell.enemyIcon:Show()
+        local enemyViewX = enemy.x - cameraX + 1
+        local enemyViewY = enemy.y - cameraY + 1
+
+        if enemyViewX >= 1 and enemyViewX <= VIEWPORT_WIDTH and enemyViewY >= 1 and enemyViewY <= VIEWPORT_HEIGHT then
+            local enemyCell = self.DungeonGrid.cells[CellKey(enemyViewX, enemyViewY)]
+            if enemyCell and enemyCell.enemyIcon then
+                enemyCell.frame:SetBackdropColor(0.16, 0.055, 0.045, 1)
+                enemyCell.frame:SetBackdropBorderColor(COLORS.red[1], COLORS.red[2], COLORS.red[3], 1)
+                enemyCell.marker:SetText("")
+                enemyCell.enemyIcon:SetTexture(enemy.texture or KOBOLD_TEXTURE)
+                enemyCell.enemyIcon:Show()
+            end
         end
     end
 
     local playerX = run and run.playerX or START_X
     local playerY = run and run.playerY or START_Y
-    local playerCell = self.DungeonGrid.cells[CellKey(playerX, playerY)]
+    local playerViewX = playerX - cameraX + 1
+    local playerViewY = playerY - cameraY + 1
 
-    if playerCell then
-        playerCell.frame:SetBackdropColor(0.11, 0.20, 0.08, 1)
-        playerCell.frame:SetBackdropBorderColor(COLORS.green[1], COLORS.green[2], COLORS.green[3], 1)
-        playerCell.marker:SetText("@")
-        playerCell.marker:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+    if playerViewX >= 1 and playerViewX <= VIEWPORT_WIDTH and playerViewY >= 1 and playerViewY <= VIEWPORT_HEIGHT then
+        local playerCell = self.DungeonGrid.cells[CellKey(playerViewX, playerViewY)]
+        if playerCell then
+            playerCell.frame:SetBackdropColor(0.11, 0.20, 0.08, 1)
+            playerCell.frame:SetBackdropBorderColor(COLORS.green[1], COLORS.green[2], COLORS.green[3], 1)
+            playerCell.marker:SetText("@")
+            playerCell.marker:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+        end
     end
 end
 
