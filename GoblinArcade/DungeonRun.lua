@@ -40,6 +40,7 @@ local START_X = 7
 local START_Y = 7
 local EXIT_X = 23
 local EXIT_Y = 23
+local VISION_RADIUS = 6
 
 local STATIC_WALLS = {
     ["4:3"] = true, ["4:4"] = true, ["4:5"] = true,
@@ -81,6 +82,51 @@ local function IsDungeonWall(x, y)
     end
 
     return STATIC_WALLS[CellKey(x, y)] == true
+end
+
+local function HasLineOfSight(fromX, fromY, toX, toY)
+    if fromX == toX and fromY == toY then
+        return true
+    end
+
+    local x = fromX
+    local y = fromY
+    local dx = math.abs(toX - fromX)
+    local dy = math.abs(toY - fromY)
+    local stepX = fromX < toX and 1 or -1
+    local stepY = fromY < toY and 1 or -1
+    local errorValue = dx - dy
+
+    while not (x == toX and y == toY) do
+        local doubledError = errorValue * 2
+
+        if doubledError > -dy then
+            errorValue = errorValue - dy
+            x = x + stepX
+        end
+
+        if doubledError < dx then
+            errorValue = errorValue + dx
+            y = y + stepY
+        end
+
+        -- A wall tile itself is visible, but it blocks everything behind it.
+        if x == toX and y == toY then
+            return true
+        end
+
+        if IsDungeonWall(x, y) then
+            return false
+        end
+    end
+
+    return true
+end
+
+local function IsWithinVisionRadius(fromX, fromY, toX, toY)
+    local dx = toX - fromX
+    local dy = toY - fromY
+    return (dx * dx) + (dy * dy) <= (VISION_RADIUS * VISION_RADIUS)
 end
 
 local function CopyTable(value)
@@ -213,7 +259,7 @@ function GA:CreateDungeonRunPage(parent)
     title:SetPoint("TOPLEFT", 18, -16)
     title:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
-    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  CAMERA WORLD PROTOTYPE")
+    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  LOS + FOG OF WAR")
     subtitle:SetPoint("TOPRIGHT", -18, -22)
     subtitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
@@ -713,6 +759,54 @@ function GA:RefreshMainHandInfo(force)
     end
 end
 
+function GA:UpdateDungeonVisibility()
+    local run = self.RunState
+    if not run or not run.active then
+        return
+    end
+
+    run.explored = run.explored or {}
+    run.visible = {}
+
+    local minX = math.max(1, run.playerX - VISION_RADIUS)
+    local maxX = math.min(GRID_WIDTH, run.playerX + VISION_RADIUS)
+    local minY = math.max(1, run.playerY - VISION_RADIUS)
+    local maxY = math.min(GRID_HEIGHT, run.playerY + VISION_RADIUS)
+
+    for worldY = minY, maxY do
+        for worldX = minX, maxX do
+            if IsWithinVisionRadius(run.playerX, run.playerY, worldX, worldY)
+                and HasLineOfSight(run.playerX, run.playerY, worldX, worldY) then
+
+                local key = CellKey(worldX, worldY)
+                run.visible[key] = true
+                run.explored[key] = true
+            end
+        end
+    end
+
+    run.visible[CellKey(run.playerX, run.playerY)] = true
+    run.explored[CellKey(run.playerX, run.playerY)] = true
+end
+
+function GA:IsDungeonCellVisible(worldX, worldY)
+    local run = self.RunState
+    if not run or not run.active then
+        return true
+    end
+
+    return run.visible and run.visible[CellKey(worldX, worldY)] == true
+end
+
+function GA:IsDungeonCellExplored(worldX, worldY)
+    local run = self.RunState
+    if not run or not run.active then
+        return true
+    end
+
+    return run.explored and run.explored[CellKey(worldX, worldY)] == true
+end
+
 local function Clamp(value, minimum, maximum)
     if value < minimum then
         return minimum
@@ -742,6 +836,11 @@ function GA:RenderDungeonGrid()
         return
     end
 
+    local run = self.RunState
+    if run and run.active then
+        self:UpdateDungeonVisibility()
+    end
+
     self:UpdateDungeonCamera()
 
     local cameraX = self.DungeonCameraX or 1
@@ -754,54 +853,82 @@ function GA:RenderDungeonGrid()
                 local worldX = cameraX + viewX - 1
                 local worldY = cameraY + viewY - 1
                 local wall = IsDungeonWall(worldX, worldY)
+                local visible = self:IsDungeonCellVisible(worldX, worldY)
+                local explored = self:IsDungeonCellExplored(worldX, worldY)
 
                 entry.worldX = worldX
                 entry.worldY = worldY
                 entry.wall = wall
-
-                if wall then
-                    entry.frame:SetBackdropColor(0.12, 0.095, 0.06, 1)
-                    entry.frame:SetBackdropBorderColor(0.20, 0.16, 0.09, 1)
-                else
-                    entry.frame:SetBackdropColor(0.055, 0.048, 0.038, 1)
-                    entry.frame:SetBackdropBorderColor(0.09, 0.075, 0.055, 1)
-                end
 
                 entry.marker:SetText("")
                 if entry.enemyIcon then
                     entry.enemyIcon:Hide()
                 end
 
-                local staticMarker = STATIC_MARKERS[CellKey(worldX, worldY)]
-                if staticMarker then
-                    entry.marker:SetText(staticMarker.text)
-
-                    if staticMarker.color == "red" then
-                        entry.marker:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
-                    elseif staticMarker.color == "gold" then
-                        entry.marker:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
-                    elseif staticMarker.color == "green" then
-                        entry.marker:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+                if not explored then
+                    -- Unseen: almost completely black. The player has no map
+                    -- knowledge of either walls or floor here yet.
+                    entry.frame:SetBackdropColor(0.008, 0.007, 0.006, 1)
+                    entry.frame:SetBackdropBorderColor(0.015, 0.013, 0.010, 1)
+                elseif not visible then
+                    -- Explored memory: preserve terrain shape, but strongly dim it.
+                    if wall then
+                        entry.frame:SetBackdropColor(0.045, 0.038, 0.028, 1)
+                        entry.frame:SetBackdropBorderColor(0.070, 0.058, 0.040, 1)
                     else
-                        entry.marker:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+                        entry.frame:SetBackdropColor(0.020, 0.018, 0.015, 1)
+                        entry.frame:SetBackdropBorderColor(0.038, 0.032, 0.025, 1)
+                    end
+                else
+                    -- Currently visible.
+                    if wall then
+                        entry.frame:SetBackdropColor(0.12, 0.095, 0.06, 1)
+                        entry.frame:SetBackdropBorderColor(0.20, 0.16, 0.09, 1)
+                    else
+                        entry.frame:SetBackdropColor(0.055, 0.048, 0.038, 1)
+                        entry.frame:SetBackdropBorderColor(0.09, 0.075, 0.055, 1)
+                    end
+                end
+
+                -- Static landmarks are remembered after discovery. They are
+                -- bright while visible and muted when only remembered.
+                if explored then
+                    local staticMarker = STATIC_MARKERS[CellKey(worldX, worldY)]
+                    if staticMarker then
+                        entry.marker:SetText(staticMarker.text)
+
+                        if not visible then
+                            entry.marker:SetTextColor(0.24, 0.22, 0.18)
+                        elseif staticMarker.color == "red" then
+                            entry.marker:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+                        elseif staticMarker.color == "gold" then
+                            entry.marker:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+                        elseif staticMarker.color == "green" then
+                            entry.marker:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+                        else
+                            entry.marker:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+                        end
                     end
                 end
             end
         end
     end
 
-    local run = self.RunState
     local enemy = run and run.enemy or {
         x = KOBOLD_START_X,
         y = KOBOLD_START_Y,
         texture = KOBOLD_TEXTURE,
     }
 
-    if enemy then
+    -- Creatures are not remembered through fog. They render only when the
+    -- player can currently see their world cell.
+    if enemy and self:IsDungeonCellVisible(enemy.x, enemy.y) then
         local enemyViewX = enemy.x - cameraX + 1
         local enemyViewY = enemy.y - cameraY + 1
 
-        if enemyViewX >= 1 and enemyViewX <= VIEWPORT_WIDTH and enemyViewY >= 1 and enemyViewY <= VIEWPORT_HEIGHT then
+        if enemyViewX >= 1 and enemyViewX <= VIEWPORT_WIDTH
+            and enemyViewY >= 1 and enemyViewY <= VIEWPORT_HEIGHT then
+
             local enemyCell = self.DungeonGrid.cells[CellKey(enemyViewX, enemyViewY)]
             if enemyCell and enemyCell.enemyIcon then
                 enemyCell.frame:SetBackdropColor(0.16, 0.055, 0.045, 1)
@@ -818,7 +945,9 @@ function GA:RenderDungeonGrid()
     local playerViewX = playerX - cameraX + 1
     local playerViewY = playerY - cameraY + 1
 
-    if playerViewX >= 1 and playerViewX <= VIEWPORT_WIDTH and playerViewY >= 1 and playerViewY <= VIEWPORT_HEIGHT then
+    if playerViewX >= 1 and playerViewX <= VIEWPORT_WIDTH
+        and playerViewY >= 1 and playerViewY <= VIEWPORT_HEIGHT then
+
         local playerCell = self.DungeonGrid.cells[CellKey(playerViewX, playerViewY)]
         if playerCell then
             playerCell.frame:SetBackdropColor(0.11, 0.20, 0.08, 1)
@@ -870,6 +999,8 @@ function GA:BeginDungeonRun()
         turns = 0,
         playerX = START_X,
         playerY = START_Y,
+        explored = {},
+        visible = {},
         enemy = {
             id = "kobold",
             name = "Kobold",
@@ -897,7 +1028,7 @@ function GA:BeginDungeonRun()
     end
 
     if self.DungeonFloorTitle then
-        self.DungeonFloorTitle:SetText("FLOOR 1  -  THE TEST CELLAR")
+        self.DungeonFloorTitle:SetText("FLOOR 1  -  THE TEST CELLAR  -  25x25")
     end
 
     if self.DungeonRunStateText then
@@ -921,6 +1052,7 @@ function GA:BeginDungeonRun()
         "player"
     )
     self:AddCombatLog("A kobold is hunting you.", "enemy")
+    self:AddCombatLog("Vision radius: 6. Walls block line of sight.", "system")
 
     self:RefreshRunCounters()
     self:RenderDungeonGrid()

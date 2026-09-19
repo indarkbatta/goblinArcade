@@ -200,7 +200,7 @@ function GA:CreateHomePage(parent)
     gameDescription:SetJustifyV("TOP")
     gameDescription:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    local status = CreateText(card, "GameFontNormal", ">  CAMERA WORLD ONLINE")
+    local status = CreateText(card, "GameFontNormal", ">  FOG OF WAR ONLINE")
     status:SetPoint("BOTTOMLEFT", 22, 22)
     status:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
 
@@ -210,11 +210,11 @@ function GA:CreateHomePage(parent)
         GA:ShowPage("dungeon")
     end)
 
-    local coming = CreateText(page, "GameFontHighlightSmall", "The dungeon now has a larger world map with a camera viewport. LOS and fog of war are next.")
+    local coming = CreateText(page, "GameFontHighlightSmall", "Walls now block sight. Explored terrain stays dimly remembered; unseen space remains dark.")
     coming:SetPoint("TOPLEFT", card, "BOTTOMLEFT", 0, -18)
     coming:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    local version = CreateText(page, "GameFontDisableSmall", "GoblinArcade v" .. tostring(self.version or "0.7.0") .. "  -  WoW Forever")
+    local version = CreateText(page, "GameFontDisableSmall", "GoblinArcade v" .. tostring(self.version or "0.8.0") .. "  -  WoW Forever")
     version:SetPoint("BOTTOMRIGHT", -16, 12)
     version:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
