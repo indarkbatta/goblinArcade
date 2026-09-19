@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.25.0**  
+Current addon version: **0.25.1**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -157,6 +157,7 @@ Important addon files:
 
 Studio / web tooling:
 
+- 0.25.1 fixes the Studio interaction regression: the shared `render()` coordinator was missing, so buttons/list navigation called an undefined function after the initial static paint. All three served HTML entrypoints now include the coordinator plus a visible runtime-error status fallback.
 - `index.html` and `studio/index.html`
   - GoblinArcade Studio v0.2.0
   - root `index.html` is the canonical Vercel entrypoint; `/studio` rewrites to it
@@ -811,7 +812,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.25.0**
+- **0.25.1**
 
 Recent gameplay foundation:
 
