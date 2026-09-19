@@ -4,7 +4,7 @@ GA = GA or {}
 _G.GoblinArcade = GA
 
 GA.name = "GoblinArcade"
-GA.version = "0.26.0"
+GA.version = "0.26.1"
 
 GA.COMBAT_NUMBER_DIVISOR = 10
 

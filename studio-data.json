@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "studioVersion": "0.3.0",
+  "studioVersion": "0.3.1",
   "classes": [
     {
       "id": "warrior",
@@ -102,15 +102,6 @@
       "description": "Stacking armor reduction with high threat."
     },
     {
-      "id": "taunt",
-      "name": "Taunt",
-      "classId": "warrior",
-      "learnLevel": 10,
-      "category": "PROTECTION",
-      "effect": "TAUNT",
-      "description": "Forces the target to focus on the Warrior."
-    },
-    {
       "id": "overpower",
       "name": "Overpower",
       "classId": "warrior",
@@ -145,15 +136,6 @@
       "category": "PROTECTION",
       "effect": "REACTIVE_DAMAGE",
       "description": "Reactive counterattack after blocking, dodging or parrying."
-    },
-    {
-      "id": "mocking_blow",
-      "name": "Mocking Blow",
-      "classId": "warrior",
-      "learnLevel": 16,
-      "category": "ARMS",
-      "effect": "TAUNT_ATTACK",
-      "description": "Attack that temporarily forces the enemy to focus on you."
     },
     {
       "id": "shield_block",
@@ -226,15 +208,6 @@
       "category": "FURY",
       "effect": "EXECUTE",
       "description": "Finisher usable against low-health enemies."
-    },
-    {
-      "id": "challenging_shout",
-      "name": "Challenging Shout",
-      "classId": "warrior",
-      "learnLevel": 26,
-      "category": "FURY",
-      "effect": "AOE_TAUNT",
-      "description": "Forces nearby enemies to focus on the Warrior."
     },
     {
       "id": "shield_wall",

@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.26.0**  
+Current addon version: **0.26.1**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -91,7 +91,7 @@ Important addon files:
 
 - `GoblinArcade/Data/StudioData.lua`
   - Studio schema/data foundation loaded by the addon
-  - contains all 32 current Warrior spellbook abilities with their minimum trainer unlock levels and Arms/Fury/Protection category
+  - contains 29 Warrior spellbook abilities with minimum trainer unlock levels and Arms/Fury/Protection category; pure threat/aggro skills Taunt, Mocking Blow and Challenging Shout are intentionally excluded because the current GoblinArcade dungeon is solo
   - Warrior source baseline: WoW Forever beta client build 1.60.1.69893 spellbook data, checked 2026-09-20
   - enemies, ranks, room settings and shrine values are already runtime-driven; Warrior ability execution and loot remain to be migrated
 
@@ -160,7 +160,7 @@ Studio / web tooling:
 
 - 0.25.1 fixes the Studio interaction regression: the shared `render()` coordinator was missing, so buttons/list navigation called an undefined function after the initial static paint. All three served HTML entrypoints now include the coordinator plus a visible runtime-error status fallback.
 - `index.html` and `studio/index.html`
-  - GoblinArcade Studio v0.3.0
+  - GoblinArcade Studio v0.3.1
   - root `index.html` is the canonical Vercel entrypoint; `/studio` rewrites to it
   - single-file static editor with no framework/build step
   - edits Classes, Abilities, Enemies, Ranks, Room Roles, Loot and Shrines
@@ -813,7 +813,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.26.0**
+- **0.26.1**
 
 Recent gameplay foundation:
 
@@ -1539,6 +1539,7 @@ Before changing layout conventions, remember the user's current preferences:
 - all GoblinArcade HP and damage values use the global 10:1 compression; do not restore the older large-number scale;
 - GoblinArcade Studio stays static-first; the only backend is the on-demand publish request, so avoid database/always-on Vercel spend;
 - Warrior ability names and minimum unlock levels should track the current Forever spellbook rather than invented class skills;
+- omit WoW abilities whose core mechanic has no meaningful solo-roguelike translation; currently Taunt, Mocking Blow and Challenging Shout are excluded;
 - do not modify or deploy the unrelated liminal-space Vercel project while working on GoblinArcade;
 - drag targets must visually highlight.
 
