@@ -40,7 +40,11 @@ local START_X = 7
 local START_Y = 7
 local EXIT_X = 23
 local EXIT_Y = 23
-local VISION_RADIUS = 6
+local VISION_RADIUS = 4
+local ENEMY_VISION_RADIUS = 6
+local KOBOLD_MAX_HP = 36
+local KOBOLD_DAMAGE_MIN = 4
+local KOBOLD_DAMAGE_MAX = 7
 
 local STATIC_WALLS = {
     ["4:3"] = true, ["4:4"] = true, ["4:5"] = true,
@@ -123,10 +127,14 @@ local function HasLineOfSight(fromX, fromY, toX, toY)
     return true
 end
 
-local function IsWithinVisionRadius(fromX, fromY, toX, toY)
+local function IsWithinRadius(fromX, fromY, toX, toY, radius)
     local dx = toX - fromX
     local dy = toY - fromY
-    return (dx * dx) + (dy * dy) <= (VISION_RADIUS * VISION_RADIUS)
+    return (dx * dx) + (dy * dy) <= (radius * radius)
+end
+
+local function IsWithinVisionRadius(fromX, fromY, toX, toY)
+    return IsWithinRadius(fromX, fromY, toX, toY, VISION_RADIUS)
 end
 
 local function CopyTable(value)
@@ -281,7 +289,7 @@ function GA:CreateDungeonRunPage(parent)
     title:SetPoint("TOPLEFT", 18, -16)
     title:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
-    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  CHARACTER ROSTER")
+    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  FIRST COMBAT BUILD")
     subtitle:SetPoint("TOPRIGHT", -18, -22)
     subtitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
@@ -497,11 +505,21 @@ function GA:CreateDungeonRunPage(parent)
         { "4", "POTION" },
     }
 
+    self.DungeonActionButtons = {}
+
     for i, action in ipairs(actions) do
         local button = CreateFlatButton(actionBar, action[1] .. "  " .. action[2], 116, 32)
         button:SetPoint("BOTTOMLEFT", 88 + (i - 1) * 124, 8)
         button:SetEnabled(false)
         button.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+        self.DungeonActionButtons[i] = button
+
+        if i == 1 then
+            self.DungeonAttackButton = button
+            button:SetScript("OnClick", function()
+                GA:PlayerAttackEnemy()
+            end)
+        end
     end
 
     local state = CreateText(actionBar, "GameFontDisableSmall", "READY - BEGIN A RUN")
@@ -694,6 +712,11 @@ function GA:CreateDungeonRunPage(parent)
             if GA.MainFrame then
                 GA.MainFrame:Hide()
             end
+            return
+        end
+
+        if key == "1" then
+            GA:PlayerAttackEnemy()
             return
         end
 
@@ -1068,6 +1091,136 @@ function GA:RefreshMainHandInfo(force)
     end
 end
 
+function GA:RefreshActionButtons()
+    local run = self.RunState
+    local enemy = run and run.enemy
+    local canAttack = run
+        and run.active
+        and enemy
+        and enemy.alive ~= false
+        and IsAdjacent(run.playerX, run.playerY, enemy.x, enemy.y)
+
+    if self.DungeonAttackButton then
+        self.DungeonAttackButton:SetEnabled(canAttack and true or false)
+
+        if canAttack then
+            self.DungeonAttackButton.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+        else
+            self.DungeonAttackButton.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+        end
+    end
+end
+
+function GA:UpdateRunHealth()
+    local run = self.RunState
+    if not run or not self.DungeonHealth then
+        return
+    end
+
+    self.DungeonHealth:SetText(
+        string.format("%d / %d", math.max(0, run.playerHealth or 0), run.playerMaxHealth or 0)
+    )
+end
+
+function GA:FailDungeonRun(reason)
+    local run = self.RunState
+    if not run then
+        return
+    end
+
+    run.active = false
+    run.failed = true
+
+    self:AddCombatLog(reason or "The run is over.", "warning")
+
+    if self.DungeonRunStateText then
+        self.DungeonRunStateText:SetText("RUN ENDED")
+        self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+    end
+
+    if self.DungeonRunPage and self.DungeonRunPage.SetPropagateKeyboardInput then
+        self.DungeonRunPage:SetPropagateKeyboardInput(true)
+    end
+
+    self:RefreshActionButtons()
+    self:SetDungeonRunPortraitMode(false)
+    self:SetRunMode(false)
+    self:RefreshMainHandInfo(true)
+    self:SetDungeonSetupMode(true)
+end
+
+function GA:PlayerAttackEnemy()
+    local run = self.RunState
+    if not run or not run.active or not run.enemy or run.enemy.alive == false then
+        return false
+    end
+
+    local enemy = run.enemy
+    if not IsAdjacent(run.playerX, run.playerY, enemy.x, enemy.y) then
+        if self.DungeonRunStateText then
+            self.DungeonRunStateText:SetText("NO TARGET IN MELEE RANGE")
+            self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+        end
+        return false
+    end
+
+    local weapon = run.snapshot and run.snapshot.weapon
+    if not weapon then
+        return false
+    end
+
+    local minimum = math.max(1, tonumber(weapon.damageMin) or 1)
+    local maximum = math.max(minimum, tonumber(weapon.damageMax) or minimum)
+    local damage = math.random(minimum, maximum)
+
+    enemy.hp = math.max(0, (enemy.hp or enemy.maxHp or 1) - damage)
+    run.turns = run.turns + 1
+
+    self:AddCombatLog(
+        string.format("You hit the %s for %d damage. (%d/%d HP)",
+            enemy.name or "enemy",
+            damage,
+            enemy.hp,
+            enemy.maxHp or enemy.hp),
+        "player"
+    )
+
+    local staggered = false
+    if enemy.hp > 0 and weapon.traitName == "STAGGER" then
+        local staggerChance = tonumber(weapon.traitValue) or 0
+        if staggerChance > 0 and math.random(1, 100) <= staggerChance then
+            enemy.skipTurn = true
+            staggered = true
+            self:AddCombatLog(
+                string.format("STAGGER! The %s loses its next action.", enemy.name or "enemy"),
+                "system"
+            )
+        end
+    end
+
+    if enemy.hp <= 0 then
+        enemy.alive = false
+        run.score = (run.score or 0) + 100
+        self:AddCombatLog("Kobold defeated. +100 score.", "system")
+
+        if self.DungeonRunStateText then
+            self.DungeonRunStateText:SetText("PLAYER TURN - KOBOLD DEFEATED")
+            self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+        end
+
+        self:RefreshRunCounters()
+        self:RenderDungeonGrid()
+        self:RefreshActionButtons()
+        return true
+    end
+
+    self:RefreshRunCounters()
+    self:RenderDungeonGrid()
+    self:RefreshActionButtons()
+    self:RunEnemyTurn()
+    return true
+end
+
 function GA:UpdateDungeonVisibility()
     local run = self.RunState
     if not run or not run.active then
@@ -1231,7 +1384,7 @@ function GA:RenderDungeonGrid()
 
     -- Creatures are not remembered through fog. They render only when the
     -- player can currently see their world cell.
-    if enemy and self:IsDungeonCellVisible(enemy.x, enemy.y) then
+    if enemy and enemy.alive ~= false and self:IsDungeonCellVisible(enemy.x, enemy.y) then
         local enemyViewX = enemy.x - cameraX + 1
         local enemyViewY = enemy.y - cameraY + 1
 
@@ -1265,6 +1418,8 @@ function GA:RenderDungeonGrid()
             playerCell.marker:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
         end
     end
+
+    self:RefreshActionButtons()
 end
 
 function GA:RefreshRunCounters()
@@ -1316,6 +1471,8 @@ function GA:BeginDungeonRun()
         turns = 0,
         playerX = START_X,
         playerY = START_Y,
+        playerHealth = maxHealth,
+        playerMaxHealth = maxHealth,
         explored = {},
         visible = {},
         enemy = {
@@ -1324,6 +1481,13 @@ function GA:BeginDungeonRun()
             x = KOBOLD_START_X,
             y = KOBOLD_START_Y,
             texture = KOBOLD_TEXTURE,
+            hp = KOBOLD_MAX_HP,
+            maxHp = KOBOLD_MAX_HP,
+            damageMin = KOBOLD_DAMAGE_MIN,
+            damageMax = KOBOLD_DAMAGE_MAX,
+            alive = true,
+            alerted = false,
+            skipTurn = false,
         },
         snapshot = {
             characterKey = selected.key,
@@ -1340,7 +1504,7 @@ function GA:BeginDungeonRun()
         },
     }
 
-    self.DungeonHealth:SetText(tostring(maxHealth))
+    self:UpdateRunHealth()
     self.DungeonPower:SetText(string.format("%d-%d", selectedWeapon.damageMin, selectedWeapon.damageMax))
     self.DungeonArcadeDamage:SetText(string.format("Damage %d - %d", selectedWeapon.damageMin, selectedWeapon.damageMax))
     self.DungeonArcadeStyle:SetText(string.format(
@@ -1383,8 +1547,15 @@ function GA:BeginDungeonRun()
             self.RunState.snapshot.weapon.damageMax),
         "player"
     )
-    self:AddCombatLog("A kobold is hunting you.", "enemy")
-    self:AddCombatLog("Vision radius: 6. Walls block line of sight.", "system")
+    self:AddCombatLog("A kobold is somewhere in the cellar.", "enemy")
+    self:AddCombatLog("Vision radius: 4. Walls block line of sight.", "system")
+    self:AddCombatLog(
+        string.format("Kobold combat profile: %d HP, %d-%d damage.",
+            KOBOLD_MAX_HP,
+            KOBOLD_DAMAGE_MIN,
+            KOBOLD_DAMAGE_MAX),
+        "system"
+    )
 
     self:RefreshRunCounters()
     self:RenderDungeonGrid()
@@ -1430,18 +1601,74 @@ end
 
 function GA:RunEnemyTurn()
     local run = self.RunState
-    if not run or not run.active or not run.enemy then
+    if not run or not run.active or not run.enemy or run.enemy.alive == false then
+        self:RefreshActionButtons()
         return
     end
 
     local enemy = run.enemy
 
-    if IsAdjacent(enemy.x, enemy.y, run.playerX, run.playerY) then
+    if enemy.skipTurn then
+        enemy.skipTurn = false
+        self:AddCombatLog("The staggered kobold loses its turn.", "enemy")
+
         if self.DungeonRunStateText then
-            self.DungeonRunStateText:SetText("PLAYER TURN - KOBOLD ADJACENT")
+            self.DungeonRunStateText:SetText("PLAYER TURN - KOBOLD STAGGERED")
+            self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+        end
+
+        self:RenderDungeonGrid()
+        return
+    end
+
+    local seesPlayer = IsWithinRadius(
+        enemy.x,
+        enemy.y,
+        run.playerX,
+        run.playerY,
+        ENEMY_VISION_RADIUS
+    ) and HasLineOfSight(enemy.x, enemy.y, run.playerX, run.playerY)
+
+    if seesPlayer and not enemy.alerted then
+        enemy.alerted = true
+
+        if self:IsDungeonCellVisible(enemy.x, enemy.y) then
+            self:AddCombatLog("The kobold spots you!", "enemy")
+        end
+    end
+
+    if IsAdjacent(enemy.x, enemy.y, run.playerX, run.playerY) then
+        local damage = math.random(enemy.damageMin or 1, enemy.damageMax or enemy.damageMin or 1)
+        run.playerHealth = math.max(0, (run.playerHealth or run.playerMaxHealth or 1) - damage)
+
+        self:AddCombatLog(
+            string.format("Kobold hits you for %d damage. (%d/%d HP)",
+                damage,
+                run.playerHealth,
+                run.playerMaxHealth or run.playerHealth),
+            "enemy"
+        )
+
+        self:UpdateRunHealth()
+
+        if run.playerHealth <= 0 then
+            self:FailDungeonRun("The kobold killed " .. (run.snapshot.name or "your hero") .. ".")
+            return
+        end
+
+        if self.DungeonRunStateText then
+            self.DungeonRunStateText:SetText(
+                string.format("PLAYER TURN - KOBOLD %d/%d HP", enemy.hp or 0, enemy.maxHp or 0)
+            )
             self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
         end
-        self:AddCombatLog("The kobold is already in striking distance.", "enemy")
+
+        self:RenderDungeonGrid()
+        return
+    end
+
+    if not enemy.alerted then
+        self:RenderDungeonGrid()
         return
     end
 
@@ -1450,24 +1677,29 @@ function GA:RunEnemyTurn()
         self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
     end
 
+    local wasVisible = self:IsDungeonCellVisible(enemy.x, enemy.y)
     local nextX, nextY = FindNextStep(enemy.x, enemy.y, run.playerX, run.playerY)
 
-    -- Combat is not implemented yet, so the kobold stops next to the player
-    -- instead of entering the player's square.
     if nextX and nextY and not (nextX == run.playerX and nextY == run.playerY) then
         enemy.x = nextX
         enemy.y = nextY
-        self:AddCombatLog("Kobold moves closer.", "enemy")
+
+        local nowVisible = self:IsDungeonCellVisible(enemy.x, enemy.y)
+        if wasVisible or nowVisible then
+            self:AddCombatLog("Kobold moves closer.", "enemy")
+        end
     end
 
     self:RenderDungeonGrid()
 
     if self.DungeonRunStateText then
         if IsAdjacent(enemy.x, enemy.y, run.playerX, run.playerY) then
-            self.DungeonRunStateText:SetText("PLAYER TURN - KOBOLD ADJACENT")
+            self.DungeonRunStateText:SetText(
+                string.format("PLAYER TURN - KOBOLD %d/%d HP", enemy.hp or 0, enemy.maxHp or 0)
+            )
             self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
         else
-            self.DungeonRunStateText:SetText("PLAYER TURN - KOBOLD MOVED")
+            self.DungeonRunStateText:SetText("PLAYER TURN")
             self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
         end
     end
@@ -1491,12 +1723,12 @@ function GA:MoveDungeonPlayer(dx, dy)
         return
     end
 
-    if run.enemy and nextX == run.enemy.x and nextY == run.enemy.y then
-        if self.DungeonRunStateText then
-            self.DungeonRunStateText:SetText("KOBOLD BLOCKS THE WAY - COMBAT NEXT")
-            self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
-        end
-        self:AddCombatLog("You square up with the kobold. Combat is the next milestone.", "warning")
+    if run.enemy
+        and run.enemy.alive ~= false
+        and nextX == run.enemy.x
+        and nextY == run.enemy.y then
+
+        self:PlayerAttackEnemy()
         return
     end
 
@@ -1541,7 +1773,7 @@ function GA:RefreshDungeonSummary()
             self.DungeonRunPage:SetPropagateKeyboardInput(false)
         end
 
-        self.DungeonHealth:SetText(tostring(self.RunState.snapshot.maxHealth or 0))
+        self:UpdateRunHealth()
 
         local weapon = self.RunState.snapshot.weapon
         if weapon then
