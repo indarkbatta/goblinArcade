@@ -77,6 +77,10 @@ local CHEST_LOOT = {
     ["9:11"] = {
         name = "Candlekeeper's Charm",
         icon = KOBOLD_PORTRAIT_ICON,
+        itemLevel = 18,
+        quality = 2,
+        itemType = "Armor",
+        itemSubType = "Miscellaneous",
         equipLoc = "INVTYPE_TRINKET",
         compatibleSlots = { trinket1 = true, trinket2 = true },
         slotLabel = "Trinket",
@@ -86,6 +90,10 @@ local CHEST_LOOT = {
     ["17:15"] = {
         name = "Waxbound Ring",
         icon = "Interface\\Icons\\INV_Jewelry_Ring_03",
+        itemLevel = 18,
+        quality = 2,
+        itemType = "Armor",
+        itemSubType = "Miscellaneous",
         equipLoc = "INVTYPE_FINGER",
         compatibleSlots = { finger1 = true, finger2 = true },
         slotLabel = "Finger",
@@ -1276,12 +1284,20 @@ function GA:PlayerAttackEnemy()
     local minimum = weapon and math.max(1, tonumber(weapon.damageMin) or 1) or 1
     local maximum = weapon and math.max(minimum, tonumber(weapon.damageMax) or minimum) or 2
     local damage = math.random(minimum, maximum)
+    local critChance = run.arcadeStats and run.arcadeStats.crit or 0
+    local critical = critChance > 0
+        and math.random(1, 1000) <= math.floor(critChance * 10)
+
+    if critical then
+        damage = math.max(1, math.floor(damage * 1.5 + 0.5))
+    end
 
     enemy.hp = math.max(0, (enemy.hp or enemy.maxHp or 1) - damage)
     run.turns = run.turns + 1
 
     self:AddCombatLog(
-        string.format("You hit the %s for %d damage. (%d/%d HP)",
+        string.format("%sYou hit the %s for %d damage. (%d/%d HP)",
+            critical and "CRITICAL! " or "",
             enemy.name or "enemy",
             damage,
             enemy.hp,
@@ -1627,6 +1643,7 @@ function GA:BeginDungeonRun()
 
     self:UpdateRunHealth()
     self:RefreshRunWeaponFromEquipment()
+    self:RecalculateRunGearStats()
     self.DungeonArcadeDamage:SetText(string.format("Damage %d - %d", selectedWeapon.damageMin, selectedWeapon.damageMax))
     self.DungeonArcadeStyle:SetText(string.format(
         "%s  -  %s  -  Range %d",
@@ -1765,11 +1782,43 @@ function GA:RunEnemyTurn()
     end
 
     if IsAdjacent(enemy.x, enemy.y, run.playerX, run.playerY) then
-        local damage = math.random(enemy.damageMin or 1, enemy.damageMax or enemy.damageMin or 1)
+        local stats = run.arcadeStats or {}
+        local dodgeChance = stats.dodge or 0
+
+        if dodgeChance > 0
+            and math.random(1, 1000) <= math.floor(dodgeChance * 10) then
+
+            self:AddCombatLog("You dodge the kobold's attack.", "player")
+
+            if self.DungeonRunStateText then
+                self.DungeonRunStateText:SetText(
+                    string.format("PLAYER TURN - KOBOLD %d/%d HP", enemy.hp or 0, enemy.maxHp or 0)
+                )
+                self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+            end
+
+            self:RenderDungeonGrid()
+            return
+        end
+
+        local rawDamage = math.random(enemy.damageMin or 1, enemy.damageMax or enemy.damageMin or 1)
+        local armor = stats.armor or 0
+        local mitigation = math.min(0.55, armor / (armor + 100))
+        local damage = math.max(1, math.floor(rawDamage * (1 - mitigation) + 0.5))
+
+        local blockChance = stats.block or 0
+        local blocked = blockChance > 0
+            and math.random(1, 1000) <= math.floor(blockChance * 10)
+
+        if blocked then
+            damage = math.max(1, math.floor(damage * 0.5 + 0.5))
+        end
+
         run.playerHealth = math.max(0, (run.playerHealth or run.playerMaxHealth or 1) - damage)
 
         self:AddCombatLog(
-            string.format("Kobold hits you for %d damage. (%d/%d HP)",
+            string.format("%sKobold hits you for %d damage. (%d/%d HP)",
+                blocked and "BLOCK! " or "",
                 damage,
                 run.playerHealth,
                 run.playerMaxHealth or run.playerHealth),
@@ -1931,10 +1980,8 @@ function GA:RefreshDungeonSummary()
 
         self:UpdateRunHealth()
 
-        local weapon = self.RunState.snapshot.weapon
-        if weapon then
-            self.DungeonPower:SetText(string.format("%d-%d", weapon.damageMin, weapon.damageMax))
-        end
+        self:RefreshRunWeaponFromEquipment()
+        self:RecalculateRunGearStats()
 
         self:RefreshRunCounters()
         self:RenderDungeonGrid()
@@ -1960,11 +2007,7 @@ local itemEventFrame = CreateFrame("Frame")
 itemEventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 itemEventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 
-itemEventFrame:SetScript("OnEvent", function(_, event, arg1)
-    if event == "PLAYER_EQUIPMENT_CHANGED" and arg1 ~= 16 then
-        return
-    end
-
+itemEventFrame:SetScript("OnEvent", function()
     if GA.RefreshMainHandInfo then
         GA:RefreshMainHandInfo()
     end
