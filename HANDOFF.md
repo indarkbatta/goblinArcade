@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.16.5**  
+Current addon version: **0.16.6**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -212,12 +212,12 @@ Viewport:
 - tile gap: **1 px**
 - rendered grid: **902 × 902 px**
 - creature sprite source-art standard: **128 × 128 px**
-- creature sprite render size: **128 × 128 px**
+- creature sprite render size: **96 × 96 px**
 - static/player markers use the huge game font for readability at the larger scale
 
 The viewport is a camera into the larger 25×25 world, not a scrollbar.
 
-Important visual rule: the user explicitly wants **large physical tiles, not sprites that overflow neighboring cells**. The current 0.16.5 test baseline uses true 128×128 logical tiles and 128×128 rendered creature sprites inside a 7×7 viewport. Every creature texture remains fully contained inside its own tile.
+Important visual rule: the user explicitly wants **large physical tiles, not sprites that overflow neighboring cells**. The current 0.16.6 test baseline uses true 128×128 logical tiles with 128×128 source art rendered at 96×96 inside a 7×7 viewport. Every creature texture remains fully contained inside its own tile.
 
 Player starts around:
 
@@ -739,7 +739,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.16.5**
+- **0.16.6**
 
 Recent gameplay foundation:
 
@@ -764,7 +764,7 @@ Recent gameplay foundation:
 - dungeon logical tiles are now 128×128 px for the current visual test
 - viewport remains 7×7
 - creature source-art standard is now 128×128 px
-- creature sprites render at 128×128 px and remain fully contained inside their own tile
+- creature sprites render at 96×96 px inside 128×128 tiles and remain fully contained inside their own tile
 - main window is now 1600×1200 to accommodate the 902×902 grid
 - Kobold grid art replaced with the new 128×128 custom `kobold.tga`; the temporary upload name `kobold02_128x128.tga` was removed
 
@@ -1341,7 +1341,7 @@ Before changing layout conventions, remember the user's current preferences:
 - map should not visually overlap side panels;
 - dungeon logical tile test baseline is 128×128 px;
 - viewport baseline is 7×7 visible tiles;
-- creature art test baseline is 128×128 source rendered at 128×128 px with no tile overflow;
+- creature art test baseline is 128×128 source rendered at 96×96 px with no tile overflow;
 - fog should not show dotted borders;
 - item tooltips should show GoblinArcade stats, not WoW stats;
 - drag targets must visually highlight.

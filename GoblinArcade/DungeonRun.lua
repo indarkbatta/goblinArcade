@@ -32,7 +32,7 @@ local VISION_RADIUS = 4
 local DUNGEON_TILE_SIZE = 128
 local DUNGEON_TILE_GAP = 1
 local CREATURE_SPRITE_SOURCE_SIZE = 128
-local CREATURE_SPRITE_RENDER_SIZE = 128
+local CREATURE_SPRITE_RENDER_SIZE = 96
 
 local STATIC_WALLS = {
     ["4:3"] = true, ["4:4"] = true, ["4:5"] = true,
