@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.23.0**  
+Current addon version: **0.24.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -39,6 +39,25 @@ WoW Forever beta:
 
 Deployment is automatic through GitHub Actions.
 
+### GoblinArcade Studio / Vercel
+
+Studio v0.1.0 is deliberately **static-first** for Vercel cost efficiency:
+
+- no npm build is required;
+- no database is used;
+- no serverless functions run during normal editing;
+- editor drafts live in browser localStorage;
+- JSON export provides portable backups;
+- Lua export produces the shape expected at `GoblinArcade/Data/StudioData.lua`.
+
+The repo-level `vercel.json` serves `studio/index.html` at both `/` and `/studio`.
+
+Direct **Publish to GitHub** is intentionally not exposed from the static page yet. It will be added as a protected, on-demand endpoint once an authenticated Vercel secret is available. Until then the public Studio cannot modify the repository, even if someone discovers its URL.
+
+The Vercel connector did not yet list the newly imported GoblinArcade project at implementation time, so verify the first deployment after the GitHub commit; do not touch the unrelated `liminal-space` Vercel project.
+
+Deployment is automatic through GitHub Actions.
+
 Workflow:
 
 - `.github/workflows/deploy.yml`
@@ -67,6 +86,11 @@ Important addon files:
   - slash commands
   - version
   - player login setup
+
+- `GoblinArcade/Data/StudioData.lua`
+  - Studio schema/data foundation loaded by the addon
+  - seeds classes, planned Warrior abilities, enemies, ranks, room roles, loot and shrine choices
+  - current gameplay systems are not fully migrated to consume this table yet
 
 - `GoblinArcade/UI.lua`
   - main shell
@@ -128,6 +152,18 @@ Important addon files:
 
 - `GoblinArcade/GoblinArcade.toc`
 - `GoblinArcade/GoblinArcade_Camelot.toc`
+
+Studio / web tooling:
+
+- `studio/index.html`
+  - GoblinArcade Studio v0.1.0
+  - single-file static editor with no framework/build step
+  - edits Classes, Abilities, Enemies, Ranks, Room Roles, Loot and Shrines
+  - browser-local autosave via localStorage
+  - JSON import/export, validation, live preview and Lua export
+- `vercel.json`
+  - routes the Vercel project root and /studio to the static Studio page
+  - no serverless function, database or always-on backend in v0.1.0
 
 Media:
 
@@ -767,7 +803,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.23.0**
+- **0.24.0**
 
 Recent gameplay foundation:
 
@@ -1362,35 +1398,41 @@ Deterministic scaling, bounded density, multi-enemy support, three active archet
 
 Recommended order:
 
-1. **Room-role gameplay polish**
+1. **Studio data migration**
+   - verify the first static Vercel Studio deployment
+   - migrate Warrior abilities to consume GA.StudioData instead of hard-coded definitions
+   - then migrate enemies / ranks / rooms / shrines incrementally
+   - add authenticated on-demand Publish to GitHub only after a Vercel secret is configured
+
+2. **Room-role gameplay polish**
    - test the stricter door rules, Shrine modal, Elite Cache and Floor 9 exit lock in-game
    - cleared COMBAT / BOSS rooms now receive a green * center marker; Elite rooms show the same marker after the Elite Cache is claimed
    - tune room counts / sizes from screenshots
    - later add more reward tables / Shrine choices
 
-2. **Abilities**
+3. **Abilities**
    - Warrior first
    - basic attack + 4 actives + passive is the longer-term design
    - current buttons 2/3 are placeholders
 
-3. **Potions**
+4. **Potions**
    - finite run resource
    - no unlimited healing
 
-4. **Floor objectives**
+5. **Floor objectives**
    - exit
    - elite
    - chest
    - shrine/shop
    - boss
 
-5. **More deterministic loot**
+6. **More deterministic loot**
    - armor
    - jewelry
    - weapons
    - clear archetype-based differences
 
-6. **Scores**
+7. **Scores**
    - run score summary
    - eventual local/group sharing
 
@@ -1484,6 +1526,8 @@ Before changing layout conventions, remember the user's current preferences:
 - fog should not show dotted borders;
 - item tooltips should show GoblinArcade stats, not WoW stats;
 - all GoblinArcade HP and damage values use the global 10:1 compression; do not restore the older large-number scale;
+- GoblinArcade Studio stays static-first unless a server feature is necessary; avoid database/always-on Vercel spend;
+- do not modify or deploy the unrelated liminal-space Vercel project while working on GoblinArcade;
 - drag targets must visually highlight.
 
 Preserve those decisions unless the user explicitly asks to change them.
