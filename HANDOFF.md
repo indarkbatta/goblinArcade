@@ -766,7 +766,127 @@ These are prototype/test markers and have no proper gameplay system yet.
 
 ---
 
-## 23. Recommended next development steps
+## 23. Deterministic enemy scaling
+
+Enemy strength must be deterministic and should depend on both **character level** and the character's **starting WoW gear quality**.
+
+### Character level component
+
+Base enemy level starts from the selected character's WoW level.
+
+Floor bonus:
+
+- Floor 1-2: +0
+- Floor 3-4: +1
+- Floor 5-6: +2
+- Floor 7-8: +3
+- Floor 9: +4
+
+Rank bonus:
+
+- Normal: +0
+- Veteran: +1
+- Elite: +2
+- Boss: +3
+
+Base effective enemy level:
+
+```
+Player Level + Floor Bonus + Rank Bonus
+```
+
+Do not clamp internal effective level to 60. A level-60 character can face enemies with higher internal effective levels on later floors / higher ranks.
+
+### Gear Pressure component
+
+The starting WoW equipment also affects challenge.
+
+Eligible gear slots are the GoblinArcade equipment slots:
+
+- head
+- neck
+- shoulder
+- chest
+- waist
+- legs
+- feet
+- wrist
+- hands
+- finger1
+- finger2
+- trinket1
+- trinket2
+- back
+- mainhand
+- offhand
+
+Use the **sum of item levels**, normalized against the character level.
+
+For two-handed weapons, the main-hand item level should also fill the virtual off-hand budget so two-handed users are not unfairly considered undergeared.
+
+Baseline expected item level:
+
+```
+Expected Average Item Level = Player Level + 3
+Expected Gear Sum = 16 × Expected Average Item Level
+```
+
+Then:
+
+```
+Gear Index = Actual Gear Sum / Expected Gear Sum
+Overgear = clamp(Gear Index - 1.0, 0.0, 0.50)
+```
+
+Example:
+
+- Level 60 baseline average ilvl: 63
+- Expected Gear Sum: 16 × 63 = 1008
+- Actual Gear Sum: 1260
+- Gear Index: 1.25
+- Overgear: 0.25
+
+Enemy scaling from Overgear:
+
+```
+Enemy HP multiplier     = 1 + Overgear × 0.70
+Enemy Damage multiplier = 1 + Overgear × 0.35
+```
+
+At 25% overgear:
+
+- enemy HP: +17.5%
+- enemy damage: +8.75%
+
+This is deliberately **partial scaling**, not full matching. Better gear must still make the player stronger overall.
+
+Do not scale enemies downward for weak gear. This avoids intentional gear-stripping exploits.
+
+### Freeze rule
+
+Gear Pressure is calculated from the selected character's **starting WoW gear snapshot at BEGIN RUN** and is frozen for the run.
+
+Dungeon loot found during the run must **not** increase enemy scaling.
+
+This is essential so dungeon upgrades remain meaningful.
+
+### Enemy archetype layer
+
+After level and Gear Pressure are calculated, individual enemy archetypes modify final stats.
+
+Example direction:
+
+- Kobold: lower HP, normal speed / pursuit
+- Spider: low HP, fast / poison-oriented later
+- Skeleton: higher HP / armor, slower
+- Brute: high HP and damage, slow
+- Elite / Boss: rank multipliers on top
+
+Enemy level, base HP, base damage, archetype multipliers and Gear Pressure must all be deterministic. Randomness may exist only in individual combat rolls such as exact damage within a fixed range.
+
+---
+
+## 24. Recommended next development steps
 
 The most natural next slice is **enemy variety + proper floor gameplay**, not another broad UI rewrite.
 
@@ -816,7 +936,7 @@ Recommended order:
 
 ---
 
-## 24. Development workflow for the next context
+## 25. Development workflow for the next context
 
 When modifying code:
 
@@ -832,7 +952,7 @@ Do not assume an earlier file snapshot is still current.
 
 ---
 
-## 25. Current test character
+## 26. Current test character
 
 Current frequently tested character:
 
@@ -851,7 +971,7 @@ These are useful sanity checks, not hard-coded gameplay requirements.
 
 ---
 
-## 26. Product direction
+## 27. Product direction
 
 Long-term dungeon concept:
 
@@ -875,7 +995,7 @@ WoW character level and WoW gear are the foundation.
 
 ---
 
-## 27. Final reminder
+## 28. Final reminder
 
 This project is being built by rapid visual iteration.
 
