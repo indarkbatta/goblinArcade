@@ -1,0 +1,89 @@
+name: Deploy GoblinArcade to WoW Forever
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: goblinarcade-local-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on:
+      - self-hosted
+      - Windows
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Locate WoW Forever AddOns folder
+        shell: powershell
+        run: |
+          $candidates = @()
+          $repoVariable = "${{ vars.WOW_FOREVER_ADDONS }}"
+
+          if ($repoVariable) {
+            $candidates += $repoVariable
+          }
+
+          if ($env:WOW_FOREVER_ADDONS) {
+            $candidates += $env:WOW_FOREVER_ADDONS
+          }
+
+          $programFilesX86 = [Environment]::GetFolderPath("ProgramFilesX86")
+          $programFiles = [Environment]::GetFolderPath("ProgramFiles")
+
+          $candidates += @(
+            (Join-Path $programFilesX86 "World of Warcraft\_classic_beta_\Interface\AddOns"),
+            (Join-Path $programFiles "World of Warcraft\_classic_beta_\Interface\AddOns"),
+            "C:\Games\World of Warcraft\_classic_beta_\Interface\AddOns",
+            "D:\Games\World of Warcraft\_classic_beta_\Interface\AddOns",
+            "D:\World of Warcraft\_classic_beta_\Interface\AddOns",
+            "E:\Games\World of Warcraft\_classic_beta_\Interface\AddOns",
+            "E:\World of Warcraft\_classic_beta_\Interface\AddOns"
+          )
+
+          $target = $candidates |
+            Where-Object { $_ -and (Test-Path $_) } |
+            Select-Object -First 1
+
+          if (-not $target) {
+            throw @"
+          WoW Forever AddOns folder was not found.
+          Set either:
+            - a runner environment variable named WOW_FOREVER_ADDONS, or
+            - a GitHub repository variable named WOW_FOREVER_ADDONS
+          to the full ...\_classic_beta_\Interface\AddOns path.
+          "@
+          }
+
+          Write-Host "Deploying to: $target"
+          "WOW_FOREVER_ADDONS=$target" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Deploy addon
+        shell: powershell
+        run: |
+          $source = Join-Path $env:GITHUB_WORKSPACE "GoblinArcade"
+          $destination = Join-Path $env:WOW_FOREVER_ADDONS "GoblinArcade"
+
+          if (-not (Test-Path $source)) {
+            throw "Addon source folder not found: $source"
+          }
+
+          New-Item -ItemType Directory -Force -Path $destination | Out-Null
+
+          & robocopy $source $destination /MIR /R:2 /W:1 /NFL /NDL /NP
+
+          if ($LASTEXITCODE -gt 7) {
+            throw "robocopy failed with exit code $LASTEXITCODE"
+          }
+
+          Write-Host "GoblinArcade deployed successfully."
+          exit 0
