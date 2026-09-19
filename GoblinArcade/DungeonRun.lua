@@ -21,18 +21,18 @@ end
 
 local GRID_WIDTH = 25
 local GRID_HEIGHT = 25
-local VIEWPORT_WIDTH = 13
-local VIEWPORT_HEIGHT = 13
+local VIEWPORT_WIDTH = 7
+local VIEWPORT_HEIGHT = 7
 local START_X = 7
 local START_Y = 7
 local EXIT_X = 23
 local EXIT_Y = 23
 local VISION_RADIUS = 4
 
-local DUNGEON_TILE_SIZE = 32
+local DUNGEON_TILE_SIZE = 64
 local DUNGEON_TILE_GAP = 1
 local CREATURE_SPRITE_SOURCE_SIZE = 64
-local CREATURE_SPRITE_RENDER_SIZE = 48
+local CREATURE_SPRITE_RENDER_SIZE = 56
 
 local STATIC_WALLS = {
     ["4:3"] = true, ["4:4"] = true, ["4:5"] = true,
@@ -545,9 +545,9 @@ local function CreateGrid(parent)
     grid:SetPoint("TOP", 0, -28)
     ApplyBackdrop(grid, { 0.018, 0.016, 0.013, 1 }, { 0.16, 0.12, 0.05, 1 })
 
-    -- Creature art intentionally lives on a dedicated overlay layer rather
-    -- than inside the logical 32x32 cells. This allows 64x64 source art to be
-    -- rendered larger than a tile without neighboring cell backdrops clipping it.
+    -- Creature art lives on a dedicated overlay layer for clean z-order.
+    -- The logical world tile itself is now 64x64, matching the intended
+    -- higher-detail sprite scale.
     local spriteLayer = CreateFrame("Frame", nil, grid)
     spriteLayer:SetAllPoints(grid)
     spriteLayer:SetFrameLevel(grid:GetFrameLevel() + 20)
@@ -572,7 +572,7 @@ local function CreateGrid(parent)
             enemyIcon:SetTexCoord(0, 1, 0, 1)
             enemyIcon:Hide()
 
-            local marker = CreateText(cell, "GameFontNormalLarge", "")
+            local marker = CreateText(cell, "GameFontNormalHuge", "")
             marker:SetPoint("CENTER")
 
             grid.cells[CellKey(col, row)] = {

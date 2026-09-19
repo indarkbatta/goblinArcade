@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.16.2**  
+Current addon version: **0.16.3**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -135,7 +135,7 @@ SavedVariables:
 Main window:
 
 - current size: **1160 × 720**
-- enlarged in 0.16.1 so the 13×13 dungeon viewport can use 32×32 tiles without overlapping the side panels or legend
+- retained while the dungeon presentation moved to a 7×7 viewport with 64×64 tiles
 - dark brown / black / gold visual language
 - flat UI, no rounded-corner aesthetic
 
@@ -204,18 +204,17 @@ World size:
 
 Viewport:
 
-- **13 × 13**
-- logical tile size: **32 × 32 px**
+- **7 × 7**
+- logical tile size: **64 × 64 px**
 - tile gap: **1 px**
-- rendered grid: **428 × 428 px**
+- rendered grid: **454 × 454 px**
 - creature sprite source-art standard: **64 × 64 px**
-- creature sprite render size: **48 × 48 px**
-- creature sprites render on a dedicated overlay layer and may intentionally extend beyond their logical tile
-- static/player markers use the larger game font for better readability
+- creature sprite render size: **56 × 56 px**
+- static/player markers use the huge game font for readability at the larger scale
 
-The viewport is a camera into the larger world, not a scrollbar.
+The viewport is a camera into the larger 25×25 world, not a scrollbar.
 
-Important visual rule: **logical tile size and creature sprite size are separate concepts**. Keep the logical grid compact while allowing higher-quality creature art to render larger than one tile. The current baseline is 32px tile / 48px render / 64px source art.
+Important visual rule: the user explicitly wants **large physical tiles, not merely oversized sprites**. The intended baseline is now 64×64 logical tiles with only 7×7 cells visible at once. This creates a closer, more detailed roguelike presentation while keeping the overall on-screen dungeon area roughly the same size.
 
 Player starts around:
 
@@ -759,10 +758,11 @@ Recent gameplay foundation:
 - Floor 9 exit completes the run
 - HP, equipment, backpack, score and total turns persist across floor transitions
 - frozen BEGIN RUN Gear Pressure persists across the entire 9-floor run
-- dungeon logical tiles remain 32×32 px
-- creature source-art standard is now 64×64 px
-- creature sprites render at 48×48 px on a dedicated overlay layer, allowing controlled overlap beyond the logical tile
-- main window remains 1160×720 with the 13×13 viewport unchanged
+- dungeon logical tiles are now 64×64 px
+- viewport reduced from 13×13 to 7×7 so the on-screen dungeon footprint stays roughly similar
+- creature source-art standard remains 64×64 px
+- creature sprites render at 56×56 px inside the larger tile
+- main window remains 1160×720
 
 ---
 
@@ -1335,8 +1335,9 @@ Before changing layout conventions, remember the user's current preferences:
 - no relic panel;
 - vision radius = 4;
 - map should not visually overlap side panels;
-- dungeon logical tile baseline is 32×32 px;
-- creature art baseline is 64×64 source rendered at 48×48 px, intentionally allowed to extend beyond a tile;
+- dungeon logical tile baseline is 64×64 px;
+- viewport baseline is 7×7 visible tiles;
+- creature art baseline is 64×64 source rendered at 56×56 px;
 - fog should not show dotted borders;
 - item tooltips should show GoblinArcade stats, not WoW stats;
 - drag targets must visually highlight.
