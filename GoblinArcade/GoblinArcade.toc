@@ -1,0 +1,9 @@
+## Interface: 16001
+## Title: GoblinArcade
+## Notes: Tiny games for the downtime between adventures.
+## Author: indarkbatta
+## Version: 0.1.0
+## X-Category: Miscellaneous
+
+Core.lua
+UI.lua
