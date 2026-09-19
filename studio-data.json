@@ -11,39 +11,252 @@
     }
   ],
   "abilities": [
-    { "id": "attack", "name": "Attack", "classId": "warrior", "slot": 1, "resourceCost": 0, "cooldown": 0, "range": 1, "target": "ENEMY", "effect": "DAMAGE", "power": 100, "secondaryPower": 0, "description": "Basic weapon attack." },
-    { "id": "cleave", "name": "Cleave", "classId": "warrior", "slot": 2, "resourceCost": 1, "cooldown": 0, "range": 1, "target": "ADJACENT_ENEMIES", "effect": "CLEAVE", "power": 100, "secondaryPower": 50, "description": "Strike the primary target and splash half damage to one adjacent enemy." },
-    { "id": "brace", "name": "Brace", "classId": "warrior", "slot": 3, "resourceCost": 0, "cooldown": 2, "range": 0, "target": "SELF", "effect": "DEFEND", "power": 50, "secondaryPower": 0, "description": "Reduce incoming damage during the next enemy phase." },
-    { "id": "potion", "name": "Potion", "classId": "warrior", "slot": 4, "resourceCost": 0, "cooldown": 0, "range": 0, "target": "SELF", "effect": "HEAL", "power": 30, "secondaryPower": 0, "description": "Consume one potion charge to restore a percentage of maximum HP." }
+    {
+      "id": "attack",
+      "name": "Attack",
+      "classId": "warrior",
+      "slot": 1,
+      "resourceCost": 0,
+      "cooldown": 0,
+      "range": 1,
+      "target": "ENEMY",
+      "effect": "DAMAGE",
+      "power": 100,
+      "secondaryPower": 0,
+      "description": "Basic weapon attack."
+    },
+    {
+      "id": "cleave",
+      "name": "Cleave",
+      "classId": "warrior",
+      "slot": 2,
+      "resourceCost": 1,
+      "cooldown": 0,
+      "range": 1,
+      "target": "ADJACENT_ENEMIES",
+      "effect": "CLEAVE",
+      "power": 100,
+      "secondaryPower": 50,
+      "description": "Strike the primary target and splash half damage to one adjacent enemy."
+    },
+    {
+      "id": "brace",
+      "name": "Brace",
+      "classId": "warrior",
+      "slot": 3,
+      "resourceCost": 0,
+      "cooldown": 2,
+      "range": 0,
+      "target": "SELF",
+      "effect": "DEFEND",
+      "power": 50,
+      "secondaryPower": 0,
+      "description": "Reduce incoming damage during the next enemy phase."
+    },
+    {
+      "id": "potion",
+      "name": "Potion",
+      "classId": "warrior",
+      "slot": 4,
+      "resourceCost": 0,
+      "cooldown": 0,
+      "range": 0,
+      "target": "SELF",
+      "effect": "HEAL",
+      "power": 30,
+      "secondaryPower": 0,
+      "description": "Consume one potion charge to restore a percentage of maximum HP."
+    }
   ],
   "enemies": [
-    { "id": "kobold", "name": "Kobold", "hpMultiplier": 0.95, "damageMultiplier": 0.9, "visionRadius": 6, "movement": "NORMAL", "baseScore": 100, "sprite": "Media/Monsters/kobold", "description": "Baseline dungeon enemy." },
-    { "id": "spider", "name": "Spider", "hpMultiplier": 0.7, "damageMultiplier": 0.8, "visionRadius": 7, "movement": "QUICK", "baseScore": 90, "sprite": "Media/Monsters/spider", "description": "Fragile, fast pursuit enemy." },
-    { "id": "skeleton", "name": "Skeleton", "hpMultiplier": 1.2, "damageMultiplier": 1, "visionRadius": 5, "movement": "SLOW", "baseScore": 125, "sprite": "Media/Monsters/skeleton", "description": "Durable slow enemy." },
-    { "id": "brute", "name": "Brute", "hpMultiplier": 1.5, "damageMultiplier": 1.25, "visionRadius": 5, "movement": "NORMAL", "baseScore": 160, "sprite": "", "description": "Generator-ready heavy enemy." }
+    {
+      "id": "kobold",
+      "name": "Kobold",
+      "hpMultiplier": 0.95,
+      "damageMultiplier": 1,
+      "visionRadius": 6,
+      "movement": "NORMAL",
+      "baseScore": 100,
+      "sprite": "Media/Monsters/kobold",
+      "description": "Baseline dungeon enemy."
+    },
+    {
+      "id": "spider",
+      "name": "Spider",
+      "hpMultiplier": 0.7,
+      "damageMultiplier": 0.8,
+      "visionRadius": 7,
+      "movement": "QUICK",
+      "baseScore": 90,
+      "sprite": "Media/Monsters/spider",
+      "description": "Fragile, fast pursuit enemy."
+    },
+    {
+      "id": "skeleton",
+      "name": "Skeleton",
+      "hpMultiplier": 1.2,
+      "damageMultiplier": 1,
+      "visionRadius": 5,
+      "movement": "SLOW",
+      "baseScore": 125,
+      "sprite": "Media/Monsters/skeleton",
+      "description": "Durable slow enemy."
+    },
+    {
+      "id": "brute",
+      "name": "Brute",
+      "hpMultiplier": 1.5,
+      "damageMultiplier": 1.25,
+      "visionRadius": 5,
+      "movement": "NORMAL",
+      "baseScore": 160,
+      "sprite": "",
+      "description": "Generator-ready heavy enemy."
+    }
   ],
   "ranks": [
-    { "id": "normal", "name": "Normal", "levelBonus": 0, "hpMultiplier": 1, "damageMultiplier": 1, "scoreMultiplier": 1 },
-    { "id": "veteran", "name": "Veteran", "levelBonus": 1, "hpMultiplier": 1.25, "damageMultiplier": 1.1, "scoreMultiplier": 1.3 },
-    { "id": "elite", "name": "Elite", "levelBonus": 2, "hpMultiplier": 1.6, "damageMultiplier": 1.25, "scoreMultiplier": 1.8 },
-    { "id": "boss", "name": "Boss", "levelBonus": 3, "hpMultiplier": 2.8, "damageMultiplier": 1.45, "scoreMultiplier": 3 }
+    {
+      "id": "normal",
+      "name": "Normal",
+      "levelBonus": 0,
+      "hpMultiplier": 1,
+      "damageMultiplier": 1,
+      "scoreMultiplier": 1
+    },
+    {
+      "id": "veteran",
+      "name": "Veteran",
+      "levelBonus": 1,
+      "hpMultiplier": 1.25,
+      "damageMultiplier": 1.1,
+      "scoreMultiplier": 1.3
+    },
+    {
+      "id": "elite",
+      "name": "Elite",
+      "levelBonus": 2,
+      "hpMultiplier": 1.6,
+      "damageMultiplier": 1.25,
+      "scoreMultiplier": 1.8
+    },
+    {
+      "id": "boss",
+      "name": "Boss",
+      "levelBonus": 3,
+      "hpMultiplier": 2.8,
+      "damageMultiplier": 1.45,
+      "scoreMultiplier": 3
+    }
   ],
   "rooms": [
-    { "id": "START", "name": "Start", "enemyPolicy": "NONE", "doorLimit": 2, "marker": "<", "reward": "NONE", "description": "Safe floor entry. Floor 2-9 also serves as stairs up." },
-    { "id": "COMBAT", "name": "Combat", "enemyPolicy": "NORMAL", "doorLimit": 2, "marker": "", "reward": "NONE", "description": "Standard encounter room." },
-    { "id": "TREASURE", "name": "Treasure", "enemyPolicy": "NONE", "doorLimit": 1, "marker": "$", "reward": "CHEST", "description": "Safe reward room with generated chests." },
-    { "id": "SHRINE", "name": "Shrine", "enemyPolicy": "NONE", "doorLimit": 1, "marker": "S", "reward": "SHRINE", "description": "One-use choice room." },
-    { "id": "ELITE", "name": "Elite", "enemyPolicy": "ELITE", "doorLimit": 1, "marker": "!", "reward": "ELITE_CACHE", "description": "Optional high-value combat room." },
-    { "id": "BOSS", "name": "Boss", "enemyPolicy": "BOSS", "doorLimit": 1, "marker": "B", "reward": "EXIT", "description": "Boss encounter; Floor 9 exit stays sealed while boss lives." },
-    { "id": "EXIT", "name": "Exit", "enemyPolicy": "NONE", "doorLimit": 2, "marker": ">", "reward": "EXIT", "description": "Downstairs to the next floor." }
+    {
+      "id": "START",
+      "name": "Start",
+      "enemyPolicy": "NONE",
+      "doorLimit": 2,
+      "marker": "<",
+      "reward": "NONE",
+      "description": "Safe floor entry. Floor 2-9 also serves as stairs up."
+    },
+    {
+      "id": "COMBAT",
+      "name": "Combat",
+      "enemyPolicy": "NORMAL",
+      "doorLimit": 2,
+      "marker": "",
+      "reward": "NONE",
+      "description": "Standard encounter room."
+    },
+    {
+      "id": "TREASURE",
+      "name": "Treasure",
+      "enemyPolicy": "NONE",
+      "doorLimit": 1,
+      "marker": "$",
+      "reward": "CHEST",
+      "description": "Safe reward room with generated chests."
+    },
+    {
+      "id": "SHRINE",
+      "name": "Shrine",
+      "enemyPolicy": "NONE",
+      "doorLimit": 1,
+      "marker": "S",
+      "reward": "SHRINE",
+      "description": "One-use choice room."
+    },
+    {
+      "id": "ELITE",
+      "name": "Elite",
+      "enemyPolicy": "ELITE",
+      "doorLimit": 1,
+      "marker": "!",
+      "reward": "ELITE_CACHE",
+      "description": "Optional high-value combat room."
+    },
+    {
+      "id": "BOSS",
+      "name": "Boss",
+      "enemyPolicy": "BOSS",
+      "doorLimit": 1,
+      "marker": "B",
+      "reward": "EXIT",
+      "description": "Boss encounter; Floor 9 exit stays sealed while boss lives."
+    },
+    {
+      "id": "EXIT",
+      "name": "Exit",
+      "enemyPolicy": "NONE",
+      "doorLimit": 2,
+      "marker": ">",
+      "reward": "EXIT",
+      "description": "Downstairs to the next floor."
+    }
   ],
   "loot": [
-    { "id": "candlekeepers_charm", "name": "Candlekeeper's Charm", "slot": "NECK", "quality": 2, "itemLevel": 18, "source": "TREASURE", "description": "Prototype dungeon neck reward." },
-    { "id": "waxbound_ring", "name": "Waxbound Ring", "slot": "FINGER", "quality": 2, "itemLevel": 18, "source": "TREASURE", "description": "Prototype dungeon ring reward." }
+    {
+      "id": "candlekeepers_charm",
+      "name": "Candlekeeper's Charm",
+      "slot": "NECK",
+      "quality": 2,
+      "itemLevel": 18,
+      "source": "TREASURE",
+      "description": "Prototype dungeon neck reward."
+    },
+    {
+      "id": "waxbound_ring",
+      "name": "Waxbound Ring",
+      "slot": "FINGER",
+      "quality": 2,
+      "itemLevel": 18,
+      "source": "TREASURE",
+      "description": "Prototype dungeon ring reward."
+    }
   ],
   "shrines": [
-    { "id": "restore", "name": "Restore", "effect": "HEAL_PERCENT", "value": 25, "secondaryValue": 0, "description": "Restore 25% of maximum HP." },
-    { "id": "blessing", "name": "Blessing", "effect": "DAMAGE_BONUS", "value": 5, "secondaryValue": 25, "description": "Gain +5% run damage, stacking up to +25%." },
-    { "id": "sacrifice", "name": "Sacrifice", "effect": "HP_FOR_SCORE", "value": 15, "secondaryValue": 150, "description": "Lose 15% max HP without dying; gain 150 score." }
+    {
+      "id": "restore",
+      "name": "Restore",
+      "effect": "HEAL_PERCENT",
+      "value": 25,
+      "secondaryValue": 0,
+      "description": "Restore 25% of maximum HP."
+    },
+    {
+      "id": "blessing",
+      "name": "Blessing",
+      "effect": "DAMAGE_BONUS",
+      "value": 5,
+      "secondaryValue": 25,
+      "description": "Gain +5% run damage, stacking up to +25%."
+    },
+    {
+      "id": "sacrifice",
+      "name": "Sacrifice",
+      "effect": "HP_FOR_SCORE",
+      "value": 15,
+      "secondaryValue": 150,
+      "description": "Lose 15% max HP without dying; gain 150 score."
+    }
   ]
 }
