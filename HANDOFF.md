@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.17.1**  
+Current addon version: **0.17.2**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -747,7 +747,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.17.1**
+- **0.17.2**
 
 Recent gameplay foundation:
 
@@ -782,6 +782,7 @@ Recent gameplay foundation:
 - the target card prefixes Veteran / Elite ranks so stronger enemies are identifiable
 - enemy intent presentation is active on the right-side target card: WATCHING / ALERTED / MOVING / ATTACKING / STAGGERED
 - intent state is updated explicitly once per enemy phase; terrain rendering does not mutate enemy state
+- ordinary killing blows now still trigger the enemy phase for other surviving enemies, closing the free-kill turn exploit
 - Spider/Skeleton custom target-card art now uses full-frame portrait coordinates instead of Blizzard-icon cropping
 
 ---
@@ -1266,46 +1267,42 @@ Randomness is appropriate in floor composition/density. It must remain bounded. 
 
 ## 25. Recommended next development steps
 
-Deterministic scaling, bounded density, multi-enemy support, three active archetypes, the 9-floor run loop, bounded rank composition, and enemy intent presentation are complete. The next major slice should be **floor-layout variety**, with a small combat cleanup pass before or alongside it.
+Deterministic scaling, bounded density, multi-enemy support, three active archetypes, the 9-floor run loop, bounded rank composition, enemy intent presentation, and the killing-blow enemy-phase cleanup are complete. The next major slice should be **floor-layout variety**.
 
 Recommended order:
 
-1. **Combat cleanup**
-   - ordinary killing blows should still consume the enemy phase for other surviving enemies
-   - preserve current multi-enemy turn semantics
-
-2. **Floor-layout variety**
+1. **Floor-layout variety**
    - multiple hand-authored floor templates first
    - keep 25×25 world dimensions and the 7×7 camera
    - procedural generation can come later
 
-3. **Abilities**
+2. **Abilities**
    - Warrior first
    - basic attack + 4 actives + passive is the longer-term design
    - current buttons 2/3 are placeholders
 
-4. **Potions**
+3. **Potions**
    - finite run resource
    - no unlimited healing
 
-5. **Dungeon generation**
+4. **Dungeon generation**
    - floor templates first
    - procedural generation later if needed
 
-6. **Floor objectives**
+5. **Floor objectives**
    - exit
    - elite
    - chest
    - shrine/shop
    - boss
 
-7. **More deterministic loot**
+6. **More deterministic loot**
    - armor
    - jewelry
    - weapons
    - clear archetype-based differences
 
-8. **Scores**
+7. **Scores**
    - run score summary
    - eventual local/group sharing
 

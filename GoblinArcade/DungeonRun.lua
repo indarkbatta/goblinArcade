@@ -1726,6 +1726,13 @@ function GA:PlayerAttackEnemy(targetEnemy)
         self:RefreshRunCounters()
         self:RenderDungeonGrid()
         self:RefreshActionButtons()
+
+        -- A killing blow still consumes the player's action. Other surviving
+        -- enemies receive their normal enemy-phase opportunity.
+        if run.active then
+            self:RunEnemyTurn()
+        end
+
         return true
     end
 
