@@ -288,6 +288,45 @@ local QUALITY_NAMES = {
     [7] = "Heirloom",
 }
 
+local function GetCompatItemInfo(itemInfo)
+    if C_Item and C_Item.GetItemInfo then
+        local a, b, c, d, e, f, g = C_Item.GetItemInfo(itemInfo)
+
+        -- Some modern clients expose item info as a structured table.
+        if type(a) == "table" then
+            return a.itemName or a.name,
+                a.itemLink or a.hyperlink,
+                a.itemQuality or a.quality,
+                a.itemLevel or a.level,
+                a.itemMinLevel or a.minLevel,
+                a.itemType or a.type,
+                a.itemSubType or a.subType
+        end
+
+        return a, b, c, d, e, f, g
+    end
+
+    if type(GetItemInfo) == "function" then
+        return GetItemInfo(itemInfo)
+    end
+
+    return nil
+end
+
+local function GetCompatItemType(itemInfo)
+    if C_Item and C_Item.GetItemInfoInstant then
+        local _, itemType, itemSubType = C_Item.GetItemInfoInstant(itemInfo)
+        return itemType, itemSubType
+    end
+
+    if type(GetItemInfoInstant) == "function" then
+        local _, itemType, itemSubType = GetItemInfoInstant(itemInfo)
+        return itemType, itemSubType
+    end
+
+    return nil, nil
+end
+
 function GA:RefreshMainHandInfo()
     if not self.DungeonMainHandName then
         return
@@ -311,14 +350,20 @@ function GA:RefreshMainHandInfo()
         return
     end
 
-    local name, _, quality, itemLevel, _, itemType, itemSubType = GetItemInfo(itemLink)
+    local name, _, quality, itemLevel, _, itemType, itemSubType = GetCompatItemInfo(itemLink)
+
+    -- Type/subtype are available through the instant API even if full item data
+    -- has not been cached yet.
+    if not itemType or not itemSubType then
+        local instantType, instantSubType = GetCompatItemType(itemLink)
+        itemType = itemType or instantType
+        itemSubType = itemSubType or instantSubType
+    end
 
     if not name then
-        self.DungeonMainHandName:SetText("Loading item...")
-        self.DungeonMainHandName:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
-        self.DungeonMainHandLevel:SetText("")
-        self.DungeonMainHandMeta:SetText("Waiting for item data.")
-        return
+        -- Equipped item links already contain a readable name, so keep the UI
+        -- useful even while the rest of the item data is still loading.
+        name = itemLink:match("%[(.-)%]") or "Loading item..."
     end
 
     local qualityColor = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality]
