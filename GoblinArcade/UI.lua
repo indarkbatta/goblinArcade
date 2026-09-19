@@ -1,0 +1,246 @@
+local _, GA = ...
+
+local COLORS = {
+    background = { 0.035, 0.030, 0.024, 0.98 },
+    panel = { 0.065, 0.055, 0.043, 0.96 },
+    panelAlt = { 0.095, 0.078, 0.052, 0.96 },
+    gold = { 1.00, 0.72, 0.12, 1.00 },
+    goldDim = { 0.46, 0.34, 0.12, 1.00 },
+    text = { 0.92, 0.89, 0.82, 1.00 },
+    muted = { 0.58, 0.55, 0.50, 1.00 },
+    green = { 0.35, 0.90, 0.45, 1.00 },
+}
+
+local function ApplyBackdrop(frame, backgroundColor, borderColor)
+    if not frame.SetBackdrop then
+        return
+    end
+
+    frame:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8",
+        edgeSize = 1,
+    })
+
+    local bg = backgroundColor or COLORS.panel
+    local border = borderColor or COLORS.goldDim
+    frame:SetBackdropColor(bg[1], bg[2], bg[3], bg[4])
+    frame:SetBackdropBorderColor(border[1], border[2], border[3], border[4])
+end
+
+local function CreateText(parent, fontObject, text, r, g, b)
+    local label = parent:CreateFontString(nil, "OVERLAY", fontObject)
+    label:SetText(text or "")
+    if r then
+        label:SetTextColor(r, g, b)
+    end
+    return label
+end
+
+local function CreateFlatButton(parent, text, width, height)
+    local button = CreateFrame("Button", nil, parent, "BackdropTemplate")
+    button:SetSize(width, height)
+    ApplyBackdrop(button, COLORS.panelAlt, COLORS.goldDim)
+
+    button.label = CreateText(button, "GameFontNormal", text)
+    button.label:SetPoint("CENTER")
+    button.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    button:SetScript("OnEnter", function(self)
+        if self:IsEnabled() then
+            self:SetBackdropBorderColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 1)
+            self:SetBackdropColor(0.13, 0.10, 0.055, 1)
+        end
+    end)
+
+    button:SetScript("OnLeave", function(self)
+        self:SetBackdropBorderColor(COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 1)
+        self:SetBackdropColor(COLORS.panelAlt[1], COLORS.panelAlt[2], COLORS.panelAlt[3], COLORS.panelAlt[4])
+    end)
+
+    return button
+end
+
+function GA:CreateMainFrame()
+    if self.MainFrame then
+        return
+    end
+
+    local frame = CreateFrame("Frame", "GoblinArcadeMainFrame", UIParent, "BackdropTemplate")
+    frame:SetSize(900, 560)
+    frame:SetPoint("CENTER", UIParent, "CENTER", 0, 20)
+    frame:SetFrameStrata("DIALOG")
+    frame:SetClampedToScreen(true)
+    frame:SetMovable(true)
+    frame:EnableMouse(true)
+    frame:RegisterForDrag("LeftButton")
+    frame:SetScript("OnDragStart", frame.StartMoving)
+    frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+    ApplyBackdrop(frame, COLORS.background, COLORS.goldDim)
+    frame:Hide()
+
+    self.MainFrame = frame
+
+    if UISpecialFrames then
+        table.insert(UISpecialFrames, "GoblinArcadeMainFrame")
+    end
+
+    local header = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    header:SetPoint("TOPLEFT", 1, -1)
+    header:SetPoint("TOPRIGHT", -1, -1)
+    header:SetHeight(58)
+    ApplyBackdrop(header, { 0.075, 0.055, 0.027, 1 }, COLORS.goldDim)
+
+    local title = CreateText(header, "GameFontNormalHuge", "GOBLIN ARCADE")
+    title:SetPoint("TOPLEFT", 22, -10)
+    title:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    local subtitle = CreateText(header, "GameFontHighlightSmall", "Azeroth's least responsible use of downtime.")
+    subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 1, -2)
+    subtitle:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local close = CreateFrame("Button", nil, header, "UIPanelCloseButton")
+    close:SetPoint("TOPRIGHT", -4, -4)
+    close:SetScript("OnClick", function()
+        frame:Hide()
+    end)
+
+    local rail = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    rail:SetPoint("TOPLEFT", 14, -72)
+    rail:SetPoint("BOTTOMLEFT", 14, 14)
+    rail:SetWidth(220)
+    ApplyBackdrop(rail, COLORS.panel, COLORS.goldDim)
+
+    local portraitBorder = CreateFrame("Frame", nil, rail, "BackdropTemplate")
+    portraitBorder:SetSize(74, 74)
+    portraitBorder:SetPoint("TOPLEFT", 16, -16)
+    ApplyBackdrop(portraitBorder, { 0.02, 0.02, 0.02, 1 }, COLORS.gold)
+
+    local portrait = portraitBorder:CreateTexture(nil, "ARTWORK")
+    portrait:SetPoint("TOPLEFT", 3, -3)
+    portrait:SetPoint("BOTTOMRIGHT", -3, 3)
+    portrait:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    self.PlayerPortrait = portrait
+
+    local playerName = CreateText(rail, "GameFontNormalLarge", "")
+    playerName:SetPoint("TOPLEFT", portraitBorder, "TOPRIGHT", 12, -8)
+    playerName:SetPoint("RIGHT", rail, "RIGHT", -10, 0)
+    playerName:SetJustifyH("LEFT")
+    playerName:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+    self.PlayerName = playerName
+
+    local playerMeta = CreateText(rail, "GameFontHighlightSmall", "")
+    playerMeta:SetPoint("TOPLEFT", playerName, "BOTTOMLEFT", 0, -8)
+    playerMeta:SetPoint("RIGHT", rail, "RIGHT", -10, 0)
+    playerMeta:SetJustifyH("LEFT")
+    playerMeta:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    self.PlayerMeta = playerMeta
+
+    local divider = rail:CreateTexture(nil, "ARTWORK")
+    divider:SetColorTexture(COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 1)
+    divider:SetHeight(1)
+    divider:SetPoint("TOPLEFT", 14, -108)
+    divider:SetPoint("TOPRIGHT", -14, -108)
+
+    local section = CreateText(rail, "GameFontNormalSmall", "ARCADE")
+    section:SetPoint("TOPLEFT", 16, -126)
+    section:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    local home = CreateFlatButton(rail, "HOME", 188, 34)
+    home:SetPoint("TOPLEFT", 16, -150)
+    home:SetBackdropColor(0.15, 0.105, 0.045, 1)
+
+    local dungeon = CreateFlatButton(rail, "DUNGEON RUN", 188, 34)
+    dungeon:SetPoint("TOPLEFT", home, "BOTTOMLEFT", 0, -8)
+    dungeon:SetEnabled(false)
+    dungeon.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local scores = CreateFlatButton(rail, "SCORES", 188, 34)
+    scores:SetPoint("TOPLEFT", dungeon, "BOTTOMLEFT", 0, -8)
+    scores:SetEnabled(false)
+    scores.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local settings = CreateFlatButton(rail, "SETTINGS", 188, 34)
+    settings:SetPoint("TOPLEFT", scores, "BOTTOMLEFT", 0, -8)
+    settings:SetEnabled(false)
+    settings.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local hint = CreateText(rail, "GameFontDisableSmall", "/ga  •  /goblinarcade")
+    hint:SetPoint("BOTTOMLEFT", 16, 14)
+    hint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local content = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    content:SetPoint("TOPLEFT", rail, "TOPRIGHT", 12, 0)
+    content:SetPoint("BOTTOMRIGHT", -14, 14)
+    ApplyBackdrop(content, COLORS.panel, COLORS.goldDim)
+
+    local welcome = CreateText(content, "GameFontNormalHuge", "Choose a cabinet.")
+    welcome:SetPoint("TOPLEFT", 24, -24)
+    welcome:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+
+    local intro = CreateText(content, "GameFontHighlight", "GoblinArcade turns the quiet minutes between adventures into tiny games inside WoW.")
+    intro:SetPoint("TOPLEFT", welcome, "BOTTOMLEFT", 0, -10)
+    intro:SetPoint("RIGHT", content, "RIGHT", -24, 0)
+    intro:SetJustifyH("LEFT")
+    intro:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local card = CreateFrame("Frame", nil, content, "BackdropTemplate")
+    card:SetPoint("TOPLEFT", 24, -104)
+    card:SetPoint("TOPRIGHT", -24, -104)
+    card:SetHeight(250)
+    ApplyBackdrop(card, { 0.085, 0.067, 0.042, 1 }, COLORS.gold)
+
+    local eyebrow = CreateText(card, "GameFontNormalSmall", "FIRST CABINET  •  ROGUELIKE")
+    eyebrow:SetPoint("TOPLEFT", 22, -20)
+    eyebrow:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    local gameTitle = CreateText(card, "GameFontNormalHuge", "DUNGEON RUN")
+    gameTitle:SetPoint("TOPLEFT", eyebrow, "BOTTOMLEFT", 0, -12)
+    gameTitle:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+
+    local gameDescription = CreateText(card, "GameFontHighlight", "Your WoW character becomes the hero. Gear will be translated into deterministic roguelike equipment, then the dungeon does its best to kill you.")
+    gameDescription:SetPoint("TOPLEFT", gameTitle, "BOTTOMLEFT", 0, -14)
+    gameDescription:SetWidth(470)
+    gameDescription:SetJustifyH("LEFT")
+    gameDescription:SetJustifyV("TOP")
+    gameDescription:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local status = CreateText(card, "GameFontNormal", "●  PROTOTYPE SHELL READY")
+    status:SetPoint("BOTTOMLEFT", 22, 22)
+    status:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+
+    local play = CreateFlatButton(card, "START RUN", 140, 42)
+    play:SetPoint("BOTTOMRIGHT", -22, 20)
+    play:SetEnabled(false)
+    play.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local coming = CreateText(content, "GameFontHighlightSmall", "More cabinets will appear here later. For now, we are building the roguelike first.")
+    coming:SetPoint("TOPLEFT", card, "BOTTOMLEFT", 0, -18)
+    coming:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local version = CreateText(content, "GameFontDisableSmall", "GoblinArcade v" .. tostring(self.version or "0.1.0") .. "  •  WoW Forever")
+    version:SetPoint("BOTTOMRIGHT", -16, 12)
+    version:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    frame:SetScript("OnShow", function()
+        GA:RefreshPlayerSummary()
+    end)
+end
+
+function GA:RefreshPlayerSummary()
+    if not self.MainFrame then
+        return
+    end
+
+    local name = UnitName("player") or "Unknown"
+    local level = UnitLevel("player") or 0
+    local className = UnitClass("player") or "Adventurer"
+    local raceName = UnitRace("player") or ""
+
+    self.PlayerName:SetText(name)
+    self.PlayerMeta:SetText(string.format("Level %d %s %s", level, raceName, className))
+
+    if self.PlayerPortrait then
+        SetPortraitTexture(self.PlayerPortrait, "player")
+    end
+end
