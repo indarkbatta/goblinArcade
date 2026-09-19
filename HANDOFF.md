@@ -1,5 +1,7 @@
 # GoblinArcade — Handoff
 
+> **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
+
 Last updated: 2026-09-19  
 Current addon version: **0.13.4**  
 Repository: `indarkbatta/goblinArcade`  
