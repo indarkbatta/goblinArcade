@@ -38,40 +38,93 @@ local function GetItemSnapshot(itemLink, icon, slotKey)
 
     local name
     local quality
+    local itemLevel
+    local itemType
+    local itemSubType
+    local itemID
     local equipLoc
 
     if C_Item and C_Item.GetItemInfo then
-        local a, _, c = C_Item.GetItemInfo(itemLink)
+        local a, _, c, d, _, f, g = C_Item.GetItemInfo(itemLink)
+
         if type(a) == "table" then
             name = a.itemName or a.name
             quality = a.itemQuality or a.quality
+            itemLevel = a.itemLevel or a.level
+            itemType = a.itemType or a.type
+            itemSubType = a.itemSubType or a.subType
         else
             name = a
             quality = c
+            itemLevel = d
+            itemType = f
+            itemSubType = g
         end
     elseif type(GetItemInfo) == "function" then
-        local a, _, c = GetItemInfo(itemLink)
+        local a, _, c, d, _, f, g = GetItemInfo(itemLink)
         name = a
         quality = c
+        itemLevel = d
+        itemType = f
+        itemSubType = g
     end
 
     if C_Item and C_Item.GetItemInfoInstant then
-        local _, _, _, instantEquipLoc = C_Item.GetItemInfoInstant(itemLink)
+        local instantID, instantType, instantSubType, instantEquipLoc = C_Item.GetItemInfoInstant(itemLink)
+        itemID = instantID
+        itemType = itemType or instantType
+        itemSubType = itemSubType or instantSubType
         equipLoc = instantEquipLoc
     elseif type(GetItemInfoInstant) == "function" then
-        local _, _, _, instantEquipLoc = GetItemInfoInstant(itemLink)
+        local instantID, instantType, instantSubType, instantEquipLoc = GetItemInfoInstant(itemLink)
+        itemID = instantID
+        itemType = itemType or instantType
+        itemSubType = itemSubType or instantSubType
         equipLoc = instantEquipLoc
     end
 
-    return {
+    if not itemLevel and C_Item and C_Item.GetDetailedItemLevelInfo then
+        itemLevel = C_Item.GetDetailedItemLevelInfo(itemLink)
+    end
+
+    local snapshot = {
         source = "wow",
         sourceSlot = slotKey,
         name = name or itemLink:match("%[(.-)%]") or "Equipped item",
         link = itemLink,
         icon = icon,
+        itemID = itemID,
+        itemLevel = itemLevel,
         quality = quality,
+        itemType = itemType,
+        itemSubType = itemSubType,
         equipLoc = equipLoc,
     }
+
+    local metadata = {
+        itemID = itemID,
+        name = snapshot.name,
+        itemLevel = itemLevel,
+        quality = quality,
+        itemType = itemType,
+        itemSubType = itemSubType,
+        equipLoc = equipLoc,
+    }
+
+    local weaponEquipLoc = equipLoc == "INVTYPE_WEAPON"
+        or equipLoc == "INVTYPE_WEAPONMAINHAND"
+        or equipLoc == "INVTYPE_WEAPONOFFHAND"
+        or equipLoc == "INVTYPE_2HWEAPON"
+        or equipLoc == "INVTYPE_RANGED"
+        or equipLoc == "INVTYPE_RANGEDRIGHT"
+
+    if weaponEquipLoc and GA.WeaponGenerator and GA.WeaponGenerator.Convert then
+        snapshot.arcadeWeapon = GA.WeaponGenerator:Convert(metadata)
+    elseif GA.ItemGenerator and GA.ItemGenerator.Convert then
+        snapshot.arcadeItem = GA.ItemGenerator:Convert(metadata)
+    end
+
+    return snapshot
 end
 
 function GA:GetEquipmentSlotDefinitions()
