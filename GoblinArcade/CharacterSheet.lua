@@ -181,7 +181,16 @@ function GA:EnsureArcadeItemConversion(item)
         return nil
     end
 
-    if item.arcadeItem or item.arcadeWeapon then
+    local itemGeneratorVersion = self.ItemGenerator and self.ItemGenerator.VERSION
+    local weaponGeneratorVersion = self.WeaponGenerator and self.WeaponGenerator.VERSION
+
+    if item.arcadeItem
+        and item.arcadeItem.generatorVersion == itemGeneratorVersion then
+        return item
+    end
+
+    if item.arcadeWeapon
+        and item.arcadeWeapon.generatorVersion == weaponGeneratorVersion then
         return item
     end
 
