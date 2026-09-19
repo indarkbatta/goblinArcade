@@ -654,14 +654,14 @@ function GA:CreateDungeonRunPage(parent)
 
     local selectedNote = CreateText(selectedPanel, "GameFontDisableSmall",
         "To refresh an alt's gear, log into that character once and open GoblinArcade.")
-    selectedNote:SetPoint("BOTTOMLEFT", 16, 18)
+    selectedNote:SetPoint("BOTTOMLEFT", 16, 76)
     selectedNote:SetPoint("RIGHT", -16, 0)
     selectedNote:SetJustifyH("LEFT")
     selectedNote:SetWordWrap(true)
     selectedNote:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    local setupBegin = CreateFlatButton(setup, "BEGIN RUN", 180, 42)
-    setupBegin:SetPoint("BOTTOM", 0, 16)
+    local setupBegin = CreateFlatButton(selectedPanel, "BEGIN RUN", 180, 42)
+    setupBegin:SetPoint("BOTTOMRIGHT", -16, 16)
     setupBegin:SetEnabled(false)
     setupBegin.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
     setupBegin:SetScript("OnClick", function()

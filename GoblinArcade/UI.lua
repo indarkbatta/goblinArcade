@@ -214,7 +214,11 @@ function GA:CreateHomePage(parent)
     coming:SetPoint("TOPLEFT", card, "BOTTOMLEFT", 0, -18)
     coming:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    local version = CreateText(page, "GameFontDisableSmall", "GoblinArcade v" .. tostring(self.version or "0.9.0") .. "  -  WoW Forever")
+    local creator = CreateText(page, "GameFontHighlightSmall", "Goblin Arcade - created by Midnight Traveler.")
+    creator:SetPoint("BOTTOMLEFT", 24, 14)
+    creator:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    local version = CreateText(page, "GameFontDisableSmall", "GoblinArcade v" .. tostring(self.version or "0.9.1") .. "  -  WoW Forever")
     version:SetPoint("BOTTOMRIGHT", -16, 12)
     version:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
@@ -278,43 +282,18 @@ function GA:CreateMainFrame()
     ApplyBackdrop(rail, COLORS.panel, COLORS.goldDim)
     self.NavigationRail = rail
 
-    local portraitBorder = CreateFrame("Frame", nil, rail, "BackdropTemplate")
-    portraitBorder:SetSize(80, 80)
-    portraitBorder:SetPoint("TOPLEFT", 16, -16)
-    ApplyBackdrop(portraitBorder, { 0.02, 0.02, 0.02, 1 }, COLORS.gold)
-
-    local portrait = portraitBorder:CreateTexture(nil, "ARTWORK")
-    portrait:SetPoint("TOPLEFT", 3, -3)
-    portrait:SetPoint("BOTTOMRIGHT", -3, 3)
-    portrait:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-    self.PlayerPortrait = portrait
-
-    local playerName = CreateText(rail, "GameFontNormalLarge", "")
-    playerName:SetPoint("TOPLEFT", portraitBorder, "TOPRIGHT", 12, -8)
-    playerName:SetPoint("RIGHT", rail, "RIGHT", -10, 0)
-    playerName:SetJustifyH("LEFT")
-    playerName:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
-    self.PlayerName = playerName
-
-    local playerMeta = CreateText(rail, "GameFontHighlightSmall", "")
-    playerMeta:SetPoint("TOPLEFT", playerName, "BOTTOMLEFT", 0, -8)
-    playerMeta:SetPoint("RIGHT", rail, "RIGHT", -10, 0)
-    playerMeta:SetJustifyH("LEFT")
-    playerMeta:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
-    self.PlayerMeta = playerMeta
+    local section = CreateText(rail, "GameFontNormalSmall", "ARCADE")
+    section:SetPoint("TOPLEFT", 16, -22)
+    section:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
     local divider = rail:CreateTexture(nil, "ARTWORK")
     divider:SetColorTexture(COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 1)
     divider:SetHeight(1)
-    divider:SetPoint("TOPLEFT", 14, -116)
-    divider:SetPoint("TOPRIGHT", -14, -116)
-
-    local section = CreateText(rail, "GameFontNormalSmall", "ARCADE")
-    section:SetPoint("TOPLEFT", 16, -136)
-    section:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    divider:SetPoint("TOPLEFT", 14, -44)
+    divider:SetPoint("TOPRIGHT", -14, -44)
 
     local home = CreateFlatButton(rail, "HOME", 200, 36)
-    home:SetPoint("TOPLEFT", 16, -160)
+    home:SetPoint("TOPLEFT", 16, -60)
     home:SetScript("OnClick", function()
         GA:ShowPage("home")
     end)
@@ -407,18 +386,6 @@ end
 function GA:RefreshPlayerSummary()
     if not self.MainFrame then
         return
-    end
-
-    local name = UnitName("player") or "Unknown"
-    local level = UnitLevel("player") or 0
-    local className = UnitClass("player") or "Adventurer"
-    local raceName = UnitRace("player") or ""
-
-    self.PlayerName:SetText(name)
-    self.PlayerMeta:SetText(string.format("Level %d %s %s", level, raceName, className))
-
-    if self.PlayerPortrait then
-        SetPortraitTexture(self.PlayerPortrait, "player")
     end
 
     if self.RefreshDungeonSummary then
