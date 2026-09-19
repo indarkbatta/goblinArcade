@@ -169,58 +169,9 @@ function GA:CreateHomePage(parent)
     local page = CreateFrame("Frame", nil, parent)
     page:SetAllPoints(parent)
 
-    local welcome = CreateText(page, "GameFontNormalHuge", "Choose a cabinet.")
-    welcome:SetPoint("TOPLEFT", 24, -24)
-    welcome:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
-
-    local intro = CreateText(page, "GameFontHighlight", "GoblinArcade turns the quiet minutes between adventures into tiny games inside WoW.")
-    intro:SetPoint("TOPLEFT", welcome, "BOTTOMLEFT", 0, -10)
-    intro:SetPoint("RIGHT", page, "RIGHT", -24, 0)
-    intro:SetJustifyH("LEFT")
-    intro:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
-
-    local card = CreateFrame("Frame", nil, page, "BackdropTemplate")
-    card:SetPoint("TOPLEFT", 24, -104)
-    card:SetPoint("TOPRIGHT", -24, -104)
-    card:SetHeight(300)
-    ApplyBackdrop(card, { 0.085, 0.067, 0.042, 1 }, COLORS.gold)
-
-    local eyebrow = CreateText(card, "GameFontNormalSmall", "FIRST CABINET  -  ROGUELIKE")
-    eyebrow:SetPoint("TOPLEFT", 22, -20)
-    eyebrow:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
-
-    local gameTitle = CreateText(card, "GameFontNormalHuge", "DUNGEON RUN")
-    gameTitle:SetPoint("TOPLEFT", eyebrow, "BOTTOMLEFT", 0, -12)
-    gameTitle:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
-
-    local gameDescription = CreateText(card, "GameFontHighlight", "Your WoW character becomes the hero. Gear will be translated into deterministic roguelike equipment, then the dungeon does its best to kill you.")
-    gameDescription:SetPoint("TOPLEFT", gameTitle, "BOTTOMLEFT", 0, -14)
-    gameDescription:SetWidth(570)
-    gameDescription:SetJustifyH("LEFT")
-    gameDescription:SetJustifyV("TOP")
-    gameDescription:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
-
-    local status = CreateText(card, "GameFontNormal", ">  CHARACTER ROSTER ONLINE")
-    status:SetPoint("BOTTOMLEFT", 22, 22)
-    status:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
-
-    local play = CreateFlatButton(card, "OPEN DUNGEON", 160, 42)
-    play:SetPoint("BOTTOMRIGHT", -22, 20)
-    play:SetScript("OnClick", function()
-        GA:ShowPage("dungeon")
-    end)
-
-    local coming = CreateText(page, "GameFontHighlightSmall", "Choose the hero you want to send into the dungeon. Alts use their last synced GoblinArcade loadout.")
-    coming:SetPoint("TOPLEFT", card, "BOTTOMLEFT", 0, -18)
-    coming:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
-
-    local creator = CreateText(page, "GameFontHighlightSmall", "Goblin Arcade - created by Midnight Traveler.")
-    creator:SetPoint("BOTTOMLEFT", 24, 14)
+    local creator = CreateText(page, "GameFontNormalLarge", "Goblin Arcade - created by Midnight Traveler.")
+    creator:SetPoint("CENTER")
     creator:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
-
-    local version = CreateText(page, "GameFontDisableSmall", "GoblinArcade v" .. tostring(self.version or "0.9.1") .. "  -  WoW Forever")
-    version:SetPoint("BOTTOMRIGHT", -16, 12)
-    version:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
     return page
 end

@@ -587,7 +587,7 @@ function GA:CreateDungeonRunPage(parent)
 
     local selectedPanel = CreateFrame("Frame", nil, setup, "BackdropTemplate")
     selectedPanel:SetPoint("TOPLEFT", rosterPanel, "TOPRIGHT", 14, 0)
-    selectedPanel:SetPoint("BOTTOMRIGHT", -26, 68)
+    selectedPanel:SetSize(330, 392)
     ApplyBackdrop(selectedPanel, { 0.050, 0.043, 0.034, 1 }, COLORS.goldDim)
 
     local selectedTitle = CreateText(selectedPanel, "GameFontNormalSmall", "SELECTED HERO")
