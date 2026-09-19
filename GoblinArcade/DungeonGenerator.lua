@@ -3,7 +3,7 @@ local _, GA = ...
 GA.DungeonGenerator = GA.DungeonGenerator or {}
 local DG = GA.DungeonGenerator
 
-DG.VERSION = 5
+DG.VERSION = 6
 
 local MODULUS = 2147483647
 local MULTIPLIER = 48271
@@ -215,16 +215,40 @@ end
 local function BuildDoorSet(rooms, walkable)
     local doors = {}
     local membership = BuildRoomMembership(rooms)
+    local doorCountByRoom = {}
+
+    local function IsDoorAdjacent(x, y)
+        return doors[CellKey(x - 1, y)] == true
+            or doors[CellKey(x + 1, y)] == true
+            or doors[CellKey(x, y - 1)] == true
+            or doors[CellKey(x, y + 1)] == true
+    end
+
+    local function GetDoorLimit(room)
+        local role = room and room.role
+
+        -- Special-purpose rooms should read as deliberate destinations rather
+        -- than open junctions.
+        if role == "TREASURE"
+            or role == "SHRINE"
+            or role == "ELITE"
+            or role == "BOSS" then
+            return 1
+        end
+
+        -- Small rooms stay visually simple.
+        if room and (room.w * room.h) <= 25 then
+            return 1
+        end
+
+        return 2
+    end
 
     local function IsValidThreshold(roomIndex, doorX, doorY, insideX, insideY, outsideX, outsideY)
         local doorKey = CellKey(doorX, doorY)
         local insideKey = CellKey(insideX, insideY)
         local outsideKey = CellKey(outsideX, outsideY)
 
-        -- The threshold itself must be corridor-carved space in the wall band,
-        -- the inward tile must belong to this room, and the corridor must
-        -- continue on the far side. This prevents doors from appearing on
-        -- arbitrary room-edge tiles or on corridors merely running alongside.
         return walkable[doorKey] == true
             and membership[doorKey] == nil
             and walkable[insideKey] == true
@@ -233,17 +257,43 @@ local function BuildDoorSet(rooms, walkable)
             and membership[outsideKey] ~= roomIndex
     end
 
-    local function CommitSegment(segment)
+    local function CommitSegment(roomIndex, room, segment)
         if #segment == 0 then
             return
         end
 
+        local currentCount = doorCountByRoom[roomIndex] or 0
+        if currentCount >= GetDoorLimit(room) then
+            return
+        end
+
+        -- Try the center first, then walk outward deterministically until a
+        -- candidate is found that is not orthogonally adjacent to an existing
+        -- door. This makes "two doors next to each other" a hard rule.
         local middle = math.floor((#segment + 1) / 2)
-        local candidate = segment[middle]
-        doors[CellKey(candidate.x, candidate.y)] = true
+
+        for step = 0, #segment - 1 do
+            local offset
+            if step == 0 then
+                offset = 0
+            else
+                local distance = math.floor((step + 1) / 2)
+                offset = (step % 2 == 1) and -distance or distance
+            end
+
+            local candidate = segment[middle + offset]
+            if candidate then
+                local key = CellKey(candidate.x, candidate.y)
+                if not doors[key] and not IsDoorAdjacent(candidate.x, candidate.y) then
+                    doors[key] = true
+                    doorCountByRoom[roomIndex] = currentCount + 1
+                    return
+                end
+            end
+        end
     end
 
-    local function ScanSide(roomIndex, startValue, endValue, candidateFactory)
+    local function ScanSide(roomIndex, room, startValue, endValue, candidateFactory)
         local segment = {}
 
         for value = startValue, endValue do
@@ -263,12 +313,12 @@ local function BuildDoorSet(rooms, walkable)
                     y = candidate.doorY,
                 }
             else
-                CommitSegment(segment)
+                CommitSegment(roomIndex, room, segment)
                 segment = {}
             end
         end
 
-        CommitSegment(segment)
+        CommitSegment(roomIndex, room, segment)
     end
 
     for roomIndex, room in ipairs(rooms) do
@@ -277,7 +327,7 @@ local function BuildDoorSet(rooms, walkable)
         local top = room.y
         local bottom = room.y + room.h - 1
 
-        ScanSide(roomIndex, left, right, function(x)
+        ScanSide(roomIndex, room, left, right, function(x)
             return {
                 doorX = x,
                 doorY = top - 1,
@@ -288,7 +338,7 @@ local function BuildDoorSet(rooms, walkable)
             }
         end)
 
-        ScanSide(roomIndex, left, right, function(x)
+        ScanSide(roomIndex, room, left, right, function(x)
             return {
                 doorX = x,
                 doorY = bottom + 1,
@@ -299,7 +349,7 @@ local function BuildDoorSet(rooms, walkable)
             }
         end)
 
-        ScanSide(roomIndex, top, bottom, function(y)
+        ScanSide(roomIndex, room, top, bottom, function(y)
             return {
                 doorX = left - 1,
                 doorY = y,
@@ -310,7 +360,7 @@ local function BuildDoorSet(rooms, walkable)
             }
         end)
 
-        ScanSide(roomIndex, top, bottom, function(y)
+        ScanSide(roomIndex, room, top, bottom, function(y)
             return {
                 doorX = right + 1,
                 doorY = y,

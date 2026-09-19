@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.22.0**  
+Current addon version: **0.23.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -767,7 +767,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.22.0**
+- **0.23.0**
 
 Recent gameplay foundation:
 
@@ -815,6 +815,9 @@ Recent gameplay foundation:
 - DungeonGenerator v3 assigns room roles: START / COMBAT / TREASURE / ELITE / SHRINE / EXIT / BOSS
 - DungeonGenerator v4 fixes door placement: doors are now true room/corridor thresholds in the one-tile wall band outside rooms, not arbitrary room-edge contacts
 - threshold detection requires room interior -> doorway -> continuing corridor, and contiguous doorway candidates collapse to one centered door
+- DungeonGenerator v6 makes adjacent doors illegal: no two generated doors may share an orthogonal edge
+- door counts are bounded by room: small rooms get at most 1 door; TREASURE / SHRINE / ELITE / BOSS rooms get at most 1; ordinary larger rooms get at most 2
+- door selection prefers the center of a valid threshold segment, then searches outward for a non-adjacent candidate
 - DungeonGenerator v5 adds a < stairs-up marker to the START room on Floors 2-9
 - floors are now bidirectionally traversable during a run: > descends, < returns to the previous floor
 - visited floor state is preserved in-memory per floor, including generated layout, enemies/deaths/positions, opened doors, opened chests and explored Fog of War
@@ -902,7 +905,7 @@ Multi-enemy support is now active in 0.14.2:
 
 ### Current map
 
-DungeonGenerator v5 is active in 0.20.0.
+DungeonGenerator v6 is active in 0.23.0.
 
 - map dimensions remain 25×25;
 - rooms are procedurally placed with one-cell separation;
@@ -911,6 +914,8 @@ DungeonGenerator v5 is active in 0.20.0.
 - genuine corridor crossings through the one-tile wall band around a room become generated door cells;
 - corridors merely running alongside a room no longer create false doors;
 - contiguous threshold candidates collapse to one centered doorway;
+- doors can never be orthogonally adjacent to another generated door;
+- small and special-purpose rooms are capped at 1 door; larger ordinary rooms are capped at 2;
 - closed doors block LOS and enemy pathfinding until the player opens them;
 - opening a door is a one-turn bump action;
 - every generated room receives one gameplay role;
@@ -1358,9 +1363,9 @@ Deterministic scaling, bounded density, multi-enemy support, three active archet
 Recommended order:
 
 1. **Room-role gameplay polish**
-   - test Shrine modal, Elite Cache and Floor 9 exit lock in-game
+   - test the stricter door rules, Shrine modal, Elite Cache and Floor 9 exit lock in-game
+   - cleared COMBAT / BOSS rooms now receive a green * center marker; Elite rooms show the same marker after the Elite Cache is claimed
    - tune room counts / sizes from screenshots
-   - add stronger room-clear visual feedback
    - later add more reward tables / Shrine choices
 
 2. **Abilities**
@@ -1470,6 +1475,7 @@ Before changing layout conventions, remember the user's current preferences:
 - enemy cells keep the terrain background and use only a red border for hostile highlighting;
 - active floors use the procedural DungeonGenerator; do not restore fixed start/exit/chest coordinates;
 - generated rooms use real room-to-corridor threshold doors in the wall band outside the room; closed doors block LOS and open on bump for one turn;
+- two generated doors must never be orthogonally adjacent; special/small rooms are capped at 1 door and larger ordinary rooms at 2;
 - generated rooms have gameplay roles; START / TREASURE / SHRINE / EXIT stay free of ordinary enemy spawns;
 - dungeon floors are bidirectional inside an active run: > descends and < returns, with visited floor state restored rather than regenerated;
 - Floor 9 exit stays locked while its Boss room still has a living boss;

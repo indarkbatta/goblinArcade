@@ -742,6 +742,25 @@ local function IsDungeonExitLocked(run)
         and IsBossAlive(run)
 end
 
+local function MarkRoomCleared(run, roomIndex)
+    if not run or not run.floorMap or not roomIndex then
+        return
+    end
+
+    local room = GetRoomByIndex(run.floorMap, roomIndex)
+    if not room or not room.center then
+        return
+    end
+
+    local key = CellKey(room.center.x, room.center.y)
+    run.floorMap.markers[key] = {
+        text = "*",
+        color = "green",
+        kind = "roomCleared",
+        roomIndex = roomIndex,
+    }
+end
+
 local function SpawnEliteReward(run, roomIndex)
     if not run or not run.floorMap or not roomIndex then
         return
@@ -808,18 +827,10 @@ local function UpdateEncounterRoomClear(self, run, defeatedEnemy)
         SpawnEliteReward(run, roomIndex)
         self:AddCombatLog("ELITE ROOM CLEARED - a reward cache appears.", "system")
     elseif roomRole == "BOSS" then
-        local room = GetRoomByIndex(run.floorMap, roomIndex)
-        if room and room.center then
-            local key = CellKey(room.center.x, room.center.y)
-            run.floorMap.markers[key] = {
-                text = "b",
-                color = "muted",
-                kind = "bossCleared",
-                roomIndex = roomIndex,
-            }
-        end
+        MarkRoomCleared(run, roomIndex)
         self:AddCombatLog("BOSS DEFEATED - THE WAY OUT OPENS.", "system")
     else
+        MarkRoomCleared(run, roomIndex)
         self:AddCombatLog("ROOM CLEARED.", "system")
     end
 end
@@ -1306,7 +1317,7 @@ function GA:CreateDungeonRunPage(parent)
     sacrificeDesc:SetPoint("BOTTOM", sacrificeButton, "TOP", 0, 5)
     sacrificeDesc:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    local legend = CreateText(center, "GameFontDisableSmall", "@ YOU    ENEMY SPRITE    S SHRINE    $ CHEST    < / > STAIRS")
+    local legend = CreateText(center, "GameFontDisableSmall", "@ YOU    ENEMY SPRITE    * CLEARED    S SHRINE    $ CHEST    < / > STAIRS")
     legend:SetPoint("BOTTOM", 0, 9)
     legend:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
@@ -2350,6 +2361,9 @@ function GA:RefreshDungeonMiniMap()
                         elseif marker.kind == "elite" or marker.kind == "boss" then
                             state = marker.kind
                             r, g, b, a = COLORS.red[1], COLORS.red[2], COLORS.red[3], 1
+                        elseif marker.kind == "roomCleared" then
+                            state = "room-cleared"
+                            r, g, b, a = COLORS.green[1], COLORS.green[2], COLORS.green[3], 1
                         end
                     end
                 end
@@ -3374,6 +3388,7 @@ function GA:TryLootChest(x, y)
         local state = run.roomStates[marker.roomIndex]
         if state then
             state.eliteRewardClaimed = true
+            MarkRoomCleared(run, marker.roomIndex)
         end
     end
 
