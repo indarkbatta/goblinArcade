@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.18.1**  
+Current addon version: **0.18.2**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -110,6 +110,7 @@ Important addon files:
   - non-overlapping rooms + connected L-corridors
   - extra loop connections on deeper floors
   - generated start, exit and chest positions
+  - generated room/corridor threshold doors
 
 - `GoblinArcade/CharacterRoster.lua`
   - account-wide character roster
@@ -756,7 +757,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.18.1**
+- **0.18.2**
 
 Recent gameplay foundation:
 
@@ -798,6 +799,9 @@ Recent gameplay foundation:
 - chest loot templates are now assigned to generated chest positions instead of fixed map coordinates
 - a 150×150 Fog-of-War-aware minimap now occupies the previously empty lower-right run panel
 - minimap shows remembered terrain, brighter currently visible terrain, visible enemies in red, the player in green, discovered chests in gold and the discovered exit in green
+- DungeonGenerator v2 detects room/corridor thresholds and creates real door cells
+- closed doors display as +, block line of sight and enemy pathfinding, and open when the player bumps into them
+- opening a door costs one player turn and triggers the normal enemy phase; opened doors display as / and remain open for the floor
 - Spider/Skeleton custom target-card art now uses full-frame portrait coordinates instead of Blizzard-icon cropping
 
 ---
@@ -869,13 +873,16 @@ Multi-enemy support is now active in 0.14.2:
 
 ### Current map
 
-DungeonGenerator v1 is active in 0.18.0.
+DungeonGenerator v2 is active in 0.18.2.
 
 - map dimensions remain 25×25;
 - rooms are procedurally placed with one-cell separation;
 - all rooms are connected by carved L-corridors;
 - deeper floors receive a small number of extra loop connections;
 - start, exit and chest positions are generated per floor;
+- corridor crossings on room boundaries become generated door cells;
+- closed doors block LOS and enemy pathfinding until the player opens them;
+- opening a door is a one-turn bump action;
 - generated marker cells are reserved from enemy spawning;
 - the old static Test Cellar data remains only as a non-run fallback/preview.
 
@@ -1285,10 +1292,11 @@ Deterministic scaling, bounded density, multi-enemy support, three active archet
 
 Recommended order:
 
-1. **Generator iteration**
-   - test room/corridor readability and density in-game
+1. **Generator iteration / room roles**
+   - test room/corridor/door readability and density in-game
    - tune room counts / sizes from screenshots
-   - later add room roles such as treasure, shrine, elite and boss rooms
+   - assign START / COMBAT / TREASURE / ELITE / SHRINE / EXIT / BOSS room roles
+   - move enemy placement from global walkable tiles toward room-based encounters
 
 2. **Abilities**
    - Warrior first
@@ -1396,6 +1404,7 @@ Before changing layout conventions, remember the user's current preferences:
 - creature art baseline is 128×128 source rendered at 96×96 px with no tile overflow;
 - enemy cells keep the terrain background and use only a red border for hostile highlighting;
 - active floors use the procedural DungeonGenerator; do not restore fixed start/exit/chest coordinates;
+- generated rooms use real threshold doors; closed doors block LOS and open on bump for one turn;
 - minimap belongs in the lower-right run panel and respects Fog of War instead of revealing unexplored rooms;
 - fog should not show dotted borders;
 - item tooltips should show GoblinArcade stats, not WoW stats;

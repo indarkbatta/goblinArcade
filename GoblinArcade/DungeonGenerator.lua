@@ -3,7 +3,7 @@ local _, GA = ...
 GA.DungeonGenerator = GA.DungeonGenerator or {}
 local DG = GA.DungeonGenerator
 
-DG.VERSION = 1
+DG.VERSION = 2
 
 local MODULUS = 2147483647
 local MULTIPLIER = 48271
@@ -198,6 +198,35 @@ local function CountKeys(values)
     return count
 end
 
+local function BuildDoorSet(rooms, walkable)
+    local doors = {}
+
+    local function MarkDoor(x, y, outsideX, outsideY)
+        if walkable[CellKey(x, y)] and walkable[CellKey(outsideX, outsideY)] then
+            doors[CellKey(x, y)] = true
+        end
+    end
+
+    for _, room in ipairs(rooms) do
+        local left = room.x
+        local right = room.x + room.w - 1
+        local top = room.y
+        local bottom = room.y + room.h - 1
+
+        for x = left + 1, right - 1 do
+            MarkDoor(x, top, x, top - 1)
+            MarkDoor(x, bottom, x, bottom + 1)
+        end
+
+        for y = top + 1, bottom - 1 do
+            MarkDoor(left, y, left - 1, y)
+            MarkDoor(right, y, right + 1, y)
+        end
+    end
+
+    return doors
+end
+
 function DG:GenerateFloor(width, height, floorNumber, runSeed)
     local mapWidth = math.max(15, tonumber(width) or 25)
     local mapHeight = math.max(15, tonumber(height) or 25)
@@ -369,6 +398,15 @@ function DG:GenerateFloor(width, height, floorNumber, runSeed)
 
     local markers = {}
     local chestKeys = {}
+    local doors = BuildDoorSet(rooms, walkable)
+
+    for key in pairs(doors) do
+        markers[key] = {
+            text = "+",
+            color = "muted",
+            kind = "door",
+        }
+    end
 
     markers[CellKey(exit.x, exit.y)] = {
         text = ">",
@@ -404,6 +442,8 @@ function DG:GenerateFloor(width, height, floorNumber, runSeed)
         roomCount = #rooms,
         markers = markers,
         chestKeys = chestKeys,
+        doors = doors,
+        doorCount = CountKeys(doors),
         start = start,
         exit = exit,
     }

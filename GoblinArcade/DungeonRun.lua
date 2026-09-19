@@ -147,6 +147,20 @@ local function GetDungeonExit()
     return EXIT_X, EXIT_Y
 end
 
+local function IsDungeonDoor(x, y)
+    local doors = ACTIVE_FLOOR_MAP and ACTIVE_FLOOR_MAP.doors
+    return doors and doors[CellKey(x, y)] == true
+end
+
+local function IsDungeonDoorClosed(x, y)
+    if not IsDungeonDoor(x, y) then
+        return false
+    end
+
+    local run = GA.RunState
+    return not (run and run.openDoors and run.openDoors[CellKey(x, y)])
+end
+
 local function IsDungeonWall(x, y)
     if x < 1 or x > GRID_WIDTH or y < 1 or y > GRID_HEIGHT then
         return true
@@ -190,7 +204,7 @@ local function HasLineOfSight(fromX, fromY, toX, toY)
             return true
         end
 
-        if IsDungeonWall(x, y) then
+        if IsDungeonWall(x, y) or IsDungeonDoorClosed(x, y) then
             return false
         end
     end
@@ -268,6 +282,7 @@ local function FindNextStep(startX, startY, targetX, targetY, occupied)
 
             if not visited[nextKey]
                 and not IsDungeonWall(nextX, nextY)
+                and not IsDungeonDoorClosed(nextX, nextY)
                 and (isTarget or not isOccupied) then
 
                 visited[nextKey] = true
@@ -1964,6 +1979,14 @@ function GA:RefreshDungeonMiniMap()
                         elseif marker.kind == "chest" then
                             state = "chest"
                             r, g, b, a = COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 1
+                        elseif marker.kind == "door" then
+                            local doorOpen = run.openDoors and run.openDoors[key]
+                            state = doorOpen and "door-open" or "door-closed"
+                            if doorOpen then
+                                r, g, b, a = 0.22, 0.19, 0.13, 1
+                            else
+                                r, g, b, a = COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 1
+                            end
                         end
                     end
                 end
@@ -2056,7 +2079,14 @@ function GA:RenderDungeonGrid()
                         and run.openedChests[worldKey]
 
                     if staticMarker and not (staticMarker.text == "$" and chestOpened) then
-                        entry.marker:SetText(staticMarker.text)
+                        if staticMarker.kind == "door" then
+                            local doorOpen = run
+                                and run.openDoors
+                                and run.openDoors[worldKey]
+                            entry.marker:SetText(doorOpen and "/" or "+")
+                        else
+                            entry.marker:SetText(staticMarker.text)
+                        end
 
                         if not visible then
                             entry.marker:SetTextColor(0.24, 0.22, 0.18)
@@ -2066,6 +2096,15 @@ function GA:RenderDungeonGrid()
                             entry.marker:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
                         elseif staticMarker.color == "green" then
                             entry.marker:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+                        elseif staticMarker.kind == "door" then
+                            local doorOpen = run
+                                and run.openDoors
+                                and run.openDoors[worldKey]
+                            if doorOpen then
+                                entry.marker:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+                            else
+                                entry.marker:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+                            end
                         else
                             entry.marker:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
                         end
@@ -2235,6 +2274,7 @@ function GA:BeginDungeonRun()
         equipment = CopyTable(selected.equipment or {}),
         backpack = {},
         openedChests = {},
+        openDoors = {},
         explored = {},
         visible = {},
         gearPressure = CopyTable(gearPressure),
@@ -2329,9 +2369,10 @@ function GA:BeginDungeonRun()
     )
     self:AddCombatLog(
         string.format(
-            "Layout: %s, %d rooms, seed %d.",
+            "Layout: %s, %d rooms, %d doors, seed %d.",
             floorMap.name or "Dungeon",
             floorMap.roomCount or 0,
+            floorMap.doorCount or 0,
             floorMap.seed or 0
         ),
         "system"
@@ -2410,6 +2451,7 @@ function GA:ApplyDungeonFloor(floorNumber)
     run.playerX = startX
     run.playerY = startY
     run.openedChests = {}
+    run.openDoors = {}
     run.explored = {}
     run.visible = {}
     run.densityProfile = CopyTable(floorSetup.densityProfile)
@@ -2462,9 +2504,10 @@ function GA:ApplyDungeonFloor(floorNumber)
     )
     self:AddCombatLog(
         string.format(
-            "Layout: %s, %d rooms, seed %d.",
+            "Layout: %s, %d rooms, %d doors, seed %d.",
             floorMap.name or "Dungeon",
             floorMap.roomCount or 0,
+            floorMap.doorCount or 0,
             floorMap.seed or 0
         ),
         "system"
@@ -2822,6 +2865,24 @@ function GA:MoveDungeonPlayer(dx, dy)
             self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
         end
         self:AddCombatLog("A wall blocks your path.", "warning")
+        return
+    end
+
+    if IsDungeonDoorClosed(nextX, nextY) then
+        local doorKey = CellKey(nextX, nextY)
+        run.openDoors = run.openDoors or {}
+        run.openDoors[doorKey] = true
+        run.turns = run.turns + 1
+
+        if self.DungeonRunStateText then
+            self.DungeonRunStateText:SetText("PLAYER TURN - DOOR OPENED")
+            self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+        end
+
+        self:AddCombatLog("You open the door.", "player")
+        self:RefreshRunCounters()
+        self:RenderDungeonGrid()
+        self:RunEnemyTurn()
         return
     end
 
