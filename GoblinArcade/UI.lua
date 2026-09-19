@@ -9,6 +9,7 @@ local COLORS = {
     text = { 0.92, 0.89, 0.82, 1.00 },
     muted = { 0.58, 0.55, 0.50, 1.00 },
     green = { 0.35, 0.90, 0.45, 1.00 },
+    red = { 0.92, 0.26, 0.20, 1.00 },
 }
 
 local function ApplyBackdrop(frame, backgroundColor, borderColor)
@@ -54,11 +55,115 @@ local function CreateFlatButton(parent, text, width, height)
     end)
 
     button:SetScript("OnLeave", function(self)
-        self:SetBackdropBorderColor(COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 1)
-        self:SetBackdropColor(COLORS.panelAlt[1], COLORS.panelAlt[2], COLORS.panelAlt[3], COLORS.panelAlt[4])
+        if not self.gaSelected then
+            self:SetBackdropBorderColor(COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 1)
+            self:SetBackdropColor(COLORS.panelAlt[1], COLORS.panelAlt[2], COLORS.panelAlt[3], COLORS.panelAlt[4])
+        end
     end)
 
     return button
+end
+
+GA.UI = GA.UI or {}
+GA.UI.COLORS = COLORS
+GA.UI.ApplyBackdrop = ApplyBackdrop
+GA.UI.CreateText = CreateText
+GA.UI.CreateFlatButton = CreateFlatButton
+
+local function SetNavSelected(button, selected)
+    if not button then
+        return
+    end
+
+    button.gaSelected = selected
+
+    if selected then
+        button:SetBackdropColor(0.15, 0.105, 0.045, 1)
+        button:SetBackdropBorderColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 1)
+        button.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    else
+        button:SetBackdropColor(COLORS.panelAlt[1], COLORS.panelAlt[2], COLORS.panelAlt[3], COLORS.panelAlt[4])
+        button:SetBackdropBorderColor(COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 1)
+        button.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    end
+end
+
+function GA:ShowPage(pageName)
+    if not self.Pages or not self.Pages[pageName] then
+        return
+    end
+
+    for name, page in pairs(self.Pages) do
+        if name == pageName then
+            page:Show()
+        else
+            page:Hide()
+        end
+    end
+
+    self.ActivePage = pageName
+    SetNavSelected(self.NavButtons and self.NavButtons.home, pageName == "home")
+    SetNavSelected(self.NavButtons and self.NavButtons.dungeon, pageName == "dungeon")
+
+    if pageName == "dungeon" and self.RefreshDungeonSummary then
+        self:RefreshDungeonSummary()
+    end
+end
+
+function GA:CreateHomePage(parent)
+    local page = CreateFrame("Frame", nil, parent)
+    page:SetAllPoints(parent)
+
+    local welcome = CreateText(page, "GameFontNormalHuge", "Choose a cabinet.")
+    welcome:SetPoint("TOPLEFT", 24, -24)
+    welcome:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+
+    local intro = CreateText(page, "GameFontHighlight", "GoblinArcade turns the quiet minutes between adventures into tiny games inside WoW.")
+    intro:SetPoint("TOPLEFT", welcome, "BOTTOMLEFT", 0, -10)
+    intro:SetPoint("RIGHT", page, "RIGHT", -24, 0)
+    intro:SetJustifyH("LEFT")
+    intro:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local card = CreateFrame("Frame", nil, page, "BackdropTemplate")
+    card:SetPoint("TOPLEFT", 24, -104)
+    card:SetPoint("TOPRIGHT", -24, -104)
+    card:SetHeight(300)
+    ApplyBackdrop(card, { 0.085, 0.067, 0.042, 1 }, COLORS.gold)
+
+    local eyebrow = CreateText(card, "GameFontNormalSmall", "FIRST CABINET  -  ROGUELIKE")
+    eyebrow:SetPoint("TOPLEFT", 22, -20)
+    eyebrow:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    local gameTitle = CreateText(card, "GameFontNormalHuge", "DUNGEON RUN")
+    gameTitle:SetPoint("TOPLEFT", eyebrow, "BOTTOMLEFT", 0, -12)
+    gameTitle:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+
+    local gameDescription = CreateText(card, "GameFontHighlight", "Your WoW character becomes the hero. Gear will be translated into deterministic roguelike equipment, then the dungeon does its best to kill you.")
+    gameDescription:SetPoint("TOPLEFT", gameTitle, "BOTTOMLEFT", 0, -14)
+    gameDescription:SetWidth(570)
+    gameDescription:SetJustifyH("LEFT")
+    gameDescription:SetJustifyV("TOP")
+    gameDescription:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local status = CreateText(card, "GameFontNormal", ">  DUNGEON LAYOUT READY")
+    status:SetPoint("BOTTOMLEFT", 22, 22)
+    status:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+
+    local play = CreateFlatButton(card, "OPEN DUNGEON", 160, 42)
+    play:SetPoint("BOTTOMRIGHT", -22, 20)
+    play:SetScript("OnClick", function()
+        GA:ShowPage("dungeon")
+    end)
+
+    local coming = CreateText(page, "GameFontHighlightSmall", "The first playable cabinet is taking shape. Game logic comes next.")
+    coming:SetPoint("TOPLEFT", card, "BOTTOMLEFT", 0, -18)
+    coming:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local version = CreateText(page, "GameFontDisableSmall", "GoblinArcade v" .. tostring(self.version or "0.2.0") .. "  -  WoW Forever")
+    version:SetPoint("BOTTOMRIGHT", -16, 12)
+    version:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    return page
 end
 
 function GA:CreateMainFrame()
@@ -154,12 +259,15 @@ function GA:CreateMainFrame()
 
     local home = CreateFlatButton(rail, "HOME", 200, 36)
     home:SetPoint("TOPLEFT", 16, -160)
-    home:SetBackdropColor(0.15, 0.105, 0.045, 1)
+    home:SetScript("OnClick", function()
+        GA:ShowPage("home")
+    end)
 
     local dungeon = CreateFlatButton(rail, "DUNGEON RUN", 200, 36)
     dungeon:SetPoint("TOPLEFT", home, "BOTTOMLEFT", 0, -8)
-    dungeon:SetEnabled(false)
-    dungeon.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    dungeon:SetScript("OnClick", function()
+        GA:ShowPage("dungeon")
+    end)
 
     local scores = CreateFlatButton(rail, "SCORES", 200, 36)
     scores:SetPoint("TOPLEFT", dungeon, "BOTTOMLEFT", 0, -8)
@@ -171,7 +279,12 @@ function GA:CreateMainFrame()
     settings:SetEnabled(false)
     settings.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    local hint = CreateText(rail, "GameFontDisableSmall", "/ga  •  /goblinarcade")
+    self.NavButtons = {
+        home = home,
+        dungeon = dungeon,
+    }
+
+    local hint = CreateText(rail, "GameFontDisableSmall", "/ga  -  /goblinarcade")
     hint:SetPoint("BOTTOMLEFT", 16, 14)
     hint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
@@ -179,57 +292,22 @@ function GA:CreateMainFrame()
     content:SetPoint("TOPLEFT", rail, "TOPRIGHT", 12, 0)
     content:SetPoint("BOTTOMRIGHT", -14, 14)
     ApplyBackdrop(content, COLORS.panel, COLORS.goldDim)
+    self.ContentFrame = content
 
-    local welcome = CreateText(content, "GameFontNormalHuge", "Choose a cabinet.")
-    welcome:SetPoint("TOPLEFT", 24, -24)
-    welcome:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+    self.Pages = {}
+    self.Pages.home = self:CreateHomePage(content)
 
-    local intro = CreateText(content, "GameFontHighlight", "GoblinArcade turns the quiet minutes between adventures into tiny games inside WoW.")
-    intro:SetPoint("TOPLEFT", welcome, "BOTTOMLEFT", 0, -10)
-    intro:SetPoint("RIGHT", content, "RIGHT", -24, 0)
-    intro:SetJustifyH("LEFT")
-    intro:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    if self.CreateDungeonRunPage then
+        self.Pages.dungeon = self:CreateDungeonRunPage(content)
+    end
 
-    local card = CreateFrame("Frame", nil, content, "BackdropTemplate")
-    card:SetPoint("TOPLEFT", 24, -104)
-    card:SetPoint("TOPRIGHT", -24, -104)
-    card:SetHeight(300)
-    ApplyBackdrop(card, { 0.085, 0.067, 0.042, 1 }, COLORS.gold)
-
-    local eyebrow = CreateText(card, "GameFontNormalSmall", "FIRST CABINET  •  ROGUELIKE")
-    eyebrow:SetPoint("TOPLEFT", 22, -20)
-    eyebrow:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
-
-    local gameTitle = CreateText(card, "GameFontNormalHuge", "DUNGEON RUN")
-    gameTitle:SetPoint("TOPLEFT", eyebrow, "BOTTOMLEFT", 0, -12)
-    gameTitle:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
-
-    local gameDescription = CreateText(card, "GameFontHighlight", "Your WoW character becomes the hero. Gear will be translated into deterministic roguelike equipment, then the dungeon does its best to kill you.")
-    gameDescription:SetPoint("TOPLEFT", gameTitle, "BOTTOMLEFT", 0, -14)
-    gameDescription:SetWidth(570)
-    gameDescription:SetJustifyH("LEFT")
-    gameDescription:SetJustifyV("TOP")
-    gameDescription:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
-
-    local status = CreateText(card, "GameFontNormal", ">  PROTOTYPE SHELL READY")
-    status:SetPoint("BOTTOMLEFT", 22, 22)
-    status:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
-
-    local play = CreateFlatButton(card, "START RUN", 140, 42)
-    play:SetPoint("BOTTOMRIGHT", -22, 20)
-    play:SetEnabled(false)
-    play.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
-
-    local coming = CreateText(content, "GameFontHighlightSmall", "More cabinets will appear here later. For now, we are building the roguelike first.")
-    coming:SetPoint("TOPLEFT", card, "BOTTOMLEFT", 0, -18)
-    coming:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
-
-    local version = CreateText(content, "GameFontDisableSmall", "GoblinArcade v" .. tostring(self.version or "0.1.0") .. "  •  WoW Forever")
-    version:SetPoint("BOTTOMRIGHT", -16, 12)
-    version:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    self:ShowPage("home")
 
     frame:SetScript("OnShow", function()
         GA:RefreshPlayerSummary()
+        if GA.ActivePage == "dungeon" and GA.RefreshDungeonSummary then
+            GA:RefreshDungeonSummary()
+        end
     end)
 end
 
@@ -248,5 +326,9 @@ function GA:RefreshPlayerSummary()
 
     if self.PlayerPortrait then
         SetPortraitTexture(self.PlayerPortrait, "player")
+    end
+
+    if self.RefreshDungeonSummary then
+        self:RefreshDungeonSummary()
     end
 end
