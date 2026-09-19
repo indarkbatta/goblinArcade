@@ -913,6 +913,43 @@ function GA:CreateDungeonRunPage(parent)
     self.DungeonScoreValue, self.DungeonScoreLabel = CreateStatRow(right, "SCORE", "0", -174)
     self.DungeonTurnsValue, self.DungeonTurnsLabel = CreateStatRow(right, "TURNS", "0", -198)
 
+    local miniMapLabel = CreateText(right, "GameFontNormalSmall", "MAP")
+    miniMapLabel:SetPoint("BOTTOMLEFT", 12, 224)
+    miniMapLabel:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    miniMapLabel:Hide()
+    self.DungeonMiniMapLabel = miniMapLabel
+
+    local miniMap = CreateFrame("Frame", nil, right, "BackdropTemplate")
+    miniMap:SetSize(158, 158)
+    miniMap:SetPoint("BOTTOM", 0, 60)
+    ApplyBackdrop(miniMap, { 0.015, 0.013, 0.011, 1 }, COLORS.goldDim)
+    miniMap:Hide()
+    self.DungeonMiniMap = miniMap
+
+    local miniGrid = CreateFrame("Frame", nil, miniMap)
+    miniGrid:SetSize(150, 150)
+    miniGrid:SetPoint("CENTER")
+    miniMap.grid = miniGrid
+    miniMap.cells = {}
+
+    local miniCellSize = 6
+    for mapY = 1, GRID_HEIGHT do
+        for mapX = 1, GRID_WIDTH do
+            local miniCell = miniGrid:CreateTexture(nil, "ARTWORK")
+            miniCell:SetSize(miniCellSize, miniCellSize)
+            miniCell:SetPoint(
+                "TOPLEFT",
+                (mapX - 1) * miniCellSize,
+                -((mapY - 1) * miniCellSize)
+            )
+            miniCell:SetColorTexture(0.005, 0.005, 0.005, 1)
+            miniMap.cells[CellKey(mapX, mapY)] = {
+                texture = miniCell,
+                state = "unseen",
+            }
+        end
+    end
+
     local begin = CreateFlatButton(right, "BEGIN RUN", 158, 36)
     begin:SetPoint("BOTTOM", 0, 12)
     begin:SetEnabled(false)
@@ -1861,6 +1898,95 @@ function GA:UpdateDungeonCamera()
     self.DungeonCameraY = Clamp(focusY - halfH, 1, maxCameraY)
 end
 
+function GA:RefreshDungeonMiniMap()
+    local miniMap = self.DungeonMiniMap
+    if not miniMap or not miniMap.cells then
+        return
+    end
+
+    local run = self.RunState
+    if not run or not run.active or not run.floorMap then
+        miniMap:Hide()
+        if self.DungeonMiniMapLabel then
+            self.DungeonMiniMapLabel:Hide()
+        end
+        return
+    end
+
+    miniMap:Show()
+    if self.DungeonMiniMapLabel then
+        self.DungeonMiniMapLabel:Show()
+    end
+
+    local markers = GetDungeonMarkers()
+    local visibleEnemies = {}
+
+    for _, enemy in ipairs(run.enemies or {}) do
+        if enemy.alive ~= false and self:IsDungeonCellVisible(enemy.x, enemy.y) then
+            visibleEnemies[CellKey(enemy.x, enemy.y)] = true
+        end
+    end
+
+    for y = 1, GRID_HEIGHT do
+        for x = 1, GRID_WIDTH do
+            local key = CellKey(x, y)
+            local cell = miniMap.cells[key]
+
+            if cell and cell.texture then
+                local explored = self:IsDungeonCellExplored(x, y)
+                local visible = self:IsDungeonCellVisible(x, y)
+                local state = "unseen"
+                local r, g, b, a = 0.005, 0.005, 0.005, 1
+
+                if explored then
+                    if IsDungeonWall(x, y) then
+                        state = visible and "wall-visible" or "wall-memory"
+                        if visible then
+                            r, g, b, a = 0.31, 0.25, 0.14, 1
+                        else
+                            r, g, b, a = 0.13, 0.11, 0.075, 1
+                        end
+                    else
+                        state = visible and "floor-visible" or "floor-memory"
+                        if visible then
+                            r, g, b, a = 0.16, 0.14, 0.10, 1
+                        else
+                            r, g, b, a = 0.07, 0.06, 0.045, 1
+                        end
+                    end
+
+                    local marker = markers[key]
+                    local chestOpened = run.openedChests and run.openedChests[key]
+                    if marker and not (marker.kind == "chest" and chestOpened) then
+                        if marker.kind == "exit" then
+                            state = "exit"
+                            r, g, b, a = COLORS.green[1], COLORS.green[2], COLORS.green[3], 1
+                        elseif marker.kind == "chest" then
+                            state = "chest"
+                            r, g, b, a = COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 1
+                        end
+                    end
+                end
+
+                if visibleEnemies[key] then
+                    state = "enemy"
+                    r, g, b, a = COLORS.red[1], COLORS.red[2], COLORS.red[3], 1
+                end
+
+                if run.playerX == x and run.playerY == y then
+                    state = "player"
+                    r, g, b, a = COLORS.green[1], COLORS.green[2], COLORS.green[3], 1
+                end
+
+                if cell.state ~= state then
+                    cell.texture:SetColorTexture(r, g, b, a)
+                    cell.state = state
+                end
+            end
+        end
+    end
+end
+
 function GA:RenderDungeonGrid()
     if not self.DungeonGrid or not self.DungeonGrid.cells then
         return
@@ -1998,6 +2124,7 @@ function GA:RenderDungeonGrid()
 
     self:RefreshActionButtons()
     self:RefreshEnemyCombatCard()
+    self:RefreshDungeonMiniMap()
 
     if self.CharacterSheetFrame and self.CharacterSheetFrame:IsShown() then
         self:RefreshCharacterSheet()

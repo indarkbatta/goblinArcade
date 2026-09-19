@@ -4,7 +4,7 @@ GA = GA or {}
 _G.GoblinArcade = GA
 
 GA.name = "GoblinArcade"
-GA.version = "0.18.0"
+GA.version = "0.18.1"
 
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("PLAYER_LOGIN")

@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.18.0**  
+Current addon version: **0.18.1**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -756,7 +756,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.18.0**
+- **0.18.1**
 
 Recent gameplay foundation:
 
@@ -796,6 +796,8 @@ Recent gameplay foundation:
 - a single run seed produces deterministic per-floor layout seeds without calling math.randomseed
 - start, exit and two chest locations are generated dynamically and enemy spawning respects those reserved cells
 - chest loot templates are now assigned to generated chest positions instead of fixed map coordinates
+- a 150×150 Fog-of-War-aware minimap now occupies the previously empty lower-right run panel
+- minimap shows remembered terrain, brighter currently visible terrain, visible enemies in red, the player in green, discovered chests in gold and the discovered exit in green
 - Spider/Skeleton custom target-card art now uses full-frame portrait coordinates instead of Blizzard-icon cropping
 
 ---
@@ -816,6 +818,7 @@ Preserve these unless user explicitly changes direction:
 - Home should remain minimal.
 - Relic slots are currently unwanted.
 - Enemy combat card belongs on the **right**.
+- The lower-right run panel contains the dungeon minimap.
 - Vision radius is **4**.
 - Fog of war and LOS are important.
 - User prefers screenshot-driven iteration.
@@ -1393,6 +1396,7 @@ Before changing layout conventions, remember the user's current preferences:
 - creature art baseline is 128×128 source rendered at 96×96 px with no tile overflow;
 - enemy cells keep the terrain background and use only a red border for hostile highlighting;
 - active floors use the procedural DungeonGenerator; do not restore fixed start/exit/chest coordinates;
+- minimap belongs in the lower-right run panel and respects Fog of War instead of revealing unexplored rooms;
 - fog should not show dotted borders;
 - item tooltips should show GoblinArcade stats, not WoW stats;
 - drag targets must visually highlight.
