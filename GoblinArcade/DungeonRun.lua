@@ -47,11 +47,14 @@ local STATIC_WALLS = {
 }
 
 local STATIC_MARKERS = {
-    ["11:4"] = { text = "K", color = "red" },
     ["3:6"] = { text = "S", color = "muted" },
     ["9:11"] = { text = "$", color = "gold" },
     ["12:11"] = { text = ">", color = "green" },
 }
+
+local KOBOLD_START_X = 11
+local KOBOLD_START_Y = 4
+local KOBOLD_TEXTURE = "Interface\\AddOns\\GoblinArcade\\Media\\Monsters\\kobold"
 
 local function CellKey(x, y)
     return tostring(x) .. ":" .. tostring(y)
@@ -81,6 +84,71 @@ local function CopyTable(value)
     return copy
 end
 
+local PATH_DIRECTIONS = {
+    { 0, -1 },
+    { 1, 0 },
+    { 0, 1 },
+    { -1, 0 },
+}
+
+local function FindNextStep(startX, startY, targetX, targetY)
+    if startX == targetX and startY == targetY then
+        return nil, nil
+    end
+
+    local queue = {
+        { x = startX, y = startY },
+    }
+    local head = 1
+    local visited = {
+        [CellKey(startX, startY)] = true,
+    }
+    local parent = {}
+    local foundKey
+
+    while head <= #queue do
+        local current = queue[head]
+        head = head + 1
+
+        for _, delta in ipairs(PATH_DIRECTIONS) do
+            local nextX = current.x + delta[1]
+            local nextY = current.y + delta[2]
+            local nextKey = CellKey(nextX, nextY)
+
+            if not visited[nextKey] and not IsDungeonWall(nextX, nextY) then
+                visited[nextKey] = true
+                parent[nextKey] = CellKey(current.x, current.y)
+
+                if nextX == targetX and nextY == targetY then
+                    foundKey = nextKey
+                    head = #queue + 1
+                    break
+                end
+
+                queue[#queue + 1] = { x = nextX, y = nextY }
+            end
+        end
+    end
+
+    if not foundKey then
+        return nil, nil
+    end
+
+    local startKey = CellKey(startX, startY)
+    local stepKey = foundKey
+
+    while parent[stepKey] and parent[stepKey] ~= startKey do
+        stepKey = parent[stepKey]
+    end
+
+    local stepX, stepY = string.match(stepKey, "^(%d+):(%d+)$")
+    return tonumber(stepX), tonumber(stepY)
+end
+
+local function IsAdjacent(x1, y1, x2, y2)
+    return math.abs(x1 - x2) + math.abs(y1 - y2) == 1
+end
+
 local function CreateGrid(parent)
     local grid = CreateFrame("Frame", nil, parent, "BackdropTemplate")
     grid:SetSize(350, 350)
@@ -106,12 +174,20 @@ local function CreateGrid(parent)
                 ApplyBackdrop(cell, { 0.055, 0.048, 0.038, 1 }, { 0.09, 0.075, 0.055, 1 })
             end
 
+            local enemyIcon = cell:CreateTexture(nil, "OVERLAY")
+            enemyIcon:SetSize(22, 22)
+            enemyIcon:SetPoint("CENTER")
+            enemyIcon:SetTexture(KOBOLD_TEXTURE)
+            enemyIcon:SetTexCoord(0, 1, 0, 1)
+            enemyIcon:Hide()
+
             local marker = CreateText(cell, "GameFontNormal", "")
             marker:SetPoint("CENTER")
 
             grid.cells[CellKey(col, row)] = {
                 frame = cell,
                 marker = marker,
+                enemyIcon = enemyIcon,
                 wall = wall,
             }
         end
@@ -129,7 +205,7 @@ function GA:CreateDungeonRunPage(parent)
     title:SetPoint("TOPLEFT", 18, -16)
     title:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
-    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  MOVEMENT PROTOTYPE")
+    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  ENEMY TURN PROTOTYPE")
     subtitle:SetPoint("TOPRIGHT", -18, -22)
     subtitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
@@ -283,7 +359,7 @@ function GA:CreateDungeonRunPage(parent)
 
     self.DungeonGrid = CreateGrid(center)
 
-    local legend = CreateText(center, "GameFontDisableSmall", "@ YOU    K ENEMY    S ENEMY    $ CHEST    > EXIT")
+    local legend = CreateText(center, "GameFontDisableSmall", "@ YOU    KOBOLD ICON    S TEST    $ CHEST    > EXIT")
     legend:SetPoint("BOTTOM", 0, 9)
     legend:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
@@ -528,6 +604,10 @@ function GA:RenderDungeonGrid()
                 end
 
                 entry.marker:SetText("")
+                if entry.enemyIcon then
+                    entry.enemyIcon:Hide()
+                end
+
                 local staticMarker = STATIC_MARKERS[CellKey(x, y)]
                 if staticMarker then
                     entry.marker:SetText(staticMarker.text)
@@ -547,6 +627,23 @@ function GA:RenderDungeonGrid()
     end
 
     local run = self.RunState
+    local enemy = run and run.enemy or {
+        x = KOBOLD_START_X,
+        y = KOBOLD_START_Y,
+        texture = KOBOLD_TEXTURE,
+    }
+
+    if enemy then
+        local enemyCell = self.DungeonGrid.cells[CellKey(enemy.x, enemy.y)]
+        if enemyCell and enemyCell.enemyIcon then
+            enemyCell.frame:SetBackdropColor(0.16, 0.055, 0.045, 1)
+            enemyCell.frame:SetBackdropBorderColor(COLORS.red[1], COLORS.red[2], COLORS.red[3], 1)
+            enemyCell.marker:SetText("")
+            enemyCell.enemyIcon:SetTexture(enemy.texture or KOBOLD_TEXTURE)
+            enemyCell.enemyIcon:Show()
+        end
+    end
+
     local playerX = run and run.playerX or START_X
     local playerY = run and run.playerY or START_Y
     local playerCell = self.DungeonGrid.cells[CellKey(playerX, playerY)]
@@ -600,6 +697,13 @@ function GA:BeginDungeonRun()
         turns = 0,
         playerX = START_X,
         playerY = START_Y,
+        enemy = {
+            id = "kobold",
+            name = "Kobold",
+            x = KOBOLD_START_X,
+            y = KOBOLD_START_Y,
+            texture = KOBOLD_TEXTURE,
+        },
         snapshot = {
             name = name,
             level = level,
@@ -624,7 +728,7 @@ function GA:BeginDungeonRun()
     end
 
     if self.DungeonRunStateText then
-        self.DungeonRunStateText:SetText("RUN ACTIVE - WASD / ARROWS")
+        self.DungeonRunStateText:SetText("PLAYER TURN - WASD / ARROWS")
         self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
     end
 
@@ -660,6 +764,49 @@ function GA:CompleteTestFloor()
     self:RenderDungeonGrid()
 end
 
+function GA:RunEnemyTurn()
+    local run = self.RunState
+    if not run or not run.active or not run.enemy then
+        return
+    end
+
+    local enemy = run.enemy
+
+    if IsAdjacent(enemy.x, enemy.y, run.playerX, run.playerY) then
+        if self.DungeonRunStateText then
+            self.DungeonRunStateText:SetText("PLAYER TURN - KOBOLD ADJACENT")
+            self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+        end
+        return
+    end
+
+    if self.DungeonRunStateText then
+        self.DungeonRunStateText:SetText("ENEMY TURN - KOBOLD")
+        self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    end
+
+    local nextX, nextY = FindNextStep(enemy.x, enemy.y, run.playerX, run.playerY)
+
+    -- Combat is not implemented yet, so the kobold stops next to the player
+    -- instead of entering the player's square.
+    if nextX and nextY and not (nextX == run.playerX and nextY == run.playerY) then
+        enemy.x = nextX
+        enemy.y = nextY
+    end
+
+    self:RenderDungeonGrid()
+
+    if self.DungeonRunStateText then
+        if IsAdjacent(enemy.x, enemy.y, run.playerX, run.playerY) then
+            self.DungeonRunStateText:SetText("PLAYER TURN - KOBOLD ADJACENT")
+            self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+        else
+            self.DungeonRunStateText:SetText("PLAYER TURN - KOBOLD MOVED")
+            self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+        end
+    end
+end
+
 function GA:MoveDungeonPlayer(dx, dy)
     local run = self.RunState
     if not run or not run.active then
@@ -677,6 +824,14 @@ function GA:MoveDungeonPlayer(dx, dy)
         return
     end
 
+    if run.enemy and nextX == run.enemy.x and nextY == run.enemy.y then
+        if self.DungeonRunStateText then
+            self.DungeonRunStateText:SetText("KOBOLD BLOCKS THE WAY - COMBAT NEXT")
+            self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+        end
+        return
+    end
+
     run.playerX = nextX
     run.playerY = nextY
     run.turns = run.turns + 1
@@ -686,10 +841,10 @@ function GA:MoveDungeonPlayer(dx, dy)
 
     if nextX == EXIT_X and nextY == EXIT_Y then
         self:CompleteTestFloor()
-    elseif self.DungeonRunStateText then
-        self.DungeonRunStateText:SetText("RUN ACTIVE - WASD / ARROWS")
-        self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+        return
     end
+
+    self:RunEnemyTurn()
 end
 
 function GA:RefreshDungeonSummary()
