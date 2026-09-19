@@ -271,17 +271,12 @@ function GA:RecalculateRunGearStats()
         self.DungeonDodge:SetText(string.format("%.1f%%", stats.dodge))
     end
 
-    if self.CharacterSheetStats then
-        self.CharacterSheetStats:SetText(
-            string.format(
-                "HP +%d   Armor %d   Dodge %.1f%%   Crit %.1f%%   Block %.1f%%",
-                stats.health,
-                stats.armor,
-                stats.dodge,
-                stats.crit,
-                stats.block
-            )
-        )
+    if self.CharacterSheetStatRows then
+        self.CharacterSheetStatRows.health:SetText(string.format("HP Bonus +%d", stats.health))
+        self.CharacterSheetStatRows.armor:SetText(string.format("Armor %d", stats.armor))
+        self.CharacterSheetStatRows.dodge:SetText(string.format("Dodge %.1f%%", stats.dodge))
+        self.CharacterSheetStatRows.crit:SetText(string.format("Crit %.1f%%", stats.crit))
+        self.CharacterSheetStatRows.block:SetText(string.format("Block %.1f%%", stats.block))
     end
 end
 
@@ -416,6 +411,22 @@ function GA:DropCharacterItem(targetType, targetKey)
     return true
 end
 
+local function GetQualityColor(quality)
+    local colors = {
+        [0] = { 0.62, 0.62, 0.62 },
+        [1] = { 1.00, 1.00, 1.00 },
+        [2] = { 0.12, 1.00, 0.00 },
+        [3] = { 0.00, 0.44, 0.87 },
+        [4] = { 0.64, 0.21, 0.93 },
+        [5] = { 1.00, 0.50, 0.00 },
+        [6] = { 0.90, 0.80, 0.50 },
+        [7] = { 0.00, 0.80, 1.00 },
+    }
+
+    local color = colors[tonumber(quality) or 1] or colors[1]
+    return color[1], color[2], color[3]
+end
+
 local function AddArcadeConversionToTooltip(item)
     if not item then
         return
@@ -426,59 +437,63 @@ local function AddArcadeConversionToTooltip(item)
     local weapon = item.arcadeWeapon
     local converted = item.arcadeItem
 
-    if not weapon and not converted then
-        return
-    end
-
-    GameTooltip:AddLine(" ")
-    GameTooltip:AddLine("GoblinArcade Conversion", 1, 0.72, 0.12)
-
     if weapon then
+        GameTooltip:AddLine("Weapon", 0.65, 0.60, 0.52)
         GameTooltip:AddLine(
-            string.format(
-                "%s  |  Damage %d-%d  |  %s  |  Range %d",
+            string.format("Damage %d - %d", weapon.damageMin or 0, weapon.damageMax or 0),
+            0.92, 0.89, 0.82
+        )
+        GameTooltip:AddLine(
+            string.format("%s  -  %s  -  Range %d",
                 weapon.style or "Weapon",
-                weapon.damageMin or 0,
-                weapon.damageMax or 0,
                 weapon.speed or "NORMAL",
-                weapon.range or 1
-            ),
+                weapon.range or 1),
             0.92, 0.89, 0.82,
             true
         )
 
         if weapon.traitName then
-            GameTooltip:AddLine(
-                weapon.traitName .. " - " .. (weapon.traitDescription or ""),
-                1, 0.72, 0.12,
-                true
-            )
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine(weapon.traitName, 1, 0.72, 0.12)
+            GameTooltip:AddLine(weapon.traitDescription or "", 0.82, 0.79, 0.72, true)
         end
 
         return
     end
 
-    GameTooltip:AddLine(
-        string.format(
-            "%s  |  HP +%d  |  Armor %d  |  Dodge %.1f%%  |  Crit %.1f%%  |  Block %.1f%%",
-            converted.style or "Gear",
-            converted.health or 0,
-            converted.armor or 0,
-            converted.dodge or 0,
-            converted.crit or 0,
-            converted.block or 0
-        ),
-        0.92, 0.89, 0.82,
-        true
-    )
+    if converted then
+        GameTooltip:AddLine(converted.style or "Gear", 0.65, 0.60, 0.52)
 
-    if converted.traitName then
-        GameTooltip:AddLine(
-            converted.traitName .. " - " .. (converted.traitDescription or ""),
-            1, 0.72, 0.12,
-            true
-        )
+        if (converted.health or 0) > 0 then
+            GameTooltip:AddLine(string.format("Health +%d", converted.health), 0.30, 1.00, 0.38)
+        end
+
+        if (converted.armor or 0) > 0 then
+            GameTooltip:AddLine(string.format("Armor +%d", converted.armor), 0.92, 0.89, 0.82)
+        end
+
+        if (converted.dodge or 0) > 0 then
+            GameTooltip:AddLine(string.format("Dodge +%.1f%%", converted.dodge), 0.92, 0.89, 0.82)
+        end
+
+        if (converted.crit or 0) > 0 then
+            GameTooltip:AddLine(string.format("Crit +%.1f%%", converted.crit), 0.92, 0.89, 0.82)
+        end
+
+        if (converted.block or 0) > 0 then
+            GameTooltip:AddLine(string.format("Block +%.1f%%", converted.block), 0.92, 0.89, 0.82)
+        end
+
+        if converted.traitName then
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine(converted.traitName, 1, 0.72, 0.12)
+            GameTooltip:AddLine(converted.traitDescription or "", 0.82, 0.79, 0.72, true)
+        end
+
+        return
     end
+
+    GameTooltip:AddLine("No GoblinArcade conversion available.", 0.60, 0.58, 0.54, true)
 end
 
 local function ShowItemTooltip(button)
@@ -488,20 +503,10 @@ local function ShowItemTooltip(button)
     end
 
     GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+    GameTooltip:ClearLines()
 
-    if item.link then
-        GameTooltip:SetHyperlink(item.link)
-    else
-        GameTooltip:SetText(item.name or "Dungeon item", 1, 0.82, 0.22)
-
-        if item.description then
-            GameTooltip:AddLine(item.description, 0.8, 0.8, 0.8, true)
-        end
-
-        if item.equipLoc then
-            GameTooltip:AddLine(item.slotLabel or item.equipLoc, 0.6, 0.6, 0.6, true)
-        end
-    end
+    local r, g, b = GetQualityColor(item.quality)
+    GameTooltip:SetText(item.name or "Dungeon item", r, g, b)
 
     AddArcadeConversionToTooltip(item)
     GameTooltip:Show()
@@ -591,10 +596,28 @@ function GA:CreateCharacterSheet(parent)
     health:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
     self.CharacterSheetHealth = health
 
-    local arcadeStats = CreateText(gearPanel, "GameFontHighlightSmall", "")
-    arcadeStats:SetPoint("TOP", health, "BOTTOM", 0, -6)
-    arcadeStats:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
-    self.CharacterSheetStats = arcadeStats
+    local statsFrame = CreateFrame("Frame", nil, gearPanel)
+    statsFrame:SetSize(156, 92)
+    statsFrame:SetPoint("TOP", health, "BOTTOM", 0, -6)
+    self.CharacterSheetStatsFrame = statsFrame
+    self.CharacterSheetStatRows = {}
+
+    local statLabels = {
+        { key = "health", label = "HP Bonus" },
+        { key = "armor", label = "Armor" },
+        { key = "dodge", label = "Dodge" },
+        { key = "crit", label = "Crit" },
+        { key = "block", label = "Block" },
+    }
+
+    for i, definition in ipairs(statLabels) do
+        local row = CreateText(statsFrame, "GameFontHighlightSmall", "")
+        row:SetPoint("TOP", 0, -((i - 1) * 17))
+        row:SetWidth(156)
+        row:SetJustifyH("CENTER")
+        row:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+        self.CharacterSheetStatRows[definition.key] = row
+    end
 
     local leftSlots = { "head", "neck", "shoulder", "back", "chest", "wrist", "hands", "waist" }
     local rightSlots = { "legs", "feet", "finger1", "finger2", "trinket1", "trinket2", "mainhand", "offhand" }
