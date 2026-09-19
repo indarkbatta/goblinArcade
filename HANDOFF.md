@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-19  
-Current addon version: **0.16.0**  
+Current addon version: **0.16.1**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -134,8 +134,8 @@ SavedVariables:
 
 Main window:
 
-- current size: **1100 × 630**
-- widened from 1020 to avoid the dungeon overlapping the side panels
+- current size: **1160 × 720**
+- enlarged in 0.16.1 so the 13×13 dungeon viewport can use 32×32 tiles without overlapping the side panels or legend
 - dark brown / black / gold visual language
 - flat UI, no rounded-corner aesthetic
 
@@ -205,8 +205,15 @@ World size:
 Viewport:
 
 - **13 × 13**
+- tile size: **32 × 32 px**
+- tile gap: **1 px**
+- rendered grid: **428 × 428 px**
+- enemy grid sprites: **28 × 28 px**
+- static/player markers use the larger game font for better readability
 
 The viewport is a camera into the larger world, not a scrollbar.
+
+The larger tile baseline was explicitly chosen to leave room for higher-quality custom monster sprites later. Keep 32×32 as the default unless the user explicitly requests another scale.
 
 Player starts around:
 
@@ -718,7 +725,7 @@ Current prototype limitation: the same static chest locations and prototype ches
 
 Latest visual changes before this handoff:
 
-1. Main window widened from **1020 → 1100 px**.
+1. Main window evolved from **1020 → 1100 → 1160 px**, and is now **1160 × 720** to support larger dungeon tiles.
 2. Right combat panel widened to **182 px**, matching left run panel.
 3. Kobold card moved back to the **right side** at user's request.
 4. Kobold card uses the same horizontal dimensions as player card.
@@ -728,7 +735,7 @@ Latest visual changes before this handoff:
 
 Latest code version at handoff:
 
-- **0.16.0**
+- **0.16.1**
 
 Recent gameplay foundation:
 
@@ -750,6 +757,9 @@ Recent gameplay foundation:
 - Floor 9 exit completes the run
 - HP, equipment, backpack, score and total turns persist across floor transitions
 - frozen BEGIN RUN Gear Pressure persists across the entire 9-floor run
+- dungeon tiles increased from 26×26 to 32×32 px
+- enemy grid sprites increased from 22×22 to 28×28 px
+- main window enlarged to 1160×720 to preserve the 13×13 viewport cleanly
 
 ---
 
@@ -1322,6 +1332,7 @@ Before changing layout conventions, remember the user's current preferences:
 - no relic panel;
 - vision radius = 4;
 - map should not visually overlap side panels;
+- dungeon tile baseline is 32×32 px to support higher-quality sprites;
 - fog should not show dotted borders;
 - item tooltips should show GoblinArcade stats, not WoW stats;
 - drag targets must visually highlight.

@@ -182,7 +182,7 @@ function GA:CreateMainFrame()
     end
 
     local frame = CreateFrame("Frame", "GoblinArcadeMainFrame", UIParent, "BackdropTemplate")
-    frame:SetSize(1100, 630)
+    frame:SetSize(1160, 720)
     frame:SetPoint("CENTER", UIParent, "CENTER", 0, 20)
     frame:SetFrameStrata("DIALOG")
     frame:SetClampedToScreen(true)

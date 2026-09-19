@@ -529,14 +529,16 @@ local function SetCharacterVisual(texture, character)
 end
 
 local function CreateGrid(parent)
-    local grid = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-    grid:SetSize(350, 350)
-    grid:SetPoint("TOP", 0, -32)
-    ApplyBackdrop(grid, { 0.018, 0.016, 0.013, 1 }, { 0.16, 0.12, 0.05, 1 })
-
-    local size = 26
+    local size = 32
     local gap = 1
     local stride = size + gap
+    local gridWidth = (VIEWPORT_WIDTH * size) + ((VIEWPORT_WIDTH - 1) * gap)
+    local gridHeight = (VIEWPORT_HEIGHT * size) + ((VIEWPORT_HEIGHT - 1) * gap)
+
+    local grid = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    grid:SetSize(gridWidth, gridHeight)
+    grid:SetPoint("TOP", 0, -28)
+    ApplyBackdrop(grid, { 0.018, 0.016, 0.013, 1 }, { 0.16, 0.12, 0.05, 1 })
 
     grid.cells = {}
 
@@ -549,13 +551,13 @@ local function CreateGrid(parent)
             ApplyBackdrop(cell, { 0.055, 0.048, 0.038, 1 }, { 0.09, 0.075, 0.055, 1 })
 
             local enemyIcon = cell:CreateTexture(nil, "OVERLAY")
-            enemyIcon:SetSize(22, 22)
+            enemyIcon:SetSize(28, 28)
             enemyIcon:SetPoint("CENTER")
             enemyIcon:SetTexture(KOBOLD_TEXTURE)
             enemyIcon:SetTexCoord(0, 1, 0, 1)
             enemyIcon:Hide()
 
-            local marker = CreateText(cell, "GameFontNormal", "")
+            local marker = CreateText(cell, "GameFontNormalLarge", "")
             marker:SetPoint("CENTER")
 
             grid.cells[CellKey(col, row)] = {
@@ -808,7 +810,7 @@ function GA:CreateDungeonRunPage(parent)
 
     self.DungeonGrid = CreateGrid(center)
 
-    local legend = CreateText(center, "GameFontDisableSmall", "@ YOU    KOBOLD ICON    S TEST    $ CHEST    > EXIT")
+    local legend = CreateText(center, "GameFontDisableSmall", "@ YOU    ENEMY SPRITE    S TEST    $ CHEST    > EXIT")
     legend:SetPoint("BOTTOM", 0, 9)
     legend:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
