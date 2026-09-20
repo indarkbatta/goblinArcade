@@ -15,30 +15,29 @@ on:
 
 jobs:
   balance-audit:
+    name: Balance - ${{ matrix.difficulty }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - difficulty: EASY
+            hp: 0.85
+            damage: 0.85
+          - difficulty: NORMAL
+            hp: 1.00
+            damage: 1.00
+          - difficulty: HARD
+            hp: 1.12
+            damage: 1.10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Easy candidate
+      - name: Run difficulty balance audit
         shell: bash
         run: |
-          echo "## EASY  HP 0.85 / DMG 0.85" | tee difficulty-audit.md
-          python3 tools/balance_audit.py --runs 2500 --seed 5601 --difficulty-hp 0.85 --difficulty-damage 0.85 | tee -a difficulty-audit.md
-
-      - name: Normal baseline
-        shell: bash
-        run: |
-          echo "## NORMAL  HP 1.00 / DMG 1.00" | tee -a difficulty-audit.md
-          python3 tools/balance_audit.py --runs 2500 --seed 5601 --difficulty-hp 1.00 --difficulty-damage 1.00 | tee -a difficulty-audit.md
-
-      - name: Hard candidate
-        shell: bash
-        run: |
-          echo "## HARD  HP 1.12 / DMG 1.10" | tee -a difficulty-audit.md
-          python3 tools/balance_audit.py --runs 2500 --seed 5601 --difficulty-hp 1.12 --difficulty-damage 1.10 | tee -a difficulty-audit.md
-
-      - name: Publish difficulty audit
-        shell: bash
-        run: cat difficulty-audit.md >> "$GITHUB_STEP_SUMMARY"
+          echo "# ${{ matrix.difficulty }} difficulty" | tee balance-audit.md
+          python3 tools/balance_audit.py --runs 2500 --seed 5602 --difficulty-hp ${{ matrix.hp }} --difficulty-damage ${{ matrix.damage }} | tee -a balance-audit.md
+          cat balance-audit.md >> "$GITHUB_STEP_SUMMARY"
