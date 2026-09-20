@@ -5,11 +5,12 @@ on:
   push:
     paths:
       - "studio-data.json"
-      - "GoblinArcade/Core.lua"
-      - "GoblinArcade/EnemyGenerator.lua"
-      - "GoblinArcade/FloorGenerator.lua"
-      - "GoblinArcade/ItemDatabase.lua"
-      - "GoblinArcade/DungeonRun.lua"
+      - "GoblinArcade/**/*.lua"
+      - "index.html"
+      - "studio/index.html"
+      - "GoblinArcade/index.html"
+      - "studio-data.json"
+      - "api/publish.js"
       - "tools/balance_audit.py"
       - ".github/workflows/balance-audit.yml"
 
@@ -45,8 +46,8 @@ jobs:
           from pathlib import Path
           import re
           html = Path("index.html").read_text(encoding="utf-8")
-          scripts = re.findall(r"<script(?:\\s[^>]*)?>(.*?)</script>", html, flags=re.S|re.I)
-          Path("/tmp/goblin-arcade-studio.js").write_text("\\n".join(scripts), encoding="utf-8")
+          scripts = re.findall(r"<script(?:\s[^>]*)?>(.*?)</script>", html, flags=re.S|re.I)
+          Path("/tmp/goblin-arcade-studio.js").write_text("\n".join(scripts), encoding="utf-8")
           PY
           node --check /tmp/goblin-arcade-studio.js
 
