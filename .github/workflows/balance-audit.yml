@@ -21,8 +21,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run headless balance audit
+      - name: Run runtime baseline audit
         shell: bash
         run: |
-          python3 tools/balance_audit.py --runs 4000 --seed 5401 | tee balance-audit.md
+          echo "## Current runtime balance" | tee balance-audit.md
+          python3 tools/balance_audit.py --runs 2500 --seed 5401 --enemy-hp-factor 2.5 --enemy-damage-fraction 0.04 | tee -a balance-audit.md
+
+      - name: Run HP tuning candidate
+        shell: bash
+        run: |
+          echo "## Candidate: enemy HP factor 5.0" | tee balance-candidate.md
+          python3 tools/balance_audit.py --runs 2500 --seed 5401 --enemy-hp-factor 5.0 --enemy-damage-fraction 0.04 | tee -a balance-candidate.md
+
+      - name: Publish audit summary
+        shell: bash
+        run: |
           cat balance-audit.md >> "$GITHUB_STEP_SUMMARY"
+          printf "\n\n" >> "$GITHUB_STEP_SUMMARY"
+          cat balance-candidate.md >> "$GITHUB_STEP_SUMMARY"
