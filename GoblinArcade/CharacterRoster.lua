@@ -127,6 +127,178 @@ local function GetItemSnapshot(itemLink, icon, slotKey)
     return snapshot
 end
 
+local GetDB
+
+local function Trim(value)
+    return tostring(value or ""):match("^%s*(.-)%s*$") or ""
+end
+
+function GA:GetStudioClassDefinition(classId)
+    local wanted = string.lower(tostring(classId or ""))
+    for _, record in ipairs(self.StudioData and self.StudioData.classes or {}) do
+        if string.lower(tostring(record.id or "")) == wanted then
+            return record
+        end
+    end
+    return nil
+end
+
+function GA:GetStudioRaceDefinition(raceId)
+    local wanted = string.lower(tostring(raceId or ""))
+    for _, record in ipairs(self.StudioData and self.StudioData.races or {}) do
+        if string.lower(tostring(record.id or "")) == wanted then
+            return record
+        end
+    end
+    return nil
+end
+
+function GA:GetStudioClasses()
+    return self.StudioData and self.StudioData.classes or {}
+end
+
+function GA:GetStudioRaces()
+    return self.StudioData and self.StudioData.races or {}
+end
+
+function GA:IsStudioClassPlayable(classId)
+    local definition = self:GetStudioClassDefinition(classId)
+    if not definition then
+        return false
+    end
+
+    local value = definition.playable
+    if value == true or value == 1 then
+        return true
+    end
+
+    value = string.upper(tostring(value or ""))
+    return value == "YES" or value == "TRUE" or value == "READY" or value == "1"
+end
+
+function GA:ResolveStudioIconTexture(icon, fallback)
+    if icon ~= nil and tostring(icon) ~= "" then
+        local numeric = tonumber(icon)
+        if numeric then
+            return numeric
+        end
+
+        local path = tostring(icon)
+        if string.find(path, "\\", 1, true) then
+            return path
+        end
+        return "Interface\\Icons\\" .. path
+    end
+
+    return fallback or "Interface\\Icons\\INV_Misc_QuestionMark"
+end
+
+local function BuildArcadeStarterWeapon(classId)
+    if classId == "warrior" then
+        return {
+            sourceName = "Recruit's Longsword",
+            style = "SWORD",
+            speed = "NORMAL",
+            range = 1,
+            damageMin = 1,
+            damageMax = 2,
+            itemLevel = 1,
+            quality = 1,
+        }
+    end
+
+    return {
+        sourceName = "Training Weapon",
+        style = "WEAPON",
+        speed = "NORMAL",
+        range = 1,
+        damageMin = 1,
+        damageMax = 2,
+        itemLevel = 1,
+        quality = 1,
+    }
+end
+
+function GA:CreateArcadeCharacter(name, raceId, classId)
+    local db = GetDB()
+    name = Trim(name)
+    raceId = string.lower(tostring(raceId or ""))
+    classId = string.lower(tostring(classId or ""))
+
+    if name == "" then
+        return nil, "Enter a character name."
+    end
+
+    local race = self:GetStudioRaceDefinition(raceId)
+    local class = self:GetStudioClassDefinition(classId)
+    if not race then
+        return nil, "Select a race."
+    end
+    if not class then
+        return nil, "Select a class."
+    end
+    if not self:IsStudioClassPlayable(classId) then
+        return nil, (class.name or classId) .. " is not ready yet."
+    end
+
+    db.arcadeCharacterSequence = (tonumber(db.arcadeCharacterSequence) or 0) + 1
+    local key = "arcade:" .. tostring(db.arcadeCharacterSequence)
+    local classFile = string.upper(classId)
+    local weapon = BuildArcadeStarterWeapon(classId)
+    local weaponIcon = "Interface\\Icons\\INV_Sword_04"
+
+    local mainHand = {
+        source = "arcade",
+        sourceSlot = "mainhand",
+        name = weapon.sourceName,
+        icon = weaponIcon,
+        itemLevel = 1,
+        quality = 1,
+        itemType = "Weapon",
+        itemSubType = "Sword",
+        equipLoc = "INVTYPE_WEAPON",
+        arcadeWeapon = CopyTable(weapon),
+    }
+
+    local character = {
+        key = key,
+        sourceType = "arcade",
+        isArcadeGenerated = true,
+        name = name,
+        realm = "GoblinArcade",
+        level = 1,
+        classId = classId,
+        className = class.name or classId,
+        classFile = classFile,
+        raceId = raceId,
+        raceName = race.name or raceId,
+        maxHealth = 100,
+        updatedAt = time and time() or 0,
+        equipment = {
+            mainhand = mainHand,
+        },
+        weapon = CopyTable(weapon),
+        weaponName = weapon.sourceName,
+        weaponIcon = weaponIcon,
+        weaponItemLevel = 1,
+        weaponQuality = 1,
+        weaponSubtype = "Sword",
+    }
+
+    db.characters[key] = character
+    db.selectedCharacterKey = key
+    self.SelectedCharacterKey = key
+
+    if self.RefreshDungeonCharacterSelection then
+        self:RefreshDungeonCharacterSelection()
+    end
+    if self.RefreshCharacterGenerator then
+        self:RefreshCharacterGenerator()
+    end
+
+    return character
+end
+
 function GA:GetEquipmentSlotDefinitions()
     return EQUIPMENT_SLOTS
 end
@@ -146,7 +318,7 @@ function GA:SnapshotCurrentEquipment()
     return equipment
 end
 
-local function GetDB()
+GetDB = function()
     GoblinArcadeDB = GoblinArcadeDB or {}
     GoblinArcadeDB.version = GoblinArcadeDB.version or 1
     GoblinArcadeDB.characters = GoblinArcadeDB.characters or {}

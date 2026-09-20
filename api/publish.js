@@ -12,7 +12,7 @@ function safeEqual(left, right) {
 
 function assertStudioData(data) {
   if (!data || typeof data !== "object") throw new Error("Missing Studio data.");
-  const arrays = ["classes", "abilities", "enemies", "ranks", "progression", "rooms", "loot", "shrines"];
+  const arrays = ["classes", "races", "abilities", "enemies", "ranks", "progression", "rooms", "loot", "shrines"];
   for (const key of arrays) {
     if (!Array.isArray(data[key])) throw new Error("Missing array: " + key);
     const ids = new Set();
@@ -129,6 +129,7 @@ module.exports = async function handler(req, res) {
       schemaVersion: Number(data.schemaVersion) || 1,
       studioVersion: String(data.studioVersion || "0.2.0"),
       classes: data.classes,
+      races: data.races,
       abilities: data.abilities,
       enemies: data.enemies,
       ranks: data.ranks,

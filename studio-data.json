@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 1,
-  "studioVersion": "1.0.0",
+  "schemaVersion": 2,
+  "studioVersion": "1.1.0",
   "classes": [
     {
       "id": "warrior",
@@ -10,7 +10,96 @@
       "description": "Front-line martial class. Run-level HP and resource growth are configured per class in Studio.",
       "hpPerLevel": 3,
       "resourcePerLevel": 0,
-      "basicAttackResourceGain": 1
+      "basicAttackResourceGain": 1,
+      "playable": "YES"
+    },
+    {
+      "id": "paladin",
+      "name": "Paladin",
+      "resource": "MANA",
+      "resourceMax": 0,
+      "description": "Holy warrior. Runtime abilities are not implemented yet.",
+      "hpPerLevel": 0,
+      "resourcePerLevel": 0,
+      "basicAttackResourceGain": 0,
+      "playable": "NO"
+    },
+    {
+      "id": "hunter",
+      "name": "Hunter",
+      "resource": "MANA",
+      "resourceMax": 0,
+      "description": "Ranged physical class. Runtime abilities are not implemented yet.",
+      "hpPerLevel": 0,
+      "resourcePerLevel": 0,
+      "basicAttackResourceGain": 0,
+      "playable": "NO"
+    },
+    {
+      "id": "rogue",
+      "name": "Rogue",
+      "resource": "ENERGY",
+      "resourceMax": 0,
+      "description": "Agile melee class. Runtime abilities are not implemented yet.",
+      "hpPerLevel": 0,
+      "resourcePerLevel": 0,
+      "basicAttackResourceGain": 0,
+      "playable": "NO"
+    },
+    {
+      "id": "priest",
+      "name": "Priest",
+      "resource": "MANA",
+      "resourceMax": 0,
+      "description": "Holy and shadow caster. Runtime abilities are not implemented yet.",
+      "hpPerLevel": 0,
+      "resourcePerLevel": 0,
+      "basicAttackResourceGain": 0,
+      "playable": "NO"
+    },
+    {
+      "id": "shaman",
+      "name": "Shaman",
+      "resource": "MANA",
+      "resourceMax": 0,
+      "description": "Elemental hybrid class. Runtime abilities are not implemented yet.",
+      "hpPerLevel": 0,
+      "resourcePerLevel": 0,
+      "basicAttackResourceGain": 0,
+      "playable": "NO"
+    },
+    {
+      "id": "mage",
+      "name": "Mage",
+      "resource": "MANA",
+      "resourceMax": 0,
+      "description": "Arcane caster. Runtime abilities are not implemented yet.",
+      "hpPerLevel": 0,
+      "resourcePerLevel": 0,
+      "basicAttackResourceGain": 0,
+      "playable": "NO"
+    },
+    {
+      "id": "warlock",
+      "name": "Warlock",
+      "resource": "MANA",
+      "resourceMax": 0,
+      "description": "Demonic caster. Runtime abilities are not implemented yet.",
+      "hpPerLevel": 0,
+      "resourcePerLevel": 0,
+      "basicAttackResourceGain": 0,
+      "playable": "NO"
+    },
+    {
+      "id": "druid",
+      "name": "Druid",
+      "resource": "MANA",
+      "resourceMax": 0,
+      "description": "Shapeshifting hybrid class. Runtime abilities are not implemented yet.",
+      "hpPerLevel": 0,
+      "resourcePerLevel": 0,
+      "basicAttackResourceGain": 0,
+      "playable": "NO"
     }
   ],
   "abilities": [
@@ -746,6 +835,88 @@
       "value": 15,
       "secondaryValue": 150,
       "description": "Lose 15% max HP without dying; gain 150 score."
+    }
+  ],
+  "races": [
+    {
+      "id": "human",
+      "name": "Human",
+      "shortName": "Human",
+      "faction": "ALLIANCE",
+      "icon": "Achievement_Character_Human_Male",
+      "description": "Cosmetic race choice for generated Arcade heroes. No racial gameplay bonus yet."
+    },
+    {
+      "id": "dwarf",
+      "name": "Dwarf",
+      "shortName": "Dwarf",
+      "faction": "ALLIANCE",
+      "icon": "Achievement_Character_Dwarf_Male",
+      "description": "Cosmetic race choice for generated Arcade heroes. No racial gameplay bonus yet."
+    },
+    {
+      "id": "night_elf",
+      "name": "Night Elf",
+      "shortName": "N. Elf",
+      "faction": "ALLIANCE",
+      "icon": "Achievement_Character_Nightelf_Male",
+      "description": "Cosmetic race choice for generated Arcade heroes. No racial gameplay bonus yet."
+    },
+    {
+      "id": "gnome",
+      "name": "Gnome",
+      "shortName": "Gnome",
+      "faction": "ALLIANCE",
+      "icon": "Achievement_Character_Gnome_Male",
+      "description": "Cosmetic race choice for generated Arcade heroes. No racial gameplay bonus yet."
+    },
+    {
+      "id": "skyborne_high_order",
+      "name": "Skyborne - High Order",
+      "shortName": "High Order",
+      "faction": "ALLIANCE",
+      "icon": "Spell_Arcane_Arcane03",
+      "description": "Alliance Skyborne variant. Cosmetic only in GoblinArcade for now."
+    },
+    {
+      "id": "orc",
+      "name": "Orc",
+      "shortName": "Orc",
+      "faction": "HORDE",
+      "icon": "Achievement_Character_Orc_Male",
+      "description": "Cosmetic race choice for generated Arcade heroes. No racial gameplay bonus yet."
+    },
+    {
+      "id": "undead",
+      "name": "Undead",
+      "shortName": "Undead",
+      "faction": "HORDE",
+      "icon": "Achievement_Character_Undead_Male",
+      "description": "Cosmetic race choice for generated Arcade heroes. No racial gameplay bonus yet."
+    },
+    {
+      "id": "tauren",
+      "name": "Tauren",
+      "shortName": "Tauren",
+      "faction": "HORDE",
+      "icon": "Achievement_Character_Tauren_Male",
+      "description": "Cosmetic race choice for generated Arcade heroes. No racial gameplay bonus yet."
+    },
+    {
+      "id": "troll",
+      "name": "Troll",
+      "shortName": "Troll",
+      "faction": "HORDE",
+      "icon": "Achievement_Character_Troll_Male",
+      "description": "Cosmetic race choice for generated Arcade heroes. No racial gameplay bonus yet."
+    },
+    {
+      "id": "skyborne_windshaper",
+      "name": "Skyborne - Windshaper",
+      "shortName": "Windshaper",
+      "faction": "HORDE",
+      "icon": "Spell_Nature_Lightning",
+      "description": "Horde Skyborne variant. Cosmetic only in GoblinArcade for now."
     }
   ]
 }

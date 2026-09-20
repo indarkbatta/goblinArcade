@@ -1091,7 +1091,32 @@ local function SetCharacterVisual(texture, character)
         return
     end
 
+    if character and (character.isArcadeGenerated or character.sourceType == "arcade") then
+        local race = GA.GetStudioRaceDefinition and GA:GetStudioRaceDefinition(character.raceId)
+        local raceIcon = race and race.icon
+        texture:SetTexture(
+            GA.ResolveStudioIconTexture
+                and GA:ResolveStudioIconTexture(raceIcon, "Interface\\Icons\\INV_Misc_QuestionMark")
+                or "Interface\\Icons\\INV_Misc_QuestionMark"
+        )
+        texture:SetTexCoord(0.06, 0.94, 0.06, 0.94)
+        return
+    end
+
     local coords = character and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[character.classFile]
+    if coords then
+        texture:SetTexture("Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES")
+        texture:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
+    else
+        texture:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+        texture:SetTexCoord(0, 1, 0, 1)
+    end
+end
+
+local function SetGeneratorClassVisual(texture, classId)
+    if not texture then return end
+    local classFile = string.upper(tostring(classId or ""))
+    local coords = CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[classFile]
     if coords then
         texture:SetTexture("Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES")
         texture:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
@@ -1870,7 +1895,7 @@ function GA:CreateDungeonRunPage(parent)
     setupSubtitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
     local setupHint = CreateText(setup, "GameFontHighlightSmall",
-        "Characters are remembered after you log into them once. Offline alts use their last synced GoblinArcade loadout.")
+        "Use a synced WoW character, or generate an Arcade hero when your class is not implemented yet.")
     setupHint:SetPoint("TOPLEFT", setupSubtitle, "BOTTOMLEFT", 0, -8)
     setupHint:SetWidth(670)
     setupHint:SetJustifyH("LEFT")
@@ -2002,6 +2027,7 @@ function GA:CreateDungeonRunPage(parent)
     selectedNote:SetJustifyH("LEFT")
     selectedNote:SetWordWrap(true)
     selectedNote:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    self.DungeonSelectedNote = selectedNote
 
     local setupBegin = CreateFlatButton(selectedPanel, "BEGIN RUN", 180, 42)
     setupBegin:SetPoint("BOTTOMRIGHT", -16, 16)
@@ -2011,6 +2037,151 @@ function GA:CreateDungeonRunPage(parent)
         GA:BeginDungeonRun()
     end)
     self.DungeonSetupBeginButton = setupBegin
+
+    local generatorPanel = CreateFrame("Frame", nil, setup, "BackdropTemplate")
+    generatorPanel:SetPoint("TOPLEFT", selectedPanel, "TOPRIGHT", 14, 0)
+    generatorPanel:SetSize(368, 392)
+    ApplyBackdrop(generatorPanel, { 0.050, 0.043, 0.034, 1 }, COLORS.goldDim)
+    self.DungeonGeneratorPanel = generatorPanel
+
+    local generatorTitle = CreateText(generatorPanel, "GameFontNormalSmall", "ARCADE CHARACTER GENERATOR")
+    generatorTitle:SetPoint("TOPLEFT", 14, -14)
+    generatorTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    local nameLabel = CreateText(generatorPanel, "GameFontDisableSmall", "NAME")
+    nameLabel:SetPoint("TOPLEFT", 14, -40)
+    nameLabel:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local nameFrame = CreateFrame("Frame", nil, generatorPanel, "BackdropTemplate")
+    nameFrame:SetSize(340, 30)
+    nameFrame:SetPoint("TOPLEFT", 14, -56)
+    ApplyBackdrop(nameFrame, { 0.025, 0.022, 0.018, 1 }, COLORS.goldDim)
+
+    local nameInput = CreateFrame("EditBox", nil, nameFrame)
+    nameInput:SetPoint("TOPLEFT", 8, -4)
+    nameInput:SetPoint("BOTTOMRIGHT", -8, 4)
+    nameInput:SetAutoFocus(false)
+    nameInput:SetFontObject("GameFontHighlight")
+    nameInput:SetTextInsets(0, 0, 0, 0)
+    nameInput:SetMaxLetters(18)
+    nameInput:SetScript("OnTextChanged", function()
+        GA:RefreshCharacterGenerator()
+    end)
+    nameInput:SetScript("OnEscapePressed", function(box)
+        box:ClearFocus()
+    end)
+    nameInput:SetScript("OnEnterPressed", function(box)
+        box:ClearFocus()
+    end)
+    self.DungeonGeneratorNameInput = nameInput
+
+    local raceLabel = CreateText(generatorPanel, "GameFontNormalSmall", "RACE")
+    raceLabel:SetPoint("TOPLEFT", 14, -96)
+    raceLabel:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    self.DungeonGeneratorRaceButtons = {}
+    for i = 1, 10 do
+        local col = (i - 1) % 5
+        local row = math.floor((i - 1) / 5)
+        local button = CreateFrame("Button", nil, generatorPanel, "BackdropTemplate")
+        button:SetSize(62, 52)
+        button:SetPoint("TOPLEFT", 14 + col * 68, -116 - row * 58)
+        ApplyBackdrop(button, { 0.040, 0.035, 0.028, 1 }, COLORS.goldDim)
+
+        local icon = button:CreateTexture(nil, "ARTWORK")
+        icon:SetSize(30, 30)
+        icon:SetPoint("TOP", 0, -4)
+        icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+        icon:SetTexCoord(0.06, 0.94, 0.06, 0.94)
+        button.icon = icon
+
+        local label = CreateText(button, "GameFontDisableSmall", "")
+        label:SetPoint("BOTTOM", 0, 3)
+        label:SetWidth(58)
+        label:SetJustifyH("CENTER")
+        button.label = label
+
+        button:SetScript("OnClick", function(selfButton)
+            if selfButton.raceId then
+                GA.CharacterGeneratorRaceId = selfButton.raceId
+                GA:RefreshCharacterGenerator()
+            end
+        end)
+        self.DungeonGeneratorRaceButtons[i] = button
+    end
+
+    local classLabel = CreateText(generatorPanel, "GameFontNormalSmall", "CLASS")
+    classLabel:SetPoint("TOPLEFT", 14, -236)
+    classLabel:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    self.DungeonGeneratorClassButtons = {}
+    for i = 1, 9 do
+        local col = (i - 1) % 5
+        local row = math.floor((i - 1) / 5)
+        local button = CreateFrame("Button", nil, generatorPanel, "BackdropTemplate")
+        button:SetSize(62, 52)
+        button:SetPoint("TOPLEFT", 14 + col * 68, -256 - row * 58)
+        ApplyBackdrop(button, { 0.040, 0.035, 0.028, 1 }, COLORS.goldDim)
+
+        local icon = button:CreateTexture(nil, "ARTWORK")
+        icon:SetSize(30, 30)
+        icon:SetPoint("TOP", 0, -4)
+        button.icon = icon
+
+        local label = CreateText(button, "GameFontDisableSmall", "")
+        label:SetPoint("BOTTOM", 0, 3)
+        label:SetWidth(58)
+        label:SetJustifyH("CENTER")
+        button.label = label
+
+        button:SetScript("OnClick", function(selfButton)
+            if selfButton.classId and selfButton.playable then
+                GA.CharacterGeneratorClassId = selfButton.classId
+                GA:RefreshCharacterGenerator()
+            end
+        end)
+        button:SetScript("OnEnter", function(selfButton)
+            if selfButton.className then
+                GameTooltip:SetOwner(selfButton, "ANCHOR_TOP")
+                GameTooltip:SetText(selfButton.className, 1, 0.82, 0.2)
+                if selfButton.playable then
+                    GameTooltip:AddLine("Ready for GoblinArcade.", 0.35, 1, 0.35)
+                else
+                    GameTooltip:AddLine("Not implemented yet.", 1, 0.35, 0.35)
+                end
+                GameTooltip:Show()
+            end
+        end)
+        button:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        self.DungeonGeneratorClassButtons[i] = button
+    end
+
+    local generatorStatus = CreateText(generatorPanel, "GameFontDisableSmall", "")
+    generatorStatus:SetPoint("BOTTOMLEFT", 14, 54)
+    generatorStatus:SetPoint("RIGHT", -14, 0)
+    generatorStatus:SetJustifyH("LEFT")
+    generatorStatus:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    self.DungeonGeneratorStatus = generatorStatus
+
+    local createHero = CreateFlatButton(generatorPanel, "CREATE HERO", 160, 34)
+    createHero:SetPoint("BOTTOMRIGHT", -14, 12)
+    createHero:SetScript("OnClick", function()
+        local character, err = GA:CreateArcadeCharacter(
+            GA.DungeonGeneratorNameInput and GA.DungeonGeneratorNameInput:GetText() or "",
+            GA.CharacterGeneratorRaceId,
+            GA.CharacterGeneratorClassId
+        )
+        if character then
+            if GA.DungeonGeneratorStatus then
+                GA.DungeonGeneratorStatus:SetText("Created and selected: " .. (character.name or "Arcade Hero"))
+                GA.DungeonGeneratorStatus:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+            end
+        elseif GA.DungeonGeneratorStatus then
+            GA.DungeonGeneratorStatus:SetText(err or "Character creation failed.")
+            GA.DungeonGeneratorStatus:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+        end
+    end)
+    self.DungeonGeneratorCreateButton = createHero
 
     if self.CreateCharacterSheet then
         self:CreateCharacterSheet(page)
@@ -2134,10 +2305,110 @@ function GA:SetDungeonSetupMode(active)
     end
 end
 
+function GA:RefreshCharacterGenerator()
+    if not self.DungeonGeneratorPanel then return end
+
+    local races = self.GetStudioRaces and self:GetStudioRaces() or {}
+    local classes = self.GetStudioClasses and self:GetStudioClasses() or {}
+
+    if not self.CharacterGeneratorRaceId and races[1] then
+        self.CharacterGeneratorRaceId = races[1].id
+    end
+
+    if not self.CharacterGeneratorClassId
+        or not (self.IsStudioClassPlayable and self:IsStudioClassPlayable(self.CharacterGeneratorClassId)) then
+        self.CharacterGeneratorClassId = nil
+        for _, class in ipairs(classes) do
+            if self:IsStudioClassPlayable(class.id) then
+                self.CharacterGeneratorClassId = class.id
+                break
+            end
+        end
+    end
+
+    for i, button in ipairs(self.DungeonGeneratorRaceButtons or {}) do
+        local race = races[i]
+        if race then
+            button.raceId = race.id
+            button.label:SetText(string.upper(race.shortName or race.name or race.id or "RACE"))
+            button.icon:SetTexture(
+                self:ResolveStudioIconTexture(race.icon, "Interface\\Icons\\INV_Misc_QuestionMark")
+            )
+            button.icon:SetVertexColor(1, 1, 1)
+            button:Enable()
+            button:Show()
+            local selected = race.id == self.CharacterGeneratorRaceId
+            button:SetBackdropColor(selected and 0.15 or 0.040, selected and 0.105 or 0.035, selected and 0.045 or 0.028, 1)
+            button:SetBackdropBorderColor(
+                selected and COLORS.gold[1] or COLORS.goldDim[1],
+                selected and COLORS.gold[2] or COLORS.goldDim[2],
+                selected and COLORS.gold[3] or COLORS.goldDim[3],
+                1
+            )
+        else
+            button.raceId = nil
+            button:Hide()
+        end
+    end
+
+    for i, button in ipairs(self.DungeonGeneratorClassButtons or {}) do
+        local class = classes[i]
+        if class then
+            local playable = self:IsStudioClassPlayable(class.id)
+            button.classId = class.id
+            button.className = class.name or class.id
+            button.playable = playable
+            button.label:SetText(string.upper(class.shortName or class.name or class.id or "CLASS"))
+            SetGeneratorClassVisual(button.icon, class.id)
+            button.icon:SetVertexColor(playable and 1 or 0.25, playable and 1 or 0.25, playable and 1 or 0.25)
+            button:SetEnabled(playable)
+            button:Show()
+            local selected = playable and class.id == self.CharacterGeneratorClassId
+            button:SetBackdropColor(selected and 0.15 or 0.040, selected and 0.105 or 0.035, selected and 0.045 or 0.028, 1)
+            button:SetBackdropBorderColor(
+                selected and COLORS.gold[1] or COLORS.goldDim[1],
+                selected and COLORS.gold[2] or COLORS.goldDim[2],
+                selected and COLORS.gold[3] or COLORS.goldDim[3],
+                1
+            )
+            button.label:SetTextColor(
+                playable and COLORS.text[1] or COLORS.muted[1],
+                playable and COLORS.text[2] or COLORS.muted[2],
+                playable and COLORS.text[3] or COLORS.muted[3]
+            )
+        else
+            button.classId = nil
+            button:Hide()
+        end
+    end
+
+    local name = self.DungeonGeneratorNameInput and self.DungeonGeneratorNameInput:GetText() or ""
+    local canCreate = name:match("%S")
+        and self.CharacterGeneratorRaceId
+        and self.CharacterGeneratorClassId
+        and self:IsStudioClassPlayable(self.CharacterGeneratorClassId)
+
+    if self.DungeonGeneratorCreateButton then
+        self.DungeonGeneratorCreateButton:SetEnabled(canCreate and true or false)
+        self.DungeonGeneratorCreateButton.label:SetTextColor(
+            canCreate and COLORS.gold[1] or COLORS.muted[1],
+            canCreate and COLORS.gold[2] or COLORS.muted[2],
+            canCreate and COLORS.gold[3] or COLORS.muted[3]
+        )
+    end
+
+    if self.DungeonGeneratorStatus then
+        self.DungeonGeneratorStatus:SetText("Races are cosmetic for now. Only READY classes are selectable.")
+        self.DungeonGeneratorStatus:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    end
+end
+
 function GA:RefreshDungeonCharacterSelection()
     if not self.DungeonSetupFrame or not self.GetCharacterRoster then
         return
     end
+
+    self:RefreshCharacterGenerator()
 
     local roster = self:GetCharacterRoster()
     local currentKey = self:GetCurrentCharacterKey()
@@ -2162,13 +2433,17 @@ function GA:RefreshDungeonCharacterSelection()
             row:Show()
             SetCharacterVisual(row.icon, character)
             row.nameText:SetText(character.name or "Unknown")
+            local characterClassId = string.lower(tostring(character.classId or character.classFile or character.className or ""))
+            local classReady = self:IsStudioClassPlayable(characterClassId)
             row.metaText:SetText(string.format(
-                "Level %d %s %s%s",
+                "Level %d %s %s%s%s",
                 character.level or 0,
                 character.raceName or "",
                 character.className or "Adventurer",
-                character.key == currentKey and "  -  CURRENT" or ""
+                character.key == currentKey and "  -  CURRENT" or "",
+                classReady and "" or "  -  NOT READY"
             ))
+            row.icon:SetVertexColor(classReady and 1 or 0.35, classReady and 1 or 0.35, classReady and 1 or 0.35)
 
             if selected and character.key == selected.key then
                 row:SetBackdropColor(0.15, 0.105, 0.045, 1)
@@ -2196,12 +2471,34 @@ function GA:RefreshDungeonCharacterSelection()
         selected.className or "Adventurer",
         selected.realm or "Unknown Realm"
     ))
-    self.DungeonSelectedCharacterSource:SetText(
-        selected.key == currentKey and "CURRENT CHARACTER - LIVE DATA" or "ALT - LAST SYNCED DATA"
-    )
+    if selected.isArcadeGenerated or selected.sourceType == "arcade" then
+        self.DungeonSelectedCharacterSource:SetText("ARCADE HERO - GENERATED TEMPLATE")
+        if self.DungeonSelectedNote then
+            self.DungeonSelectedNote:SetText("Generated heroes start at level 1 with a basic starter weapon. Race is cosmetic for now.")
+        end
+    elseif selected.key == currentKey then
+        self.DungeonSelectedCharacterSource:SetText("CURRENT CHARACTER - LIVE DATA")
+        if self.DungeonSelectedNote then
+            self.DungeonSelectedNote:SetText("Current character data is read live from WoW.")
+        end
+    else
+        self.DungeonSelectedCharacterSource:SetText("ALT - LAST SYNCED DATA")
+        if self.DungeonSelectedNote then
+            self.DungeonSelectedNote:SetText("To refresh an alt's gear, log into that character once and open GoblinArcade.")
+        end
+    end
 
+    local selectedClassId = string.lower(tostring(selected.classId or selected.classFile or selected.className or ""))
+    local classReady = self:IsStudioClassPlayable(selectedClassId)
     local weapon = ResolveCharacterWeapon(self, selected)
-    if weapon then
+    if not classReady then
+        self.DungeonSelectedWeaponName:SetText((selected.className or "This class") .. " is not implemented yet")
+        self.DungeonSelectedWeaponStats:SetText("Choose a READY class or create an Arcade hero.")
+        self.DungeonSelectedWeaponTrait:SetText("")
+        self.DungeonSetupBeginButton:SetEnabled(false)
+        self.DungeonSetupBeginButton.label:SetText("CLASS NOT READY")
+        self.DungeonSetupBeginButton.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    elseif weapon then
         self.DungeonSelectedWeaponName:SetText(selected.weaponName or weapon.sourceName or "Cached main hand")
         self.DungeonSelectedWeaponStats:SetText(string.format(
             "%s  -  Damage %d-%d  -  %s  -  Range %d",
@@ -2288,6 +2585,9 @@ function GA:SetDungeonRunPortraitMode(active)
                 SetCharacterVisual(self.DungeonRunPortrait, {
                     key = snapshot and snapshot.characterKey,
                     classFile = snapshot and snapshot.classFile,
+                    raceId = snapshot and snapshot.raceId,
+                    sourceType = snapshot and snapshot.sourceType,
+                    isArcadeGenerated = snapshot and snapshot.isArcadeGenerated,
                 })
             end
 
@@ -4568,7 +4868,14 @@ function GA:BeginDungeonRun()
     local name = selected.name or "Unknown"
     local level = selected.level or 0
     local className = selected.className or "Adventurer"
-    local classId = string.lower(tostring(selected.classFile or className or ""))
+    local classId = string.lower(tostring(selected.classId or selected.classFile or className or ""))
+    if not (self.IsStudioClassPlayable and self:IsStudioClassPlayable(classId)) then
+        if self.DungeonRunStateText then
+            self.DungeonRunStateText:SetText("CLASS NOT READY FOR GOBLINARCADE")
+            self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+        end
+        return
+    end
     local progression = GetRunProgression()
     local classGrowth = GetClassRunGrowth(classId)
     local maxHealth = self:ScaleCombatValue(selected.maxHealth or 0)
@@ -4686,7 +4993,10 @@ function GA:BeginDungeonRun()
             className = className,
             classFile = selected.classFile,
             raceName = selected.raceName,
+            raceId = selected.raceId,
             realm = selected.realm,
+            sourceType = selected.sourceType,
+            isArcadeGenerated = selected.isArcadeGenerated,
             maxHealth = maxHealth,
             mainHandLink = selected.weaponLink,
             weaponIcon = selected.weaponIcon,

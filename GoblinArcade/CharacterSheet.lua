@@ -61,6 +61,17 @@ local function SetCharacterVisual(texture, snapshot)
         return
     end
 
+    if snapshot and (snapshot.isArcadeGenerated or snapshot.sourceType == "arcade") then
+        local race = GA.GetStudioRaceDefinition and GA:GetStudioRaceDefinition(snapshot.raceId)
+        texture:SetTexture(
+            GA.ResolveStudioIconTexture
+                and GA:ResolveStudioIconTexture(race and race.icon, "Interface\\Icons\\INV_Misc_QuestionMark")
+                or "Interface\\Icons\\INV_Misc_QuestionMark"
+        )
+        texture:SetTexCoord(0.06, 0.94, 0.06, 0.94)
+        return
+    end
+
     local coords = snapshot and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[snapshot.classFile]
     if coords then
         texture:SetTexture("Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES")

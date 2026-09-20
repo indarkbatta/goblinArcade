@@ -3,9 +3,40 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.36.0**  
+Current addon version: **0.37.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.37.0 — Arcade Character Generator + race data
+
+- Added an **Arcade Character Generator** directly to the Dungeon character-selection screen.
+- Players can still use synced real WoW characters, but can now create a persistent GoblinArcade-only fallback hero when they do not own a supported class.
+- Generated heroes are stored separately in `GoblinArcadeDB.characters` with `sourceType = "arcade"`; they never modify or impersonate a real WoW character.
+- Generated heroes currently:
+  - start at level 1;
+  - receive a basic starter main-hand weapon;
+  - use the same run XP / temporary level system as real characters;
+  - use race only as a cosmetic identity for now.
+- Character generation exposes:
+  - editable name;
+  - all current Forever races as icon buttons;
+  - all current Forever classes as icon buttons.
+- Class availability is data-driven:
+  - Studio Classes now expose `Playable / Ready = YES/NO`;
+  - only `YES` classes can be selected or generated;
+  - the runtime BEGIN RUN path independently re-checks readiness, so unsupported real characters cannot accidentally enter with the Warrior ruleset.
+- Current ready class: **Warrior only**.
+- Current locked classes are present for future work: Paladin, Hunter, Rogue, Priest, Shaman, Mage, Warlock and Druid.
+- Studio schema bumped to **2** and Studio version to **1.1.0**.
+- Added a first-class **Races** editor section to Studio.
+- Race records contain stable ID, name, short generator label, faction, editable WoW icon texture/FileDataID and description.
+- Added all 10 current Forever race choices:
+  - Alliance: Human, Dwarf, Night Elf, Gnome, Skyborne - High Order;
+  - Horde: Orc, Undead, Tauren, Troll, Skyborne - Windshaper.
+- Racials intentionally have **no GoblinArcade gameplay effect yet**.
+- Generated hero portraits use the selected race icon; synced real alts keep class icons and the currently logged-in character keeps the live WoW portrait.
+- The Studio publish API now validates and persists the new `races` array.
+- The published Warrior `HP / Level = 3` remains preserved.
 
 ## 0.36.0 — strict room-threshold door topology
 
@@ -248,7 +279,7 @@ GoblinArcade is a WoW Forever addon that provides small arcade-style games for d
 
 The current flagship mode is a **turn-based roguelike dungeon crawler** where the player's real WoW character matters:
 
-- the selected WoW character is snapshotted into the run;
+- a synced WoW character or a separately generated Arcade hero is snapshotted into the run;
 - equipped WoW gear is converted into deterministic roguelike gear;
 - dungeon loot can be equipped inside GoblinArcade;
 - the real WoW character and equipment are never modified by GoblinArcade;
@@ -276,7 +307,7 @@ Deployment is automatic through GitHub Actions.
 
 ### GoblinArcade Studio / Vercel
 
-Studio v1.0.0 keeps a **static-first** architecture for Vercel cost efficiency:
+Studio v1.1.0 keeps a **static-first** architecture for Vercel cost efficiency:
 
 - no npm build is required;
 - no database is used;
@@ -1746,7 +1777,7 @@ Long-term dungeon concept:
 
 There should be no separate roguelike XP system replacing WoW progression.
 
-WoW character level and WoW gear are the foundation.
+Synced WoW character level and WoW gear remain the primary foundation; generated Arcade heroes are an explicitly separate supported-class fallback.
 
 ---
 
@@ -1791,6 +1822,7 @@ Before changing layout conventions, remember the user's current preferences:
 - the right dungeon rail provides icon-based Character Sheet and Spellbook quick access;
 - action-bar spell icons can be dragged between slots; occupied targets swap positions;
 - Spellbook/action-bar loadouts persist per character in GoblinArcadeDB;
-- Spellbook spells use WoW icons, with an optional Studio-driven icon override via texture shorthand/path/FileDataID.
+- Spellbook spells use WoW icons, with an optional Studio-driven icon override via texture shorthand/path/FileDataID;
+- the Dungeon setup includes a persistent Arcade Character Generator; class availability is controlled by Studio Classes -> Playable / Ready, while race records/icons live in the Studio Races section and have no gameplay bonus yet.
 
 Preserve those decisions unless the user explicitly asks to change them.
