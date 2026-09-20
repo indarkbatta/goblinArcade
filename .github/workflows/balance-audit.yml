@@ -14,6 +14,21 @@ on:
       - ".github/workflows/balance-audit.yml"
 
 jobs:
+  lua-syntax:
+    name: Lua syntax
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse addon Lua
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y lua5.1
+          find GoblinArcade -type f -name '*.lua' -print0 | xargs -0 -n1 luac5.1 -p
+
   balance-audit:
     name: Balance - ${{ matrix.difficulty }}
     runs-on: ubuntu-latest

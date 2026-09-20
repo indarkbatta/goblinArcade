@@ -5804,7 +5804,7 @@ function GA:HandleEnemyDefeat(enemy)
     local xpValue = enemy.xpValue or math.max(1, (enemy.dangerRating or 1) * 8)
     local stats = EnsureRunTracking(run)
     stats.kills = stats.kills + 1
-    AddRunScore(run, "enemy", scoreValue)
+    local awardedScore = AddRunScore(run, "enemy", scoreValue)
 
     local rankBonus = 0
     if enemy.rank == "elite" then
@@ -5816,15 +5816,15 @@ function GA:HandleEnemyDefeat(enemy)
         SpawnBossReward(run, enemy.roomIndex)
         self:AddCombatLog("BOSS DEFEATED - THE WAY OUT OPENS. A boss cache appears.", "system")
     end
-    AddRunScore(run, "rankBonus", rankBonus)
+    local awardedRankBonus = AddRunScore(run, "rankBonus", rankBonus)
     local copperReward = AwardEnemyCopper(run, enemy)
 
     self:AddCombatLog(
         string.format(
             "%s defeated. +%d score%s, +%d XP, +%s.",
             GetEnemyDisplayName(enemy),
-            scoreValue,
-            rankBonus > 0 and string.format(" + %d rank bonus", rankBonus) or "",
+            awardedScore,
+            awardedRankBonus > 0 and string.format(" + %d rank bonus", awardedRankBonus) or "",
             xpValue,
             FormatCopperValue(copperReward)
         ),
