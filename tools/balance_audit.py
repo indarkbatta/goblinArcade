@@ -185,10 +185,17 @@ class Player:
     damage_taken: int = 0
 
 class Audit:
-    def __init__(self, seed: int, enemy_hp_factor: float = 2.50, enemy_damage_fraction: float = 0.040):
+    def __init__(
+        self,
+        seed: int,
+        enemy_hp_factor: float = 2.50,
+        enemy_damage_fraction: float = 0.040,
+        floor_hp_slope: float = 0.070,
+    ):
         self.rng = random.Random(seed)
         self.enemy_hp_factor = enemy_hp_factor
         self.enemy_damage_fraction = enemy_damage_fraction
+        self.floor_hp_slope = floor_hp_slope
         self.data = json.loads(DATA_PATH.read_text(encoding="utf-8"))
         self.items = {x["id"]: x for x in self.data.get("items", [])}
         self.loot_tables = {x["id"]: x for x in self.data.get("lootTables", [])}
@@ -212,7 +219,7 @@ class Audit:
         r = self.ranks[rank]
         effective = player_level + floor_bonus(floor) + int(r.get("levelBonus", 0))
         level_pressure = 1 + 0.15 * ((player_level - 1) / 59)
-        floor_hp = 1 + 0.07 * (floor - 1)
+        floor_hp = 1 + self.floor_hp_slope * (floor - 1)
         floor_damage = 1 + 0.05 * (floor - 1)
 
         reference_damage = 5 + effective * 0.90
@@ -824,6 +831,7 @@ def render_markdown(
     seed: int,
     enemy_hp_factor: float,
     enemy_damage_fraction: float,
+    floor_hp_slope: float,
 ) -> str:
     lines = [
         "# GoblinArcade headless balance audit",
@@ -832,6 +840,7 @@ def render_markdown(
         f"- Seed: {seed}",
         f"- Enemy base HP factor: {enemy_hp_factor:.2f}",
         f"- Enemy reference damage fraction: {enemy_damage_fraction:.3f}",
+        f"- Floor HP slope: {floor_hp_slope:.3f} per floor",
         "- Model: fresh level-1 Arcade Warrior, live Studio loot/economy/progression, greedy compatible equipment.",
         "- PRESSURE / HEAVY_PRESSURE are bounded multi-aggro sensitivity tests, not pixel-perfect WoW pathfinding simulations.",
         "",
@@ -913,9 +922,15 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=5401)
     parser.add_argument("--enemy-hp-factor", type=float, default=2.50)
     parser.add_argument("--enemy-damage-fraction", type=float, default=0.040)
+    parser.add_argument("--floor-hp-slope", type=float, default=0.070)
     args = parser.parse_args()
 
-    audit = Audit(args.seed, args.enemy_hp_factor, args.enemy_damage_fraction)
+    audit = Audit(
+        args.seed,
+        args.enemy_hp_factor,
+        args.enemy_damage_fraction,
+        args.floor_hp_slope,
+    )
     results = []
     for profile in ("shield", "2h"):
         results.append(audit.simulate(profile, 0.0, "SEQUENTIAL", args.runs))
@@ -930,6 +945,7 @@ def main() -> int:
             args.seed,
             args.enemy_hp_factor,
             args.enemy_damage_fraction,
+            args.floor_hp_slope,
         )
     )
     return 0

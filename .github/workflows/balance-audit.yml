@@ -25,17 +25,25 @@ jobs:
         shell: bash
         run: |
           echo "## Current runtime balance" | tee balance-audit.md
-          python3 tools/balance_audit.py --runs 2500 --seed 5401 --enemy-hp-factor 2.5 --enemy-damage-fraction 0.04 | tee -a balance-audit.md
+          python3 tools/balance_audit.py --runs 1800 --seed 5401 --enemy-hp-factor 2.5 --enemy-damage-fraction 0.04 --floor-hp-slope 0.07 | tee -a balance-audit.md
 
-      - name: Run HP tuning candidate
+      - name: Run depth candidate A
         shell: bash
         run: |
-          echo "## Candidate: enemy HP factor 5.0" | tee balance-candidate.md
-          python3 tools/balance_audit.py --runs 2500 --seed 5401 --enemy-hp-factor 5.0 --enemy-damage-fraction 0.04 | tee -a balance-candidate.md
+          echo "## Candidate A: HP 3.25 / floor slope 0.12" | tee balance-candidate-a.md
+          python3 tools/balance_audit.py --runs 1800 --seed 5401 --enemy-hp-factor 3.25 --enemy-damage-fraction 0.04 --floor-hp-slope 0.12 | tee -a balance-candidate-a.md
+
+      - name: Run depth candidate B
+        shell: bash
+        run: |
+          echo "## Candidate B: HP 3.25 / floor slope 0.15" | tee balance-candidate-b.md
+          python3 tools/balance_audit.py --runs 1800 --seed 5401 --enemy-hp-factor 3.25 --enemy-damage-fraction 0.04 --floor-hp-slope 0.15 | tee -a balance-candidate-b.md
 
       - name: Publish audit summary
         shell: bash
         run: |
           cat balance-audit.md >> "$GITHUB_STEP_SUMMARY"
           printf "\n\n" >> "$GITHUB_STEP_SUMMARY"
-          cat balance-candidate.md >> "$GITHUB_STEP_SUMMARY"
+          cat balance-candidate-a.md >> "$GITHUB_STEP_SUMMARY"
+          printf "\n\n" >> "$GITHUB_STEP_SUMMARY"
+          cat balance-candidate-b.md >> "$GITHUB_STEP_SUMMARY"
