@@ -102,6 +102,16 @@ function GA:IsArcadeItemCompatible(item, slotKey)
         return false
     end
 
+    if item.studioDefined then
+        local run = self.RunState
+        if self.ItemDatabase and not self.ItemDatabase:IsItemAllowedForClass(item, run and run.classId) then
+            return false
+        end
+        if run and (tonumber(item.requiredLevel) or 1) > (tonumber(run.runLevel) or 1) then
+            return false
+        end
+    end
+
     if item.compatibleSlots and item.compatibleSlots[slotKey] then
         return true
     end
@@ -190,6 +200,12 @@ end
 function GA:EnsureArcadeItemConversion(item)
     if not item then
         return nil
+    end
+
+    -- Studio-defined dungeon items already carry their authoritative
+    -- GoblinArcade stats. Never run them through the WoW import converters.
+    if item.studioDefined then
+        return item
     end
 
     local itemGeneratorVersion = self.ItemGenerator and self.ItemGenerator.VERSION
@@ -504,6 +520,28 @@ local function AddArcadeConversionToTooltip(item)
         return
     end
 
+    if item.category == "CONSUMABLE" or item.itemType == "Consumable" then
+        GameTooltip:AddLine("Consumable", 0.65, 0.60, 0.52)
+        local effect = tostring(item.consumableEffect or "NONE")
+        local value = tonumber(item.effectValue) or 0
+
+        if effect == "HEAL_PERCENT" then
+            GameTooltip:AddLine(string.format("Restores %.0f%% of maximum HP.", value), 0.30, 1.00, 0.38)
+        elseif effect == "HEAL_FLAT" then
+            GameTooltip:AddLine(string.format("Restores %d HP.", math.floor(value + 0.5)), 0.30, 1.00, 0.38)
+        elseif effect == "RESOURCE" then
+            GameTooltip:AddLine(string.format("Restores %d class resource.", math.floor(value + 0.5)), 0.30, 1.00, 0.38)
+        end
+
+        if (tonumber(item.stackMax) or 1) > 1 then
+            GameTooltip:AddLine(
+                string.format("Stack %d / %d", tonumber(item.stackCount) or 1, tonumber(item.stackMax) or 1),
+                0.75, 0.75, 0.75
+            )
+        end
+        return
+    end
+
     GameTooltip:AddLine("No GoblinArcade conversion available.", 0.60, 0.58, 0.54, true)
 end
 
@@ -788,24 +826,74 @@ end
 
 function GA:AddItemToBackpack(item)
     local run = self.RunState
-    if not run then
+    if not run or not item then
         return false
     end
 
     run.backpack = run.backpack or {}
+    local amount = math.max(1, math.floor(tonumber(item.stackCount) or 1))
+    local stackMax = math.max(1, math.floor(tonumber(item.stackMax) or 1))
+    local stackable = item.studioItemId and stackMax > 1
 
-    for i = 1, BACKPACK_SLOTS do
-        if not run.backpack[i] then
-            local storedItem = CopyTable(item)
-            self:EnsureArcadeItemConversion(storedItem)
-            run.backpack[i] = storedItem
-
-            if self.CharacterSheetFrame and self.CharacterSheetFrame:IsShown() then
-                self:RefreshCharacterSheet()
+    if stackable then
+        local capacity = 0
+        for i = 1, BACKPACK_SLOTS do
+            local existing = run.backpack[i]
+            if existing and existing.studioItemId == item.studioItemId then
+                local current = math.max(1, math.floor(tonumber(existing.stackCount) or 1))
+                local existingMax = math.max(1, math.floor(tonumber(existing.stackMax) or stackMax))
+                capacity = capacity + math.max(0, existingMax - current)
+            elseif not existing then
+                capacity = capacity + stackMax
             end
-            return true
+        end
+
+        if capacity < amount then
+            return false
+        end
+
+        for i = 1, BACKPACK_SLOTS do
+            if amount <= 0 then break end
+            local existing = run.backpack[i]
+            if existing and existing.studioItemId == item.studioItemId then
+                local current = math.max(1, math.floor(tonumber(existing.stackCount) or 1))
+                local existingMax = math.max(1, math.floor(tonumber(existing.stackMax) or stackMax))
+                local add = math.min(amount, math.max(0, existingMax - current))
+                if add > 0 then
+                    existing.stackCount = current + add
+                    amount = amount - add
+                end
+            end
+        end
+
+        for i = 1, BACKPACK_SLOTS do
+            if amount <= 0 then break end
+            if not run.backpack[i] then
+                local storedItem = CopyTable(item)
+                storedItem.stackCount = math.min(amount, stackMax)
+                self:EnsureArcadeItemConversion(storedItem)
+                run.backpack[i] = storedItem
+                amount = amount - storedItem.stackCount
+            end
+        end
+    else
+        for i = 1, BACKPACK_SLOTS do
+            if not run.backpack[i] then
+                local storedItem = CopyTable(item)
+                self:EnsureArcadeItemConversion(storedItem)
+                run.backpack[i] = storedItem
+                amount = 0
+                break
+            end
+        end
+
+        if amount > 0 then
+            return false
         end
     end
 
-    return false
+    if self.CharacterSheetFrame and self.CharacterSheetFrame:IsShown() then
+        self:RefreshCharacterSheet()
+    end
+    return true
 end

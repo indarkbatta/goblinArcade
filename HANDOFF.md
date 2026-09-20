@@ -3,9 +3,57 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.39.0**  
+Current addon version: **0.40.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.40.0 — Studio item database + data-driven dungeon loot
+
+- Studio schema bumped to **3** and Studio version to **1.2.0**.
+- Added a first-class **Items** section to GoblinArcade Studio.
+- Item definitions are now separate from loot-table entries.
+- Item records support:
+  - stable ID and display name;
+  - WoW icon texture / FileDataID;
+  - category: Armor, Weapon, Shield, Offhand, Jewelry, Trinket or Consumable;
+  - WoW-style equip location;
+  - subtype/style;
+  - quality and item level;
+  - required temporary Run Level;
+  - class restriction via ANY or comma-separated class IDs;
+  - stack size;
+  - explicit GoblinArcade HP, Armor, Dodge, Crit and Block;
+  - explicit weapon min/max damage, speed and range;
+  - optional trait name/description;
+  - consumable effect/value;
+  - description.
+- Studio item fields are context-sensitive:
+  - weapon-only fields appear only for Weapon items;
+  - direct armor/stat fields are hidden for Weapons and Consumables;
+  - consumable fields appear only for Consumables.
+- Studio validation now checks item quality, levels, stack size, damage ranges, class IDs, equip-location consistency and icon format.
+- Added a separate **Loot Tables** section.
+- Loot entries reference Item IDs and configure:
+  - source (Treasure / Elite / Boss / Shrine / Enemy / Shop);
+  - floor range;
+  - relative weight;
+  - item-level bonus;
+  - power multiplier;
+  - quantity;
+  - enabled state.
+- The Studio publish API now validates/persists the new `items` array.
+- Added `ItemDatabase.lua` as the runtime bridge between Studio definitions and actual Dungeon items.
+- Studio-defined items use their explicit GoblinArcade stats directly and are never passed through the WoW ItemGenerator/WeaponGenerator conversion pipeline.
+- WoW-imported equipment continues to use the existing converters unchanged.
+- Treasure chests now roll from Studio Loot Tables with source `TREASURE`.
+- Elite reward caches now roll from source `ELITE`, falling back to Treasure loot only if the Elite table is empty.
+- The old rotating hard-coded chest template table has been removed; one emergency fallback item remains only for invalid/missing published loot data.
+- The existing Candlekeeper's Charm and Waxbound Ring were migrated into the new Item database with roughly equivalent current GoblinArcade stats.
+- Added a starter **Minor Healing Potion** item definition so the upcoming finite-potion system does not require another item-schema redesign.
+- Consumable stacks are supported in the run backpack; identical Studio consumables can fill existing stacks before consuming new backpack cells.
+- Consumable tooltips now show their effect and stack count.
+- Potion activation itself is **not wired yet**; action slot `0` remains the next gameplay step.
+- The published Warrior `HP / Level = 3` remains preserved.
 
 ## 0.39.0 — Hardcore Arcade heroes + generated-character deletion
 
@@ -351,7 +399,7 @@ Deployment is automatic through GitHub Actions.
 
 ### GoblinArcade Studio / Vercel
 
-Studio v1.1.0 keeps a **static-first** architecture for Vercel cost efficiency:
+Studio v1.2.0 keeps a **static-first** architecture for Vercel cost efficiency:
 
 - no npm build is required;
 - no database is used;
@@ -403,7 +451,7 @@ Important addon files:
   - Studio schema/data foundation loaded by the addon
   - contains 29 Warrior spellbook abilities with minimum trainer unlock levels and Arms/Fury/Protection category; pure threat/aggro skills Taunt, Mocking Blow and Challenging Shout are intentionally excluded because the current GoblinArcade dungeon is solo
   - Warrior source baseline: WoW Forever beta client build 1.60.1.69893 spellbook data, checked 2026-09-20
-  - classes (including run-level HP/resource growth), enemies, ranks, room settings, shrine values and run-XP progression are runtime-driven; Warrior ability execution and loot remain to be migrated
+  - classes (including run-level HP/resource growth), enemies, ranks, room settings, shrine values, run-XP progression, Items and Treasure/Elite loot tables are runtime-driven; Warrior ability execution is also runtime-wired
   - enemy archetypes now carry Danger Rating (1-10); current defaults: Spider 2, Kobold 2, Skeleton 3, Brute 4
   - rank XP multipliers: Normal 1.00, Veteran 1.35, Elite 2.00, Boss 5.00
   - kill XP = Danger Rating × 8 × Rank XP Multiplier by default
@@ -1744,8 +1792,9 @@ Recommended order:
    - next: in-game validation and balance pass, then finite potion handling
 
 4. **Potions**
-   - finite run resource
-   - no unlimited healing
+   - Item database and consumable stacking are ready
+   - wire the action-bar 0 slot to finite run potions
+   - consume one stack unit per use; no unlimited healing
 
 5. **Floor objectives**
    - exit
@@ -1755,10 +1804,9 @@ Recommended order:
    - boss
 
 6. **More deterministic loot**
-   - armor
-   - jewelry
-   - weapons
-   - clear archetype-based differences
+   - Studio Items + Loot Tables foundation is active for Treasure and Elite rewards
+   - add more armor / jewelry / weapons and Boss/Enemy/Shop loot entries
+   - keep clear archetype-based differences
 
 7. **Scores**
    - run score summary
@@ -1853,6 +1901,7 @@ Before changing layout conventions, remember the user's current preferences:
 - minimap belongs in the lower-right run panel and respects Fog of War instead of revealing unexplored rooms;
 - fog should not show dotted borders;
 - item tooltips should show GoblinArcade stats, not WoW stats;
+- dungeon-created equipment/consumables are defined in Studio Items and referenced by Studio Loot Tables; explicit Studio item stats are authoritative, while real WoW gear still uses ItemGenerator/WeaponGenerator conversion;
 - all GoblinArcade HP and damage values use the global 10:1 compression; do not restore the older large-number scale;
 - GoblinArcade Studio stays static-first; the only backend is the on-demand publish request, so avoid database/always-on Vercel spend;
 - Warrior ability names and minimum unlock levels should track the current Forever spellbook rather than invented class skills;

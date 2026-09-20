@@ -114,33 +114,18 @@ local RUN_ABILITY_IDS = {
     "recklessness",
 }
 
-local CHEST_LOOT_TEMPLATES = {
-    {
-        name = "Candlekeeper's Charm",
-        icon = KOBOLD_PORTRAIT_ICON,
-        itemLevel = 18,
-        quality = 2,
-        itemType = "Armor",
-        itemSubType = "Miscellaneous",
-        equipLoc = "INVTYPE_TRINKET",
-        compatibleSlots = { trinket1 = true, trinket2 = true },
-        slotLabel = "Trinket",
-        description = "Warm wax hums faintly in your palm. Prototype dungeon loot.",
-        source = "dungeon",
-    },
-    {
-        name = "Waxbound Ring",
-        icon = "Interface\\Icons\\INV_Jewelry_Ring_03",
-        itemLevel = 18,
-        quality = 2,
-        itemType = "Armor",
-        itemSubType = "Miscellaneous",
-        equipLoc = "INVTYPE_FINGER",
-        compatibleSlots = { finger1 = true, finger2 = true },
-        slotLabel = "Finger",
-        description = "A crude ring sealed with kobold wax. Prototype dungeon loot.",
-        source = "dungeon",
-    },
+local FALLBACK_CHEST_LOOT = {
+    name = "Fallback Dungeon Charm",
+    icon = KOBOLD_PORTRAIT_ICON,
+    itemLevel = 1,
+    quality = 1,
+    itemType = "Armor",
+    itemSubType = "Miscellaneous",
+    equipLoc = "INVTYPE_TRINKET",
+    compatibleSlots = { trinket1 = true, trinket2 = true },
+    slotLabel = "Trinket",
+    description = "Emergency fallback used only when Studio loot data is invalid.",
+    source = "dungeon",
 }
 
 local function CellKey(x, y)
@@ -282,13 +267,13 @@ local function CopyTable(value)
     return copy
 end
 
-local function BuildFloorChestLoot(floorMap)
+local function BuildFloorChestLoot(floorMap, floorNumber)
     local loot = {}
     local chestKeys = floorMap and floorMap.chestKeys or {}
 
-    for index, key in ipairs(chestKeys) do
-        local templateIndex = ((index - 1) % #CHEST_LOOT_TEMPLATES) + 1
-        loot[key] = CopyTable(CHEST_LOOT_TEMPLATES[templateIndex])
+    for _, key in ipairs(chestKeys) do
+        local item = GA.RollStudioLoot and GA:RollStudioLoot("TREASURE", floorNumber)
+        loot[key] = item or CopyTable(FALLBACK_CHEST_LOOT)
     end
 
     return loot
@@ -949,11 +934,11 @@ local function SpawnEliteReward(run, roomIndex)
     end
 
     local key = CellKey(room.center.x, room.center.y)
-    local templateIndex = (((run.floor or 1) + roomIndex - 2) % #CHEST_LOOT_TEMPLATES) + 1
-    local loot = CopyTable(CHEST_LOOT_TEMPLATES[templateIndex])
-
-    loot.itemLevel = (loot.itemLevel or 1) + 2
-    loot.name = "Elite Cache: " .. (loot.name or "Dungeon Reward")
+    local loot = GA.RollStudioLoot and GA:RollStudioLoot("ELITE", run.floor)
+    if not loot and GA.RollStudioLoot then
+        loot = GA:RollStudioLoot("TREASURE", run.floor)
+    end
+    loot = loot or CopyTable(FALLBACK_CHEST_LOOT)
 
     run.floorMap.markers[key] = {
         text = "$",
@@ -5243,7 +5228,7 @@ function GA:BeginDungeonRun()
         roomRoleCounts = CopyTable(roomRoleCounts),
         roomStates = BuildInitialRoomStates(floorMap),
         shrineDamageBonus = 0,
-        chestLoot = BuildFloorChestLoot(floorMap),
+        chestLoot = BuildFloorChestLoot(floorMap, 1),
         densityProfile = CopyTable(densityProfile),
         walkableTiles = walkableTiles,
         baseEnemyCount = baseEnemyCount,
@@ -5520,7 +5505,7 @@ function GA:ApplyDungeonFloor(floorNumber, entryDirection)
         run.floorMap = floorMap
         run.roomRoleCounts = CopyTable(floorMap.roomRoleCounts or {})
         run.roomStates = BuildInitialRoomStates(floorMap)
-        run.chestLoot = BuildFloorChestLoot(floorMap)
+        run.chestLoot = BuildFloorChestLoot(floorMap, floorNumber)
         run.playerX = startX
         run.playerY = startY
         run.openedChests = {}
