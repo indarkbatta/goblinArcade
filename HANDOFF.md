@@ -3,9 +3,24 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.57.0**  
+Current addon version: **0.57.1**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.57.1 — Monster Skill floor gating + Studio QA
+
+- Added **Min Floor** to Monster Skills so mechanics can be introduced progressively instead of overloading early floors.
+- Current authored unlock floors:
+  - Kobold Desperate Slash: Floor 3+
+  - Spider Venom Bite: Floor 4+
+  - Spider Web: Floor 4+
+  - Skeleton Heavy Swing: Floor 5+
+  - Brute Crushing Blow: Floor 5+
+- This follows the first 0.57 headless audit, where immediate skill access pushed Normal Floor 3 clear rate down to roughly 76%.
+- Added automated **Studio syntax** CI:
+  - verifies all three Studio HTML mirrors are byte-identical;
+  - extracts inline JavaScript and runs `node --check`.
+- Lua 5.1 syntax validation and Easy/Normal/Hard balance audits remain mandatory.
 
 ## 0.57.0 — Monster Skill System + Studio editor
 
