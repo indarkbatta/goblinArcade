@@ -3,9 +3,33 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.49.0**  
+Current addon version: **0.50.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.50.0 — in-run two-handed weapon hand management
+
+- Addon **0.50.0** adds correct in-run hand occupancy for two-handed weapons.
+- Equipping an `INVTYPE_2HWEAPON` into **Main Hand** now automatically unequips the current **Off Hand** item.
+- The displaced Off Hand item can be any valid off-hand type:
+  - one-handed weapon;
+  - off-hand-only weapon;
+  - shield;
+  - holdable.
+- The displaced Off Hand item is moved into the run backpack instead of being destroyed.
+- The move is transactional:
+  - if the incoming 2H weapon comes from a backpack slot and Main Hand is empty, that newly freed source slot can receive the Off Hand;
+  - if Main Hand already contains an item, that old Main Hand swaps into the incoming weapon's backpack slot and the Off Hand requires another empty backpack slot;
+  - if there is no valid backpack slot, the 2H equip is rejected before any inventory state changes.
+- A full-backpack failure logs: `Backpack full: free a slot before equipping a two-handed weapon.`
+- While a 2H weapon is equipped in Main Hand, dropping a weapon/shield/holdable into Off Hand is rejected and logs a dedicated warning.
+- Forced Off Hand movement preserves the original item object and ownership metadata exactly:
+  - baseline/starter gear stays baseline;
+  - extracted/run-acquired gear keeps its existing acquisition state;
+  - moving baseline gear to the backpack does **not** falsely convert it into extractable run loot.
+- Gear stats, current weapon display, Character Sheet and action buttons are recalculated immediately after the successful 2H equip.
+- Pre-run Central Stash loadout behavior remains unchanged: a 2H stash loadout still suppresses / returns extracted Off Hand overrides according to the persistent-loadout rules.
+- Item data remains **100 items**, **366 Loot Entries**, single Floor 6 Shop, Warrior `HP / Level = 3`.
 
 ## 0.49.0 — centered character-select UI and WoW-style weapon presentation
 
@@ -2133,7 +2157,7 @@ Deterministic scaling, bounded density, multi-enemy support, three active archet
 
 Recommended order:
 
-**Current priority after 0.49.0:** decide the pre-run consumable/supply rule, then perform the full Warrior Floor 1-9 balance pass before adding more item quantity or starting Rogue.
+**Current priority after 0.50.0:** decide the pre-run consumable/supply rule, then perform the full Warrior Floor 1-9 balance pass before adding more item quantity or starting Rogue.
 
 1. **Studio data migration**
    - configure the two Vercel publish secrets once

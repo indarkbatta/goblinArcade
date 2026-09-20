@@ -37,6 +37,36 @@ local SLOT_COMPATIBILITY = {
     },
 }
 
+local function IsTwoHandedWeapon(item)
+    return item and item.equipLoc == "INVTYPE_2HWEAPON"
+end
+
+local function FindEmptyBackpackSlot(run, ignoredSlot)
+    if not run then return nil end
+    run.backpack = run.backpack or {}
+
+    for i = 1, BACKPACK_SLOTS do
+        if i ~= ignoredSlot and not run.backpack[i] then
+            return i
+        end
+    end
+
+    return nil
+end
+
+local function FindForcedOffhandBackpackSlot(run, drag, mainHandTargetItem)
+    if not run then return nil end
+
+    -- When a 2H weapon comes from the backpack, its source slot becomes
+    -- available only if there is no displaced main-hand item to swap back.
+    if drag and drag.sourceType == "backpack" and not mainHandTargetItem then
+        return drag.sourceKey
+    end
+
+    local ignoredSlot = drag and drag.sourceType == "backpack" and drag.sourceKey or nil
+    return FindEmptyBackpackSlot(run, ignoredSlot)
+end
+
 local function CopyTable(value)
     if type(value) ~= "table" then
         return value
@@ -351,6 +381,22 @@ function GA:CanDropCharacterItem(drag, targetType, targetKey)
         return false
     end
 
+    local run = self.RunState
+    if targetType == "equipment" and targetKey == "offhand" then
+        local mainHand = run and run.equipment and run.equipment.mainhand
+        if IsTwoHandedWeapon(mainHand) then
+            return false
+        end
+    end
+
+    if targetType == "equipment" and targetKey == "mainhand"
+        and IsTwoHandedWeapon(drag.item) then
+        local offHand = run and run.equipment and run.equipment.offhand
+        if offHand and not FindForcedOffhandBackpackSlot(run, drag, targetItem) then
+            return false
+        end
+    end
+
     if targetItem
         and drag.sourceType == "equipment"
         and not self:IsArcadeItemCompatible(targetItem, drag.sourceKey) then
@@ -441,7 +487,27 @@ function GA:DropCharacterItem(targetType, targetKey)
     end
 
     if not self:CanDropCharacterItem(drag, targetType, targetKey) then
-        self:AddCombatLog("That item cannot be placed there.", "warning")
+        local run = self.RunState
+        local targetItem = self:GetCharacterInventoryItem(targetType, targetKey)
+
+        if targetType == "equipment" and targetKey == "mainhand"
+            and IsTwoHandedWeapon(drag.item)
+            and run and run.equipment and run.equipment.offhand
+            and not FindForcedOffhandBackpackSlot(run, drag, targetItem) then
+            self:AddCombatLog(
+                "Backpack full: free a slot before equipping a two-handed weapon.",
+                "warning"
+            )
+        elseif targetType == "equipment" and targetKey == "offhand"
+            and run and run.equipment and IsTwoHandedWeapon(run.equipment.mainhand) then
+            self:AddCombatLog(
+                "You cannot equip an off-hand item while using a two-handed weapon.",
+                "warning"
+            )
+        else
+            self:AddCombatLog("That item cannot be placed there.", "warning")
+        end
+
         self:CancelCharacterItemDrag()
         return false
     end
@@ -451,11 +517,50 @@ function GA:DropCharacterItem(targetType, targetKey)
         return true
     end
 
+    local run = self.RunState
     local sourceItem = drag.item
     local targetItem = self:GetCharacterInventoryItem(targetType, targetKey)
+    local forcedOffHand
+    local forcedBackpackSlot
 
+    if targetType == "equipment" and targetKey == "mainhand"
+        and IsTwoHandedWeapon(sourceItem)
+        and run and run.equipment and run.equipment.offhand then
+        forcedOffHand = run.equipment.offhand
+        forcedBackpackSlot = FindForcedOffhandBackpackSlot(run, drag, targetItem)
+
+        if not forcedBackpackSlot then
+            self:AddCombatLog(
+                "Backpack full: free a slot before equipping a two-handed weapon.",
+                "warning"
+            )
+            self:CancelCharacterItemDrag()
+            return false
+        end
+    end
+
+    -- Perform the normal source/target swap first.
     self:SetCharacterInventoryItem(drag.sourceType, drag.sourceKey, targetItem)
     self:SetCharacterInventoryItem(targetType, targetKey, sourceItem)
+
+    -- A 2H main hand owns both hands. Preserve the displaced off-hand exactly
+    -- as-is (including baseline/extraction ownership metadata) and move it to
+    -- the backpack instead of deleting or re-tagging it as new run loot.
+    if forcedOffHand and forcedBackpackSlot then
+        run.equipment.offhand = nil
+        run.backpack = run.backpack or {}
+        run.backpack[forcedBackpackSlot] = forcedOffHand
+
+        self:AddCombatLog(
+            string.format(
+                "%s moved to the backpack because %s is two-handed.",
+                forcedOffHand.name or "Off-hand item",
+                sourceItem.name or "the equipped weapon"
+            ),
+            "system"
+        )
+    end
+
     self:CancelCharacterItemDrag()
 
     self:RecalculateRunGearStats()
@@ -465,7 +570,6 @@ function GA:DropCharacterItem(targetType, targetKey)
 
     return true
 end
-
 local function GetQualityColor(quality)
     local colors = {
         [0] = { 0.62, 0.62, 0.62 },
