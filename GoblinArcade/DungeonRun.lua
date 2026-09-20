@@ -4450,6 +4450,8 @@ local function RollRunWeaponDamage(self, run, enemy, ability)
     local minimum = weapon and math.max(1, tonumber(weapon.damageMin) or 1) or 1
     local maximum = weapon and math.max(minimum, tonumber(weapon.damageMax) or minimum) or 2
     local damage = math.random(minimum, maximum)
+    local attackPowerBonus = self.GetRunAttackPowerDamageBonus and self:GetRunAttackPowerDamageBonus(weapon) or 0
+    damage = damage + attackPowerBonus
 
     local abilityMultiplier = ability and math.max(0.01, tonumber(ability.damageMultiplier) or 1) or 1
     damage = math.max(1, math.floor(damage * abilityMultiplier + 0.5))
@@ -5873,8 +5875,8 @@ function GA:BeginDungeonRun()
     self:SaveRunActionSlots()
     self:UpdateRunHealth()
     self:UpdateRunResource()
-    self:RefreshRunWeaponFromEquipment()
     self:RecalculateRunGearStats()
+    self:RefreshRunWeaponFromEquipment()
     self.DungeonArcadeDamage:SetText(string.format("Damage %d - %d", selectedWeapon.damageMin, selectedWeapon.damageMax))
     self.DungeonArcadeStyle:SetText(string.format(
         "%s  -  %s  -  Range %d",

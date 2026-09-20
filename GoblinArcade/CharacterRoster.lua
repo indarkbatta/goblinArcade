@@ -247,19 +247,32 @@ function GA:CreateArcadeCharacter(name, raceId, classId, hardcore)
     local classFile = string.upper(classId)
     local weapon = BuildArcadeStarterWeapon(classId)
     local weaponIcon = "Interface\\Icons\\INV_Sword_04"
+    local mainHand
 
-    local mainHand = {
-        source = "arcade",
-        sourceSlot = "mainhand",
-        name = weapon.sourceName,
-        icon = weaponIcon,
-        itemLevel = 1,
-        quality = 1,
-        itemType = "Weapon",
-        itemSubType = "Sword",
-        equipLoc = "INVTYPE_WEAPON",
-        arcadeWeapon = CopyTable(weapon),
-    }
+    if classId == "warrior" and self.BuildStudioItem then
+        local studioStarter = self:BuildStudioItem("recruits_longsword", { source = "arcade" })
+        if studioStarter and studioStarter.arcadeWeapon then
+            mainHand = studioStarter
+            mainHand.sourceSlot = "mainhand"
+            weapon = CopyTable(studioStarter.arcadeWeapon)
+            weaponIcon = studioStarter.icon or weaponIcon
+        end
+    end
+
+    if not mainHand then
+        mainHand = {
+            source = "arcade",
+            sourceSlot = "mainhand",
+            name = weapon.sourceName,
+            icon = weaponIcon,
+            itemLevel = 1,
+            quality = 1,
+            itemType = "Weapon",
+            itemSubType = "Sword",
+            equipLoc = "INVTYPE_WEAPON",
+            arcadeWeapon = CopyTable(weapon),
+        }
+    end
 
     local character = {
         key = key,

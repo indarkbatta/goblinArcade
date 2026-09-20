@@ -166,30 +166,36 @@ function GA:GetCurrentRunWeapon()
     return mainHand and mainHand.arcadeWeapon or nil
 end
 
+function GA:GetRunAttackPowerDamageBonus(weapon)
+    local run = self.RunState
+    local attackPower = run and run.arcadeStats and run.arcadeStats.attackPower or 0
+    return self:CalculateAttackPowerDamageBonus(attackPower, weapon and weapon.speed or "FAST")
+end
+
 function GA:RefreshRunWeaponFromEquipment()
     local weapon = self:GetCurrentRunWeapon()
+    local baseMin = weapon and (weapon.damageMin or 1) or 1
+    local baseMax = weapon and (weapon.damageMax or baseMin) or 2
+    local attackPowerBonus = self:GetRunAttackPowerDamageBonus(weapon)
+    local effectiveMin = baseMin + attackPowerBonus
+    local effectiveMax = baseMax + attackPowerBonus
 
     if self.DungeonPower then
-        if weapon then
-            self.DungeonPower:SetText(string.format("%d-%d", weapon.damageMin or 0, weapon.damageMax or 0))
-        else
-            self.DungeonPower:SetText("1-2")
-        end
+        self.DungeonPower:SetText(string.format("%d-%d", effectiveMin, effectiveMax))
     end
 
     if self.DungeonArcadeDamage then
         if weapon then
-            self.DungeonArcadeDamage:SetText(string.format("Damage %d - %d", weapon.damageMin or 0, weapon.damageMax or 0))
-            self.DungeonArcadeStyle:SetText(
-                string.format("%s  -  %s  -  Range %d",
-                    weapon.style or "Weapon",
-                    weapon.speed or "NORMAL",
-                    weapon.range or 1)
-            )
+            if attackPowerBonus > 0 then
+                self.DungeonArcadeDamage:SetText(string.format("Damage %d - %d  (+%d from AP)", baseMin, baseMax, attackPowerBonus))
+            else
+                self.DungeonArcadeDamage:SetText(string.format("Damage %d - %d", baseMin, baseMax))
+            end
+            self.DungeonArcadeStyle:SetText(string.format("%s  -  %s  -  Range %d", weapon.style or "Weapon", weapon.speed or "NORMAL", weapon.range or 1))
             self.DungeonArcadeTraitName:SetText(weapon.traitName or "NO SIGNATURE TRAIT")
             self.DungeonArcadeTraitDesc:SetText(weapon.traitDescription or "")
         else
-            self.DungeonArcadeDamage:SetText("Damage 1 - 2")
+            self.DungeonArcadeDamage:SetText(string.format("Damage 1 - 2%s", attackPowerBonus > 0 and string.format("  (+%d from AP)", attackPowerBonus) or ""))
             self.DungeonArcadeStyle:SetText("Unarmed  -  FAST  -  Range 1")
             self.DungeonArcadeTraitName:SetText("UNARMED")
             self.DungeonArcadeTraitDesc:SetText("Equip a weapon from your backpack.")
@@ -259,6 +265,7 @@ function GA:RecalculateRunGearStats()
         dodge = 0,
         crit = 0,
         block = 0,
+        attackPower = 0,
     }
 
     for _, item in pairs(run.equipment or {}) do
@@ -271,6 +278,12 @@ function GA:RecalculateRunGearStats()
             stats.dodge = stats.dodge + (converted.dodge or 0)
             stats.crit = stats.crit + (converted.crit or 0)
             stats.block = stats.block + (converted.block or 0)
+            stats.attackPower = stats.attackPower + (converted.attackPower or 0)
+        end
+
+        local weapon = item and item.arcadeWeapon
+        if weapon then
+            stats.attackPower = stats.attackPower + (weapon.attackPower or 0)
         end
     end
 
@@ -300,6 +313,7 @@ function GA:RecalculateRunGearStats()
 
     if self.CharacterSheetStatRows then
         self.CharacterSheetStatRows.health:SetText(string.format("HP Bonus +%d", stats.health))
+        self.CharacterSheetStatRows.attackPower:SetText(string.format("Attack Power +%d", stats.attackPower))
         self.CharacterSheetStatRows.armor:SetText(string.format("Armor %d", stats.armor))
         self.CharacterSheetStatRows.dodge:SetText(string.format("Dodge %.1f%%", stats.dodge))
         self.CharacterSheetStatRows.crit:SetText(string.format("Crit %.1f%%", stats.crit))
@@ -430,8 +444,8 @@ function GA:DropCharacterItem(targetType, targetKey)
     self:SetCharacterInventoryItem(targetType, targetKey, sourceItem)
     self:CancelCharacterItemDrag()
 
-    self:RefreshRunWeaponFromEquipment()
     self:RecalculateRunGearStats()
+    self:RefreshRunWeaponFromEquipment()
     self:RefreshCharacterSheet()
     self:RefreshActionButtons()
 
@@ -479,12 +493,21 @@ local function AddArcadeConversionToTooltip(item)
     local weapon = item.arcadeWeapon
     local converted = item.arcadeItem
 
+    if item.tier then
+        GameTooltip:AddLine(string.format("%s  -  Item Level %d", tostring(item.tier), tonumber(item.itemLevel) or 1), 0.75, 0.70, 0.62)
+    elseif item.itemLevel then
+        GameTooltip:AddLine(string.format("Item Level %d", tonumber(item.itemLevel) or 1), 0.75, 0.70, 0.62)
+    end
+
     if weapon then
         GameTooltip:AddLine("Weapon", 0.65, 0.60, 0.52)
         GameTooltip:AddLine(
             string.format("Damage %d - %d", weapon.damageMin or 0, weapon.damageMax or 0),
             0.92, 0.89, 0.82
         )
+        if (weapon.attackPower or 0) > 0 then
+            GameTooltip:AddLine(string.format("Attack Power +%d", weapon.attackPower), 1.00, 0.72, 0.12)
+        end
         GameTooltip:AddLine(
             string.format("%s  -  %s  -  Range %d",
                 weapon.style or "Weapon",
@@ -511,6 +534,10 @@ local function AddArcadeConversionToTooltip(item)
 
         if (converted.health or 0) > 0 then
             GameTooltip:AddLine(string.format("Health +%d", converted.health), 0.30, 1.00, 0.38)
+        end
+
+        if (converted.attackPower or 0) > 0 then
+            GameTooltip:AddLine(string.format("Attack Power +%d", converted.attackPower), 1.00, 0.72, 0.12)
         end
 
         if (converted.armor or 0) > 0 then
@@ -678,13 +705,14 @@ function GA:CreateCharacterSheet(parent)
     self.CharacterSheetHealth = health
 
     local statsFrame = CreateFrame("Frame", nil, gearPanel)
-    statsFrame:SetSize(156, 92)
+    statsFrame:SetSize(156, 110)
     statsFrame:SetPoint("TOP", health, "BOTTOM", 0, -6)
     self.CharacterSheetStatsFrame = statsFrame
     self.CharacterSheetStatRows = {}
 
     local statLabels = {
         { key = "health", label = "HP Bonus" },
+        { key = "attackPower", label = "Attack Power" },
         { key = "armor", label = "Armor" },
         { key = "dodge", label = "Dodge" },
         { key = "crit", label = "Crit" },

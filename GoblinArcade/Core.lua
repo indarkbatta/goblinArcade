@@ -4,9 +4,19 @@ GA = GA or {}
 _G.GoblinArcade = GA
 
 GA.name = "GoblinArcade"
-GA.version = "0.43.0"
+GA.version = "0.44.0"
 
 GA.COMBAT_NUMBER_DIVISOR = 10
+GA.ATTACK_POWER_PER_DPS = 14
+GA.WEAPON_SPEED_SECONDS = { FAST = 1.8, NORMAL = 2.4, SLOW = 3.2 }
+
+function GA:CalculateAttackPowerDamageBonus(attackPower, weaponSpeed)
+    local ap = math.max(0, tonumber(attackPower) or 0)
+    if ap <= 0 then return 0 end
+    local speed = self.WEAPON_SPEED_SECONDS[string.upper(tostring(weaponSpeed or "NORMAL"))]
+        or self.WEAPON_SPEED_SECONDS.NORMAL
+    return math.max(0, math.floor(((ap / math.max(1, tonumber(self.ATTACK_POWER_PER_DPS) or 14)) * speed) + 0.5))
+end
 
 function GA:ScaleCombatValue(value, preservePositive)
     local numeric = tonumber(value) or 0

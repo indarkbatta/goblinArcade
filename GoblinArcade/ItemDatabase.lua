@@ -3,7 +3,7 @@ local _, GA = ...
 GA.ItemDatabase = GA.ItemDatabase or {}
 local DB = GA.ItemDatabase
 
-DB.VERSION = 3
+DB.VERSION = 4
 
 local SLOT_LABELS = {
     INVTYPE_HEAD = "Head",
@@ -151,6 +151,7 @@ function DB:BuildItemInstance(itemId, options)
         name = definition.name or definition.id or "Dungeon Item",
         icon = NormalizeIcon(definition.icon),
         itemLevel = itemLevel,
+        tier = tostring(definition.tier or "T0"),
         quality = math.max(0, math.floor(tonumber(definition.quality) or 1)),
         requiredLevel = math.max(1, math.floor(tonumber(definition.requiredLevel) or 1)),
         price = math.max(0, math.floor(tonumber(definition.price) or 0)),
@@ -178,7 +179,9 @@ function DB:BuildItemInstance(itemId, options)
             damageMax = math.max(1, Round((tonumber(definition.damageMax) or 1) * powerMultiplier)),
             speed = tostring(definition.weaponSpeed or "NORMAL"),
             range = math.max(1, math.floor(tonumber(definition.range) or 1)),
+            attackPower = math.max(0, Round((tonumber(definition.attackPower) or 0) * powerMultiplier)),
             traitName = definition.traitName ~= "" and definition.traitName or nil,
+            traitValue = math.max(0, tonumber(definition.traitValue) or 0),
             traitDescription = definition.traitDescription ~= "" and definition.traitDescription or nil,
         }
         if item.arcadeWeapon.damageMax < item.arcadeWeapon.damageMin then
@@ -197,6 +200,7 @@ function DB:BuildItemInstance(itemId, options)
             equipLoc = item.equipLoc,
             health = math.max(0, Round((tonumber(definition.health) or 0) * powerMultiplier)),
             armor = math.max(0, Round((tonumber(definition.armor) or 0) * powerMultiplier)),
+            attackPower = math.max(0, Round((tonumber(definition.attackPower) or 0) * powerMultiplier)),
             dodge = math.max(0, Round1((tonumber(definition.dodge) or 0) * powerMultiplier)),
             crit = math.max(0, Round1((tonumber(definition.crit) or 0) * powerMultiplier)),
             block = math.max(0, Round1((tonumber(definition.block) or 0) * powerMultiplier)),

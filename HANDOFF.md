@@ -3,9 +3,52 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.43.0**  
+Current addon version: **0.44.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.44.0 — Attack Power and first complete Warrior item progression
+
+- Studio schema **6**, Studio **1.5.0**, addon **0.44.0**.
+- Added first-class Item `tier` values: **T0-T5**.
+- Added first-class **Attack Power** to Studio Items, runtime item instances, converted WoW gear, tooltips and Character Sheet totals.
+- Attack Power is functional combat power, not display-only:
+  - 14 AP = 1 DPS-equivalent;
+  - FAST/NORMAL/SLOW use 1.8/2.4/3.2 weapon-speed factors;
+  - per-hit AP bonus = round((AP / 14) × weapon speed);
+  - AP bonus is added before ability damage multipliers, so weapon-based Warrior abilities scale with AP.
+- The run Power display shows effective weapon damage after AP; the detailed weapon line shows the AP contribution separately.
+- Studio weapon records gained `traitValue`; Studio Maces use the already-supported STAGGER runtime mechanic.
+- Imported real WoW non-weapon gear receives deterministic AP through ItemGenerator v4; explicit Studio item AP remains authoritative for dungeon-created items.
+- New Arcade Warriors use the Studio-defined **T0 Recruit's Longsword** when available.
+- Added a complete first-pass **100-item** progression:
+  - T0: 5 starter items;
+  - T1-T5: 19 items per tier;
+  - each T1-T5 tier contains 8 Plate pieces, 6 weapons, 1 shield, 3 jewelry/trinket items and 1 healing potion.
+- Warrior gear families:
+  - T1 Rusted Iron;
+  - T2 Ironbound;
+  - T3 Blacksteel;
+  - T4 Grimforged;
+  - T5 Warlord's.
+- Healing Potion ladder: 25% / 35% / 45% / 55% / 70% max HP from T1 through T5.
+- Treasure Chest progression:
+  - Floor 1: T1;
+  - Floor 2: 85% T1 / 15% T2;
+  - Floor 3: T2;
+  - Floor 4: 75% T2 / 25% T3;
+  - Floor 5: T3;
+  - Floor 6: 75% T3 / 25% T4;
+  - Floor 7: T4;
+  - Floor 8: 95% T4 / 5% T5;
+  - Floor 9: 70% T4 / 30% T5.
+- Elite Cache jumps forward: T4 on Floors 5-7 and T5 on Floors 8-9, with a small 1.05 power multiplier.
+- Boss Cache is fully T5; Epic T5 jewelry has higher weight and Boss drops use a 1.10 power multiplier.
+- Common enemy drops remain 15% at the loot-table level; the healing potion tier advances by floor band.
+- Existing Candlekeeper's Charm and Waxbound Ring remain in the catalog as T3 items.
+- Studio browser draft key bumped to `goblinArcadeStudio.v16` so old local drafts cannot silently hide the new catalog.
+- Warrior `HP / Level = 3` remains unchanged.
+- Next itemization block: playtest the T1-T5 curve, then add the Shop/economy loop using authoritative Item `price` values.
 
 ## 0.43.0 — run end, score framework and boss reward
 

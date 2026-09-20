@@ -3,7 +3,7 @@ local _, GA = ...
 GA.ItemGenerator = GA.ItemGenerator or {}
 local IG = GA.ItemGenerator
 
-IG.VERSION = 3
+IG.VERSION = 4
 
 local QUALITY_MULTIPLIER = {
     [0] = 0.80,
@@ -17,21 +17,21 @@ local QUALITY_MULTIPLIER = {
 }
 
 local PROFILES = {
-    INVTYPE_HEAD =      { style = "Guard",     armor = 1.00, health = 0.55, dodge = 0.10, crit = 0.00, trait = "WATCHFUL" },
-    INVTYPE_NECK =      { style = "Charm",     armor = 0.00, dodge = 0.35, crit = 0.45, trait = "BALANCE" },
-    INVTYPE_SHOULDER =  { style = "Guard",     armor = 0.85, health = 0.45, dodge = 0.10, crit = 0.00, trait = "FORTIFIED" },
-    INVTYPE_CHEST =     { style = "Bulwark",   armor = 1.45, health = 1.00, dodge = 0.00, crit = 0.00, trait = "BULWARK" },
-    INVTYPE_ROBE =      { style = "Bulwark",   armor = 1.45, health = 1.00, dodge = 0.00, crit = 0.00, trait = "BULWARK" },
-    INVTYPE_WAIST =     { style = "Guard",     armor = 0.70, dodge = 0.10, crit = 0.00, trait = "FORTIFIED" },
-    INVTYPE_LEGS =      { style = "Bulwark",   armor = 1.20, health = 0.80, dodge = 0.00, crit = 0.00, trait = "BULWARK" },
-    INVTYPE_FEET =      { style = "Footwork",  armor = 0.65, dodge = 1.00, crit = 0.00, trait = "FOOTWORK" },
-    INVTYPE_WRIST =     { style = "Reflex",    armor = 0.45, dodge = 0.65, crit = 0.00, trait = "REFLEX" },
-    INVTYPE_HAND =      { style = "Precision", armor = 0.55, dodge = 0.00, crit = 1.00, trait = "PRECISION" },
-    INVTYPE_FINGER =    { style = "Luck",      armor = 0.00, dodge = 0.35, crit = 0.85, trait = "LUCK" },
-    INVTYPE_TRINKET =   { style = "Charm",     armor = 0.00, dodge = 0.65, crit = 0.65, trait = "CHARMED" },
-    INVTYPE_CLOAK =     { style = "Evasion",   armor = 0.35, dodge = 1.10, crit = 0.20, trait = "EVASION" },
-    INVTYPE_SHIELD =    { style = "Shield",    armor = 1.55, dodge = 0.10, crit = 0.00, block = 1.00, trait = "BLOCK" },
-    INVTYPE_HOLDABLE =  { style = "Focus",     armor = 0.00, dodge = 0.20, crit = 1.10, trait = "FOCUS" },
+    INVTYPE_HEAD =      { style = "Guard",     armor = 1.00, health = 0.55, dodge = 0.10, crit = 0.00, attackPower = 0.10, trait = "WATCHFUL" },
+    INVTYPE_NECK =      { style = "Charm",     armor = 0.00, dodge = 0.35, crit = 0.45, attackPower = 0.45, trait = "BALANCE" },
+    INVTYPE_SHOULDER =  { style = "Guard",     armor = 0.85, health = 0.45, dodge = 0.10, crit = 0.00, attackPower = 0.20, trait = "FORTIFIED" },
+    INVTYPE_CHEST =     { style = "Bulwark",   armor = 1.45, health = 1.00, dodge = 0.00, crit = 0.00, attackPower = 0.15, trait = "BULWARK" },
+    INVTYPE_ROBE =      { style = "Bulwark",   armor = 1.45, health = 1.00, dodge = 0.00, crit = 0.00, attackPower = 0.15, trait = "BULWARK" },
+    INVTYPE_WAIST =     { style = "Guard",     armor = 0.70, dodge = 0.10, crit = 0.00, attackPower = 0.30, trait = "FORTIFIED" },
+    INVTYPE_LEGS =      { style = "Bulwark",   armor = 1.20, health = 0.80, dodge = 0.00, crit = 0.00, attackPower = 0.15, trait = "BULWARK" },
+    INVTYPE_FEET =      { style = "Footwork",  armor = 0.65, dodge = 1.00, crit = 0.00, attackPower = 0.15, trait = "FOOTWORK" },
+    INVTYPE_WRIST =     { style = "Reflex",    armor = 0.45, dodge = 0.65, crit = 0.00, attackPower = 0.35, trait = "REFLEX" },
+    INVTYPE_HAND =      { style = "Precision", armor = 0.55, dodge = 0.00, crit = 1.00, attackPower = 0.75, trait = "PRECISION" },
+    INVTYPE_FINGER =    { style = "Luck",      armor = 0.00, dodge = 0.35, crit = 0.85, attackPower = 0.65, trait = "LUCK" },
+    INVTYPE_TRINKET =   { style = "Charm",     armor = 0.00, dodge = 0.65, crit = 0.65, attackPower = 1.00, trait = "CHARMED" },
+    INVTYPE_CLOAK =     { style = "Evasion",   armor = 0.35, dodge = 1.10, crit = 0.20, attackPower = 0.30, trait = "EVASION" },
+    INVTYPE_SHIELD =    { style = "Shield",    armor = 1.55, dodge = 0.10, crit = 0.00, block = 1.00, attackPower = 0.00, trait = "BLOCK" },
+    INVTYPE_HOLDABLE =  { style = "Focus",     armor = 0.00, dodge = 0.20, crit = 1.10, attackPower = 0.65, trait = "FOCUS" },
 }
 
 local function Contains(text, needle)
@@ -94,6 +94,7 @@ function IG:Convert(metadata)
     local healthBase = 3 + itemLevel * 0.65
     local secondaryBase = 0.25 + itemLevel * 0.02
     local blockBase = 0.35 + itemLevel * 0.025
+    local attackPowerBase = 1 + itemLevel * 0.10
 
     local armor = math.max(0, Round(
         armorBase * (profile.armor or 0) * materialMultiplier * qualityMultiplier
@@ -116,6 +117,10 @@ function IG:Convert(metadata)
         blockBase * (profile.block or 0) * qualityMultiplier
     ))
 
+    local attackPower = math.max(0, Round(
+        attackPowerBase * (profile.attackPower or 0) * qualityMultiplier
+    ))
+
     local traitName, traitDescription = BuildTrait(
         profile, armor, dodge, crit, block, quality
     )
@@ -133,6 +138,7 @@ function IG:Convert(metadata)
         dodge = dodge,
         crit = crit,
         block = block,
+        attackPower = attackPower,
         traitName = traitName,
         traitDescription = traitDescription,
     }
