@@ -24,6 +24,16 @@ function assertStudioData(data) {
       ids.add(id);
     }
   }
+
+  const monsterSkillIds = new Set(data.monsterSkills.map(skill => String(skill.id || "")));
+  for (const enemy of data.enemies) {
+    const skillIds = Array.isArray(enemy.skillIds) ? enemy.skillIds : [];
+    for (const skillId of skillIds) {
+      if (!monsterSkillIds.has(String(skillId))) {
+        throw new Error("Enemy " + enemy.id + " references unknown Monster Skill: " + skillId);
+      }
+    }
+  }
 }
 
 function luaString(value) {
