@@ -826,6 +826,76 @@ local function GetAbilityIconTexture(ability)
     return "Interface\\Icons\\INV_Misc_QuestionMark"
 end
 
+local POTION_BACKPACK_SLOTS = 20
+
+local function IsRunPotion(item)
+    if not item then return false end
+    if string.upper(tostring(item.category or "")) ~= "CONSUMABLE"
+        and tostring(item.itemType or "") ~= "Consumable" then
+        return false
+    end
+
+    local subtype = string.lower(tostring(item.itemSubType or ""))
+    return string.find(subtype, "potion", 1, true) ~= nil
+end
+
+local function CanUseRunPotionItem(run, item)
+    if not run or not run.active or not IsRunPotion(item) then
+        return false
+    end
+
+    local effect = string.upper(tostring(item.consumableEffect or "NONE"))
+    local value = tonumber(item.effectValue) or 0
+    if value <= 0 then return false end
+
+    if effect == "HEAL_PERCENT" or effect == "HEAL_FLAT" then
+        return (run.playerHealth or 0) < (run.playerMaxHealth or 0)
+    end
+
+    if effect == "RESOURCE" then
+        return (run.resourceMax or 0) > 0
+            and (run.resource or 0) < (run.resourceMax or 0)
+    end
+
+    return false
+end
+
+local function FindRunPotion(run, usableOnly)
+    local fallbackSlot
+    local fallbackItem
+
+    for slotIndex = 1, POTION_BACKPACK_SLOTS do
+        local item = run and run.backpack and run.backpack[slotIndex]
+        if IsRunPotion(item) then
+            if not fallbackItem then
+                fallbackSlot = slotIndex
+                fallbackItem = item
+            end
+            if CanUseRunPotionItem(run, item) then
+                return slotIndex, item
+            end
+        end
+    end
+
+    if usableOnly then
+        return nil, nil
+    end
+    return fallbackSlot, fallbackItem
+end
+
+local function CountRunPotionStacks(run, studioItemId)
+    if not run or not studioItemId then return 0 end
+
+    local total = 0
+    for slotIndex = 1, POTION_BACKPACK_SLOTS do
+        local item = run.backpack and run.backpack[slotIndex]
+        if item and item.studioItemId == studioItemId and IsRunPotion(item) then
+            total = total + math.max(1, math.floor(tonumber(item.stackCount) or 1))
+        end
+    end
+    return total
+end
+
 local function BuildRoomRoleText(counts)
     counts = counts or {}
 
@@ -1847,13 +1917,19 @@ function GA:CreateDungeonRunPage(parent)
     local potionX = startX + (9 * (barButtonSize + barGap)) + 24
     potionButton:SetPoint("BOTTOM", actionBar, "BOTTOM", potionX, 7)
     potionButton:SetEnabled(false)
+    potionButton:SetScript("OnClick", function()
+        GA:UseRunPotion()
+    end)
     potionButton:SetScript("OnEnter", function(button)
-        GameTooltip:SetOwner(button, "ANCHOR_TOP")
-        GameTooltip:SetText("Potion", 1, 0.82, 0.2)
-        GameTooltip:AddLine("Reserved for the finite run potion system.", 0.9, 0.9, 0.9, true)
-        GameTooltip:Show()
+        GA:ShowRunPotionTooltip(button)
     end)
     potionButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    local potionCount = CreateText(potionButton, "GameFontNormalSmall", "")
+    potionCount:SetPoint("BOTTOMRIGHT", -4, 3)
+    potionCount:SetTextColor(1, 1, 1)
+    potionButton.countText = potionCount
+
     self.DungeonPotionButton = potionButton
     self.DungeonActionButtons[10] = potionButton
 
@@ -2346,10 +2422,7 @@ function GA:CreateDungeonRunPage(parent)
             GA:UseRunActionSlot(tonumber(key) - 1)
             return
         elseif key == "0" then
-            if GA.DungeonRunStateText then
-                GA.DungeonRunStateText:SetText("POTION SLOT - NOT IMPLEMENTED YET")
-                GA.DungeonRunStateText:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
-            end
+            GA:UseRunPotion()
             return
         end
 
@@ -3607,9 +3680,165 @@ function GA:RefreshActionButtons()
         end
     end
 
+    if self.DungeonPotionButton then
+        local usableSlot, usablePotion = FindRunPotion(run, true)
+        local anySlot, anyPotion = FindRunPotion(run, false)
+        local displayPotion = usablePotion or anyPotion
+        local usable = run and run.active and usablePotion ~= nil
+
+        self.DungeonPotionButton.gaPotionSlot = usableSlot or anySlot
+        self.DungeonPotionButton.gaPotionItem = displayPotion
+        self.DungeonPotionButton:SetEnabled(usable and true or false)
+
+        if self.DungeonPotionButton.icon then
+            self.DungeonPotionButton.icon:SetTexture(
+                displayPotion and displayPotion.icon or "Interface\\Icons\\INV_Potion_54"
+            )
+            local tint = usable and 1 or 0.38
+            self.DungeonPotionButton.icon:SetVertexColor(tint, tint, tint)
+        end
+
+        if self.DungeonPotionButton.countText then
+            local count = displayPotion
+                and CountRunPotionStacks(run, displayPotion.studioItemId)
+                or 0
+            self.DungeonPotionButton.countText:SetText(count > 0 and tostring(count) or "")
+        end
+    end
+
     if self.DungeonSpellbookFrame and self.DungeonSpellbookFrame:IsShown() then
         self:RefreshSpellbook()
     end
+end
+
+function GA:ShowRunPotionTooltip(button)
+    local run = self.RunState
+    local _, usablePotion = FindRunPotion(run, true)
+    local _, anyPotion = FindRunPotion(run, false)
+    local potion = usablePotion or anyPotion
+
+    GameTooltip:SetOwner(button, "ANCHOR_TOP")
+    if not potion then
+        GameTooltip:SetText("Potion", 1, 0.82, 0.2)
+        GameTooltip:AddLine("No potion in your backpack.", 0.75, 0.75, 0.75, true)
+        GameTooltip:Show()
+        return
+    end
+
+    GameTooltip:SetText(potion.name or "Potion", 1, 0.82, 0.2)
+    local effect = string.upper(tostring(potion.consumableEffect or "NONE"))
+    local value = tonumber(potion.effectValue) or 0
+
+    if effect == "HEAL_PERCENT" then
+        GameTooltip:AddLine(string.format("Restores %.0f%% of maximum HP.", value), 0.35, 1, 0.35, true)
+    elseif effect == "HEAL_FLAT" then
+        GameTooltip:AddLine(string.format("Restores %d HP.", math.floor(value + 0.5)), 0.35, 1, 0.35, true)
+    elseif effect == "RESOURCE" then
+        GameTooltip:AddLine(string.format("Restores %d class resource.", math.floor(value + 0.5)), 0.35, 1, 0.35, true)
+    end
+
+    local count = CountRunPotionStacks(run, potion.studioItemId)
+    GameTooltip:AddLine(string.format("%d available.", count), 0.9, 0.9, 0.9, true)
+    if usablePotion then
+        GameTooltip:AddLine("Using a potion consumes your turn.", 1, 0.72, 0.12, true)
+    elseif effect == "HEAL_PERCENT" or effect == "HEAL_FLAT" then
+        GameTooltip:AddLine("Cannot use at full health.", 0.75, 0.75, 0.75, true)
+    elseif effect == "RESOURCE" then
+        GameTooltip:AddLine("Cannot use while resource is full.", 0.75, 0.75, 0.75, true)
+    end
+    GameTooltip:Show()
+end
+
+function GA:UseRunPotion()
+    local run = self.RunState
+    if not run or not run.active then
+        return false
+    end
+
+    local slotIndex, potion = FindRunPotion(run, true)
+    if not potion then
+        local _, ownedPotion = FindRunPotion(run, false)
+        if self.DungeonRunStateText then
+            self.DungeonRunStateText:SetText(
+                ownedPotion and "POTION NOT NEEDED" or "NO POTION"
+            )
+            self.DungeonRunStateText:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+        end
+        self:AddCombatLog(
+            ownedPotion and "You cannot use that potion right now." or "You have no potion.",
+            "warning"
+        )
+        self:RefreshActionButtons()
+        return false
+    end
+
+    local effect = string.upper(tostring(potion.consumableEffect or "NONE"))
+    local value = tonumber(potion.effectValue) or 0
+    local applied = 0
+
+    if effect == "HEAL_PERCENT" then
+        local amount = math.max(1, math.floor((run.playerMaxHealth or 1) * (value / 100) + 0.5))
+        local before = run.playerHealth or 0
+        run.playerHealth = math.min(run.playerMaxHealth or before, before + amount)
+        applied = run.playerHealth - before
+    elseif effect == "HEAL_FLAT" then
+        local amount = math.max(1, math.floor(value + 0.5))
+        local before = run.playerHealth or 0
+        run.playerHealth = math.min(run.playerMaxHealth or before, before + amount)
+        applied = run.playerHealth - before
+    elseif effect == "RESOURCE" then
+        local before = run.resource or 0
+        run.resource = math.min(run.resourceMax or before, before + math.max(1, math.floor(value + 0.5)))
+        applied = run.resource - before
+    else
+        self:AddCombatLog("That potion has no usable GoblinArcade effect.", "warning")
+        return false
+    end
+
+    if applied <= 0 then
+        self:AddCombatLog("The potion would have no effect right now.", "warning")
+        self:RefreshActionButtons()
+        return false
+    end
+
+    local stackCount = math.max(1, math.floor(tonumber(potion.stackCount) or 1))
+    if stackCount > 1 then
+        potion.stackCount = stackCount - 1
+    else
+        run.backpack[slotIndex] = nil
+    end
+
+    run.turns = (run.turns or 0) + 1
+
+    if effect == "RESOURCE" then
+        self:AddCombatLog(
+            string.format("%s restores %d %s.", potion.name or "Potion", applied, run.resourceType or "resource"),
+            "player"
+        )
+    else
+        self:AddCombatLog(
+            string.format("%s restores %d HP.", potion.name or "Potion", applied),
+            "player"
+        )
+    end
+
+    if self.DungeonRunStateText then
+        self.DungeonRunStateText:SetText("POTION USED - ENEMY TURN")
+        self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    end
+
+    self:UpdateRunHealth()
+    self:UpdateRunResource()
+    self:RefreshRunCounters()
+    self:RefreshActionButtons()
+
+    if self.CharacterSheetFrame and self.CharacterSheetFrame:IsShown() then
+        self:RefreshCharacterSheet()
+    end
+
+    self:RenderDungeonGrid()
+    self:RunEnemyTurn()
+    return true
 end
 
 function GA:UpdateRunResource()

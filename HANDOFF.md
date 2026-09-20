@@ -3,9 +3,47 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.40.0**  
+Current addon version: **0.41.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.41.0 — item prices + finite potion runtime
+
+- Studio schema bumped to **4** and Studio version to **1.3.0**.
+- Every Studio Item now has required **Price (Copper)**.
+- Price is stored directly on the runtime item instance and is intended as the shared base value for the future shop / buy / sell economy.
+- GoblinArcade item tooltips now display the item's formatted value in copper/silver/gold notation.
+- Current migrated default values:
+  - Candlekeeper's Charm: 750 copper;
+  - Waxbound Ring: 650 copper;
+  - Minor Healing Potion: 100 copper.
+- New Item records default to price 0 and Studio validation rejects negative prices.
+- Added a Treasure loot entry for Minor Healing Potion so the finite potion loop can be tested through normal Dungeon play.
+- Action-bar slot **0** is now a live Potion slot.
+- Potion slot behavior:
+  - scans the run backpack for Potion subtype consumables;
+  - prefers the first potion that currently has a useful effect;
+  - shows the real item icon;
+  - shows the total count of that potion across backpack stacks;
+  - remains visible but disabled/grey when a potion exists but would currently have no effect;
+  - shows the reason in its tooltip.
+- Supported consumable effects in the potion runtime:
+  - `HEAL_PERCENT`;
+  - `HEAL_FLAT`;
+  - `RESOURCE`.
+- Healing potions cannot be wasted at full HP.
+- Resource potions cannot be wasted at full resource.
+- Using a potion:
+  - consumes exactly one stack unit;
+  - removes the backpack stack when the final unit is consumed;
+  - applies its Studio-defined effect;
+  - updates health/resource/backpack/action bar UI immediately;
+  - consumes one player turn;
+  - then runs the normal enemy phase.
+- Potion use is available both by clicking slot 0 and pressing keyboard **0**.
+- Backpack item slots now render stack counts for stackable consumables.
+- ItemDatabase bumped to v2 for runtime price propagation.
+- The published Warrior `HP / Level = 3` remains preserved.
 
 ## 0.40.0 — Studio item database + data-driven dungeon loot
 
@@ -399,7 +437,7 @@ Deployment is automatic through GitHub Actions.
 
 ### GoblinArcade Studio / Vercel
 
-Studio v1.2.0 keeps a **static-first** architecture for Vercel cost efficiency:
+Studio v1.3.0 keeps a **static-first** architecture for Vercel cost efficiency:
 
 - no npm build is required;
 - no database is used;
@@ -1791,10 +1829,10 @@ Recommended order:
    - per-character action-bar loadouts persist in SavedVariables
    - next: in-game validation and balance pass, then finite potion handling
 
-4. **Potions**
-   - Item database and consumable stacking are ready
-   - wire the action-bar 0 slot to finite run potions
-   - consume one stack unit per use; no unlimited healing
+4. **Potions / consumables**
+   - finite potion use is active on slot 0
+   - potion stacks, heal/resource effects and enemy-turn consumption are wired
+   - next: tune potion availability/effect values from playtesting and add additional consumables only when needed
 
 5. **Floor objectives**
    - exit
@@ -1901,7 +1939,8 @@ Before changing layout conventions, remember the user's current preferences:
 - minimap belongs in the lower-right run panel and respects Fog of War instead of revealing unexplored rooms;
 - fog should not show dotted borders;
 - item tooltips should show GoblinArcade stats, not WoW stats;
-- dungeon-created equipment/consumables are defined in Studio Items and referenced by Studio Loot Tables; explicit Studio item stats are authoritative, while real WoW gear still uses ItemGenerator/WeaponGenerator conversion;
+- dungeon-created equipment/consumables are defined in Studio Items and referenced by Studio Loot Tables; explicit Studio item stats and Price (Copper) are authoritative, while real WoW gear still uses ItemGenerator/WeaponGenerator conversion;
+- action slot 0 is the finite Potion slot: it uses real backpack Potion consumables, consumes one stack and one player turn, then advances the enemy phase;
 - all GoblinArcade HP and damage values use the global 10:1 compression; do not restore the older large-number scale;
 - GoblinArcade Studio stays static-first; the only backend is the on-demand publish request, so avoid database/always-on Vercel spend;
 - Warrior ability names and minimum unlock levels should track the current Forever spellbook rather than invented class skills;

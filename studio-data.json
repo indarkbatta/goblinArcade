@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 3,
-  "studioVersion": "1.2.0",
+  "schemaVersion": 4,
+  "studioVersion": "1.3.0",
   "classes": [
     {
       "id": "warrior",
@@ -839,6 +839,18 @@
       "powerMultiplier": 1.15,
       "quantity": 1,
       "enabled": "YES"
+    },
+    {
+      "id": "treasure_minor_healing_potion",
+      "itemId": "minor_healing_potion",
+      "source": "TREASURE",
+      "minFloor": 1,
+      "maxFloor": 9,
+      "weight": 35,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
     }
   ],
   "shrines": [
@@ -975,7 +987,8 @@
       "traitDescription": "+0.5% Dodge and +0.5% Critical Strike.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Warm wax hums faintly in your palm."
+      "description": "Warm wax hums faintly in your palm.",
+      "price": 750
     },
     {
       "id": "waxbound_ring",
@@ -1002,7 +1015,8 @@
       "traitDescription": "+0.6% Critical Strike.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "A crude ring sealed with kobold wax."
+      "description": "A crude ring sealed with kobold wax.",
+      "price": 650
     },
     {
       "id": "minor_healing_potion",
@@ -1029,7 +1043,8 @@
       "traitDescription": "",
       "consumableEffect": "HEAL_PERCENT",
       "effectValue": 25,
-      "description": "Restores 25% of maximum HP when consumed. Runtime potion use is the next gameplay block."
+      "description": "Restores 25% of maximum HP when consumed. Runtime potion use is the next gameplay block.",
+      "price": 100
     }
   ]
 }

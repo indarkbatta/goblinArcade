@@ -454,6 +454,21 @@ local function GetQualityColor(quality)
     return color[1], color[2], color[3]
 end
 
+local function FormatCopperValue(copper)
+    copper = math.max(0, math.floor(tonumber(copper) or 0))
+    local gold = math.floor(copper / 10000)
+    local silver = math.floor((copper % 10000) / 100)
+    local remainingCopper = copper % 100
+
+    if gold > 0 then
+        return string.format("%dg %ds %dc", gold, silver, remainingCopper)
+    end
+    if silver > 0 then
+        return string.format("%ds %dc", silver, remainingCopper)
+    end
+    return string.format("%dc", remainingCopper)
+end
+
 local function AddArcadeConversionToTooltip(item)
     if not item then
         return
@@ -483,6 +498,9 @@ local function AddArcadeConversionToTooltip(item)
             GameTooltip:AddLine(" ")
             GameTooltip:AddLine(weapon.traitName, 1, 0.72, 0.12)
             GameTooltip:AddLine(weapon.traitDescription or "", 0.82, 0.79, 0.72, true)
+        end
+        if item.price ~= nil then
+            GameTooltip:AddLine("Value " .. FormatCopperValue(item.price), 1.00, 0.82, 0.20)
         end
 
         return
@@ -516,6 +534,9 @@ local function AddArcadeConversionToTooltip(item)
             GameTooltip:AddLine(converted.traitName, 1, 0.72, 0.12)
             GameTooltip:AddLine(converted.traitDescription or "", 0.82, 0.79, 0.72, true)
         end
+        if item.price ~= nil then
+            GameTooltip:AddLine("Value " .. FormatCopperValue(item.price), 1.00, 0.82, 0.20)
+        end
 
         return
     end
@@ -539,9 +560,15 @@ local function AddArcadeConversionToTooltip(item)
                 0.75, 0.75, 0.75
             )
         end
+        if item.price ~= nil then
+            GameTooltip:AddLine("Value " .. FormatCopperValue(item.price), 1.00, 0.82, 0.20)
+        end
         return
     end
 
+    if item.price ~= nil then
+        GameTooltip:AddLine("Value " .. FormatCopperValue(item.price), 1.00, 0.82, 0.20)
+    end
     GameTooltip:AddLine("No GoblinArcade conversion available.", 0.60, 0.58, 0.54, true)
 end
 
@@ -573,6 +600,11 @@ local function CreateItemSlot(parent, size)
     icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
     icon:SetAlpha(0.22)
     button.icon = icon
+
+    local countText = CreateText(button, "GameFontNormalSmall", "")
+    countText:SetPoint("BOTTOMRIGHT", -4, 3)
+    countText:SetTextColor(1, 1, 1)
+    button.countText = countText
 
     button:SetScript("OnEnter", ShowItemTooltip)
     button:SetScript("OnLeave", function()
@@ -790,9 +822,14 @@ function GA:RefreshCharacterSheet()
         if item then
             button.icon:SetTexture(item.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
             button.icon:SetAlpha(1)
+            if button.countText then
+                local count = math.max(1, math.floor(tonumber(item.stackCount) or 1))
+                button.countText:SetText(count > 1 and tostring(count) or "")
+            end
         else
             button.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
             button.icon:SetAlpha(0.16)
+            if button.countText then button.countText:SetText("") end
         end
     end
 
@@ -803,9 +840,14 @@ function GA:RefreshCharacterSheet()
         if item then
             button.icon:SetTexture(item.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
             button.icon:SetAlpha(1)
+            if button.countText then
+                local count = math.max(1, math.floor(tonumber(item.stackCount) or 1))
+                button.countText:SetText(count > 1 and tostring(count) or "")
+            end
         else
             button.icon:SetTexture("Interface\\Icons\\INV_Misc_Bag_10")
             button.icon:SetAlpha(0.12)
+            if button.countText then button.countText:SetText("") end
         end
     end
 end

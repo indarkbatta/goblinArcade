@@ -3,7 +3,7 @@ local _, GA = ...
 GA.ItemDatabase = GA.ItemDatabase or {}
 local DB = GA.ItemDatabase
 
-DB.VERSION = 1
+DB.VERSION = 2
 
 local SLOT_LABELS = {
     INVTYPE_HEAD = "Head",
@@ -135,6 +135,7 @@ function DB:BuildItemInstance(itemId, options)
         itemLevel = itemLevel,
         quality = math.max(0, math.floor(tonumber(definition.quality) or 1)),
         requiredLevel = math.max(1, math.floor(tonumber(definition.requiredLevel) or 1)),
+        price = math.max(0, math.floor(tonumber(definition.price) or 0)),
         allowedClasses = tostring(definition.allowedClasses or "ANY"),
         category = category,
         itemSubType = definition.itemSubType or category,
