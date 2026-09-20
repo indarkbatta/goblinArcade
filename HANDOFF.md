@@ -3,9 +3,32 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.55.0**  
+Current addon version: **0.56.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.56.0 — independent difficulty + Hardcore modes
+
+- Hardcore/permadeath and combat difficulty are now **independent settings**.
+- Difficulty choices:
+  - **Easy**: enemy HP ×0.85, enemy damage ×0.85, score ×0.80.
+  - **Normal**: enemy HP ×1.00, enemy damage ×1.00, score ×1.00.
+  - **Hard**: enemy HP ×1.12, enemy damage ×1.10, score ×1.25.
+- Normal keeps the accepted 0.55.0 baseline unchanged.
+- Difficulty does **not** change XP, Copper rewards, loot tables, potion drops or shop prices.
+- Headless Warrior audit (2,500 runs per build/scenario) produced:
+  - Easy PRESSURE completion ≈ **84.5% shield / 84.9% 2H**.
+  - Normal PRESSURE completion ≈ **71.7% shield / 72.5% 2H**.
+  - Hard PRESSURE completion ≈ **39.2% shield / 45.0% 2H**.
+  - Floor 6 shop affordability stayed around **3.3–3.4 / 4** offers on every difficulty.
+  - End-of-run temporary level stayed around **12** on every difficulty.
+- Character creator now separates **PERMADEATH** (Standard / Hardcore) from **DIFFICULTY** (Easy / Normal / Hard).
+- Difficulty can also be changed from the selected-hero panel before a run, including for cached WoW characters and older generated heroes.
+- Difficulty cannot be changed while a run is active or saved; suspended runs preserve their original difficulty.
+- Existing characters migrate to **Normal** automatically.
+- Run metadata, saved runs, enemy generation, run summary and score calculation now persist/use the selected difficulty.
+- EnemyGenerator version = **10**.
+- Automated balance workflow now audits Easy, Normal and Hard in parallel.
 
 ## 0.55.0 — automated Warrior balance pass
 
@@ -2206,7 +2229,7 @@ Level 60 → 1.15x
 
 This pressure is intentionally mild. Leveling a character must not feel like punishment, but a level-60 character should not face exactly the same relative difficulty as a level-1 character.
 
-**Implementation status: active; current EnemyGenerator is v9 after the 0.55.0 automated balance pass.**
+**Implementation status: active; current EnemyGenerator is v10 after the 0.56.0 difficulty pass.**
 
 ### Floor progression pressure
 
