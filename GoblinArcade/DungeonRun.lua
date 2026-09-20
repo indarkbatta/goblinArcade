@@ -1431,6 +1431,113 @@ local function CreateGrid(parent)
     return grid
 end
 
+local function GetSetupItemQualityColor(quality)
+    local q = tonumber(quality) or 1
+    local color = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
+    if color then
+        return color.r or 1, color.g or 1, color.b or 1
+    end
+
+    local fallback = {
+        [0] = { 0.62, 0.62, 0.62 },
+        [1] = { 1.00, 1.00, 1.00 },
+        [2] = { 0.12, 1.00, 0.00 },
+        [3] = { 0.00, 0.44, 0.87 },
+        [4] = { 0.64, 0.21, 0.93 },
+        [5] = { 1.00, 0.50, 0.00 },
+        [6] = { 0.90, 0.80, 0.50 },
+        [7] = { 0.00, 0.80, 1.00 },
+    }
+    local rgb = fallback[q] or fallback[1]
+    return rgb[1], rgb[2], rgb[3]
+end
+
+local function GetSetupWeaponSlotLabel(item)
+    local equipLoc = item and item.equipLoc
+    if equipLoc == "INVTYPE_2HWEAPON" then return "Two-Hand" end
+    if equipLoc == "INVTYPE_WEAPONMAINHAND" then return "Main Hand" end
+    if equipLoc == "INVTYPE_WEAPONOFFHAND" then return "Off Hand" end
+    if equipLoc == "INVTYPE_RANGED" or equipLoc == "INVTYPE_RANGEDRIGHT" then return "Ranged" end
+    return "One-Hand"
+end
+
+local function GetSetupWeaponTypeLabel(item, weapon)
+    local subtype = item and item.itemSubType
+    if subtype and subtype ~= "" then return subtype end
+
+    local style = weapon and tostring(weapon.style or "")
+    if style == "" then return "Weapon" end
+    return style:sub(1, 1):upper() .. style:sub(2):lower()
+end
+
+local function GetSetupWeaponSpeedSeconds(weapon)
+    local speedKey = string.upper(tostring(weapon and weapon.speed or "NORMAL"))
+    return GA.WEAPON_SPEED_SECONDS and GA.WEAPON_SPEED_SECONDS[speedKey] or 2.4
+end
+
+local function ShowSetupWeaponTooltip(button)
+    local item = button and button.gaItem
+    local weapon = button and button.gaWeapon
+    if not item or not weapon then return end
+
+    local r, g, b = GetSetupItemQualityColor(item.quality)
+    local name = item.name or weapon.sourceName or "Weapon"
+    local itemLevel = tonumber(item.itemLevel or weapon.itemLevel) or 1
+    local slotLabel = GetSetupWeaponSlotLabel(item)
+    local typeLabel = GetSetupWeaponTypeLabel(item, weapon)
+    local speed = GetSetupWeaponSpeedSeconds(weapon)
+
+    GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+    GameTooltip:SetText(name, r, g, b)
+    GameTooltip:AddLine("Item Level " .. tostring(itemLevel), 1.00, 0.82, 0.20)
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddDoubleLine(slotLabel, typeLabel, 1, 1, 1, 1, 1, 1)
+    GameTooltip:AddDoubleLine(
+        string.format("%d - %d Damage", tonumber(weapon.damageMin) or 0, tonumber(weapon.damageMax) or 0),
+        string.format("Speed %.2f", speed),
+        1, 1, 1,
+        1, 1, 1
+    )
+    GameTooltip:AddLine(string.format("Range %d", tonumber(weapon.range) or 1), 1, 1, 1)
+
+    if (tonumber(weapon.attackPower) or 0) > 0 then
+        GameTooltip:AddLine(string.format("+%d Attack Power", tonumber(weapon.attackPower) or 0), 0.15, 1.00, 0.15)
+    end
+
+    if weapon.traitName then
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine("Equip: " .. tostring(weapon.traitName), 0.15, 1.00, 0.15)
+        if weapon.traitDescription and weapon.traitDescription ~= "" then
+            GameTooltip:AddLine(weapon.traitDescription, 0.15, 1.00, 0.15, true)
+        end
+    end
+
+    if item.buildProfile and item.buildProfile ~= "" and item.buildProfile ~= "NONE" then
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine("Build: " .. tostring(item.buildProfile), 1.00, 0.82, 0.20)
+    end
+
+    if (tonumber(item.requiredLevel) or 1) > 1 then
+        GameTooltip:AddLine(
+            string.format("Requires Run Level %d", tonumber(item.requiredLevel) or 1),
+            1.00, 0.35, 0.30
+        )
+    end
+
+    if item.baselineLocked then
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine("Baseline item - locked to this hero", 0.62, 0.62, 0.62)
+    elseif item.loadoutOverride or item.stashEligible then
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine("Extracted loadout item", 0.35, 0.85, 1.00)
+    end
+
+    if item.price ~= nil then
+        GameTooltip:AddLine("Sell value " .. FormatCopperValue(math.floor((tonumber(item.price) or 0) * 0.5)), 1.00, 0.82, 0.20)
+    end
+    GameTooltip:Show()
+end
+
 function GA:CreateDungeonRunPage(parent)
     local page = CreateFrame("Frame", nil, parent)
     page:SetAllPoints(parent)
@@ -2361,59 +2468,75 @@ function GA:CreateDungeonRunPage(parent)
     ApplyBackdrop(setup, { 0.040, 0.034, 0.027, 1 }, COLORS.goldDim)
     self.DungeonSetupFrame = setup
 
-    local setupTitle = CreateText(setup, "GameFontNormalHuge", "DUNGEON RUN")
-    setupTitle:SetPoint("TOPLEFT", 26, -22)
+    local setupContent = CreateFrame("Frame", nil, setup)
+    setupContent:SetSize(900, 650)
+    setupContent:SetPoint("TOP", setup, "TOP", 0, -22)
+    self.DungeonSetupContent = setupContent
+
+    local setupTitle = CreateText(setupContent, "GameFontNormalHuge", "DUNGEON RUN")
+    setupTitle:SetPoint("TOPLEFT", 0, 0)
     setupTitle:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
-    local setupSubtitle = CreateText(setup, "GameFontNormal", "CHOOSE A HERO")
+    local setupSubtitle = CreateText(setupContent, "GameFontNormal", "CHOOSE A HERO")
     setupSubtitle:SetPoint("TOPLEFT", setupTitle, "BOTTOMLEFT", 0, -10)
     setupSubtitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
-    local setupHint = CreateText(setup, "GameFontHighlightSmall",
-        "Choose a hero, enter the dungeon, and extract found gear into the account-wide Central Stash by completing the run.")
+    local setupHint = CreateText(
+        setupContent,
+        "GameFontHighlightSmall",
+        "Choose a hero, enter the dungeon, and extract found gear into the account-wide Central Stash by completing the run."
+    )
     setupHint:SetPoint("TOPLEFT", setupSubtitle, "BOTTOMLEFT", 0, -8)
-    setupHint:SetWidth(670)
+    setupHint:SetWidth(625)
     setupHint:SetJustifyH("LEFT")
     setupHint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    local stashButton = CreateFlatButton(setup, "CENTRAL STASH", 170, 34)
-    stashButton:SetPoint("TOPRIGHT", -26, -24)
+    local stashButton = CreateFlatButton(setupContent, "CENTRAL STASH  0", 220, 44)
+    stashButton:SetPoint("TOPRIGHT", 0, -2)
+    stashButton.label:ClearAllPoints()
+    stashButton.label:SetPoint("CENTER", 13, 0)
+    local stashButtonIcon = stashButton:CreateTexture(nil, "ARTWORK")
+    stashButtonIcon:SetSize(26, 26)
+    stashButtonIcon:SetPoint("LEFT", 16, 0)
+    stashButtonIcon:SetTexture("Interface\\Icons\\INV_Misc_Bag_10")
+    stashButtonIcon:SetTexCoord(0.06, 0.94, 0.06, 0.94)
+    stashButton.icon = stashButtonIcon
     stashButton:SetScript("OnClick", function()
         GA:OpenCentralStash()
     end)
     self.DungeonCentralStashButton = stashButton
 
-    local rosterPanel = CreateFrame("Frame", nil, setup, "BackdropTemplate")
-    rosterPanel:SetPoint("TOPLEFT", 26, -112)
-    rosterPanel:SetSize(330, 392)
+    local rosterPanel = CreateFrame("Frame", nil, setupContent, "BackdropTemplate")
+    rosterPanel:SetPoint("TOPLEFT", setupContent, "TOPLEFT", 0, -116)
+    rosterPanel:SetSize(410, 480)
     ApplyBackdrop(rosterPanel, { 0.050, 0.043, 0.034, 1 }, COLORS.goldDim)
     rosterPanel:EnableMouseWheel(true)
     self.DungeonRosterPanel = rosterPanel
 
     local rosterTitle = CreateText(rosterPanel, "GameFontNormalSmall", "CHARACTERS")
-    rosterTitle:SetPoint("TOPLEFT", 12, -12)
+    rosterTitle:SetPoint("TOPLEFT", 14, -14)
     rosterTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
     self.DungeonCharacterRows = {}
     for i = 1, 6 do
         local row = CreateFrame("Button", nil, rosterPanel, "BackdropTemplate")
-        row:SetSize(304, 50)
-        row:SetPoint("TOPLEFT", 12, -38 - ((i - 1) * 56))
+        row:SetSize(380, 56)
+        row:SetPoint("TOPLEFT", 14, -42 - ((i - 1) * 62))
         ApplyBackdrop(row, { 0.060, 0.052, 0.042, 1 }, COLORS.goldDim)
 
         local icon = row:CreateTexture(nil, "ARTWORK")
-        icon:SetSize(36, 36)
+        icon:SetSize(42, 42)
         icon:SetPoint("LEFT", 7, 0)
 
         local nameText = CreateText(row, "GameFontNormal", "")
-        nameText:SetPoint("TOPLEFT", 52, -8)
-        nameText:SetPoint("RIGHT", -8, 0)
+        nameText:SetPoint("TOPLEFT", 58, -9)
+        nameText:SetPoint("RIGHT", -10, 0)
         nameText:SetJustifyH("LEFT")
         nameText:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
         local metaText = CreateText(row, "GameFontHighlightSmall", "")
-        metaText:SetPoint("BOTTOMLEFT", 52, 8)
-        metaText:SetPoint("RIGHT", -8, 0)
+        metaText:SetPoint("BOTTOMLEFT", 58, 9)
+        metaText:SetPoint("RIGHT", -10, 0)
         metaText:SetJustifyH("LEFT")
         metaText:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
@@ -2438,17 +2561,18 @@ function GA:CreateDungeonRunPage(parent)
         GA:RefreshDungeonCharacterSelection()
     end)
 
-    local selectedPanel = CreateFrame("Frame", nil, setup, "BackdropTemplate")
-    selectedPanel:SetPoint("TOPLEFT", rosterPanel, "TOPRIGHT", 14, 0)
-    selectedPanel:SetSize(330, 392)
+    local selectedPanel = CreateFrame("Frame", nil, setupContent, "BackdropTemplate")
+    selectedPanel:SetPoint("TOPLEFT", rosterPanel, "TOPRIGHT", 20, 0)
+    selectedPanel:SetSize(470, 480)
     ApplyBackdrop(selectedPanel, { 0.050, 0.043, 0.034, 1 }, COLORS.goldDim)
+    self.DungeonSelectedPanel = selectedPanel
 
     local selectedTitle = CreateText(selectedPanel, "GameFontNormalSmall", "SELECTED HERO")
     selectedTitle:SetPoint("TOPLEFT", 16, -14)
     selectedTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
     local selectedIconBorder = CreateFrame("Frame", nil, selectedPanel, "BackdropTemplate")
-    selectedIconBorder:SetSize(82, 82)
+    selectedIconBorder:SetSize(76, 76)
     selectedIconBorder:SetPoint("TOPLEFT", 16, -42)
     ApplyBackdrop(selectedIconBorder, { 0.02, 0.02, 0.02, 1 }, COLORS.gold)
 
@@ -2458,7 +2582,7 @@ function GA:CreateDungeonRunPage(parent)
     self.DungeonSelectedCharacterIcon = selectedIcon
 
     local selectedName = CreateText(selectedPanel, "GameFontNormalLarge", "")
-    selectedName:SetPoint("TOPLEFT", selectedIconBorder, "TOPRIGHT", 14, -7)
+    selectedName:SetPoint("TOPLEFT", selectedIconBorder, "TOPRIGHT", 14, -4)
     selectedName:SetPoint("RIGHT", -16, 0)
     selectedName:SetJustifyH("LEFT")
     selectedName:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
@@ -2472,49 +2596,115 @@ function GA:CreateDungeonRunPage(parent)
     self.DungeonSelectedCharacterMeta = selectedMeta
 
     local selectedSource = CreateText(selectedPanel, "GameFontDisableSmall", "")
-    selectedSource:SetPoint("TOPLEFT", selectedMeta, "BOTTOMLEFT", 0, -8)
+    selectedSource:SetPoint("TOPLEFT", selectedMeta, "BOTTOMLEFT", 0, -7)
     selectedSource:SetPoint("RIGHT", -16, 0)
     selectedSource:SetJustifyH("LEFT")
     selectedSource:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
     self.DungeonSelectedCharacterSource = selectedSource
 
-    local loadoutTitle = CreateText(selectedPanel, "GameFontNormalSmall", "RUN LOADOUT  -  BASELINE + STASH")
-    loadoutTitle:SetPoint("TOPLEFT", 16, -146)
+    local loadoutTitle = CreateText(selectedPanel, "GameFontNormalSmall", "RUN LOADOUT")
+    loadoutTitle:SetPoint("TOPLEFT", 16, -136)
     loadoutTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
-    local loadoutWeapon = CreateText(selectedPanel, "GameFontNormal", "")
-    loadoutWeapon:SetPoint("TOPLEFT", 16, -174)
-    loadoutWeapon:SetPoint("RIGHT", -16, 0)
+    local weaponCard = CreateFrame("Button", nil, selectedPanel, "BackdropTemplate")
+    weaponCard:SetSize(438, 154)
+    weaponCard:SetPoint("TOPLEFT", 16, -158)
+    ApplyBackdrop(weaponCard, { 0.028, 0.024, 0.020, 1 }, COLORS.goldDim)
+    weaponCard:SetScript("OnEnter", function(button)
+        button:SetBackdropBorderColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 1)
+        ShowSetupWeaponTooltip(button)
+    end)
+    weaponCard:SetScript("OnLeave", function(button)
+        button:SetBackdropBorderColor(COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 1)
+        GameTooltip:Hide()
+    end)
+    self.DungeonSelectedWeaponCard = weaponCard
+
+    local weaponIconBorder = CreateFrame("Frame", nil, weaponCard, "BackdropTemplate")
+    weaponIconBorder:SetSize(58, 58)
+    weaponIconBorder:SetPoint("TOPLEFT", 12, -12)
+    ApplyBackdrop(weaponIconBorder, { 0.018, 0.016, 0.014, 1 }, COLORS.goldDim)
+
+    local weaponIcon = weaponIconBorder:CreateTexture(nil, "ARTWORK")
+    weaponIcon:SetPoint("TOPLEFT", 2, -2)
+    weaponIcon:SetPoint("BOTTOMRIGHT", -2, 2)
+    weaponIcon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+    weaponIcon:SetTexCoord(0.06, 0.94, 0.06, 0.94)
+    self.DungeonSelectedWeaponIcon = weaponIcon
+
+    local loadoutWeapon = CreateText(weaponCard, "GameFontNormal", "")
+    loadoutWeapon:SetPoint("TOPLEFT", weaponIconBorder, "TOPRIGHT", 10, -1)
+    loadoutWeapon:SetPoint("RIGHT", -12, 0)
     loadoutWeapon:SetJustifyH("LEFT")
-    loadoutWeapon:SetWordWrap(true)
+    loadoutWeapon:SetWordWrap(false)
     loadoutWeapon:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
     self.DungeonSelectedWeaponName = loadoutWeapon
 
-    local loadoutStats = CreateText(selectedPanel, "GameFontHighlightSmall", "")
-    loadoutStats:SetPoint("TOPLEFT", loadoutWeapon, "BOTTOMLEFT", 0, -8)
-    loadoutStats:SetPoint("RIGHT", -16, 0)
+    local weaponItemLevel = CreateText(weaponCard, "GameFontHighlightSmall", "")
+    weaponItemLevel:SetPoint("TOPLEFT", loadoutWeapon, "BOTTOMLEFT", 0, -5)
+    weaponItemLevel:SetPoint("RIGHT", -12, 0)
+    weaponItemLevel:SetJustifyH("LEFT")
+    weaponItemLevel:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    self.DungeonSelectedWeaponItemLevel = weaponItemLevel
+
+    local weaponType = CreateText(weaponCard, "GameFontHighlightSmall", "")
+    weaponType:SetPoint("TOPLEFT", weaponItemLevel, "BOTTOMLEFT", 0, -5)
+    weaponType:SetPoint("RIGHT", -12, 0)
+    weaponType:SetJustifyH("LEFT")
+    weaponType:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+    self.DungeonSelectedWeaponType = weaponType
+
+    local loadoutStats = CreateText(weaponCard, "GameFontNormalSmall", "")
+    loadoutStats:SetPoint("TOPLEFT", 12, -82)
+    loadoutStats:SetPoint("RIGHT", -12, 0)
     loadoutStats:SetJustifyH("LEFT")
-    loadoutStats:SetWordWrap(true)
-    loadoutStats:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    loadoutStats:SetWordWrap(false)
+    loadoutStats:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
     self.DungeonSelectedWeaponStats = loadoutStats
 
-    local loadoutTrait = CreateText(selectedPanel, "GameFontNormalSmall", "")
-    loadoutTrait:SetPoint("TOPLEFT", loadoutStats, "BOTTOMLEFT", 0, -14)
-    loadoutTrait:SetPoint("RIGHT", -16, 0)
+    local weaponPower = CreateText(weaponCard, "GameFontHighlightSmall", "")
+    weaponPower:SetPoint("TOPLEFT", loadoutStats, "BOTTOMLEFT", 0, -5)
+    weaponPower:SetPoint("RIGHT", -12, 0)
+    weaponPower:SetJustifyH("LEFT")
+    weaponPower:SetTextColor(0.25, 1.00, 0.35)
+    self.DungeonSelectedWeaponPower = weaponPower
+
+    local loadoutTrait = CreateText(weaponCard, "GameFontHighlightSmall", "")
+    loadoutTrait:SetPoint("TOPLEFT", weaponPower, "BOTTOMLEFT", 0, -5)
+    loadoutTrait:SetPoint("RIGHT", -12, 0)
     loadoutTrait:SetJustifyH("LEFT")
-    loadoutTrait:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    loadoutTrait:SetWordWrap(true)
+    loadoutTrait:SetTextColor(0.25, 1.00, 0.35)
     self.DungeonSelectedWeaponTrait = loadoutTrait
 
-    local selectedNote = CreateText(selectedPanel, "GameFontDisableSmall",
-        "To refresh an alt's gear, log into that character once and open GoblinArcade.")
-    selectedNote:SetPoint("BOTTOMLEFT", 16, 76)
-    selectedNote:SetPoint("RIGHT", -16, 0)
+    local statusPanel = CreateFrame("Frame", nil, selectedPanel, "BackdropTemplate")
+    statusPanel:SetSize(438, 82)
+    statusPanel:SetPoint("TOPLEFT", 16, -324)
+    ApplyBackdrop(statusPanel, { 0.032, 0.028, 0.023, 1 }, COLORS.goldDim)
+    self.DungeonSelectedStatusPanel = statusPanel
+
+    local statusTitle = CreateText(statusPanel, "GameFontNormalSmall", "HERO STATUS")
+    statusTitle:SetPoint("TOPLEFT", 12, -10)
+    statusTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    self.DungeonSelectedStatusTitle = statusTitle
+
+    local selectedNote = CreateText(
+        statusPanel,
+        "GameFontDisableSmall",
+        "To refresh an alt's gear, log into that character once and open GoblinArcade."
+    )
+    selectedNote:SetPoint("TOPLEFT", 12, -31)
+    selectedNote:SetPoint("RIGHT", -12, 0)
     selectedNote:SetJustifyH("LEFT")
+    selectedNote:SetJustifyV("TOP")
     selectedNote:SetWordWrap(true)
     selectedNote:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
     self.DungeonSelectedNote = selectedNote
 
-    local setupBegin = CreateFlatButton(selectedPanel, "BEGIN RUN", 180, 42)
+    local actionButtonWidth = 212
+    local actionButtonHeight = 42
+
+    local setupBegin = CreateFlatButton(selectedPanel, "BEGIN RUN", actionButtonWidth, actionButtonHeight)
     setupBegin:SetPoint("BOTTOMRIGHT", -16, 16)
     setupBegin:SetEnabled(false)
     setupBegin.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
@@ -2523,8 +2713,8 @@ function GA:CreateDungeonRunPage(parent)
     end)
     self.DungeonSetupBeginButton = setupBegin
 
-    local deleteHero = CreateFlatButton(selectedPanel, "DELETE HERO", 112, 34)
-    deleteHero:SetPoint("BOTTOMLEFT", 16, 20)
+    local deleteHero = CreateFlatButton(selectedPanel, "DELETE HERO", actionButtonWidth, actionButtonHeight)
+    deleteHero:SetPoint("BOTTOMLEFT", 16, 16)
     deleteHero:SetScript("OnClick", function()
         local selected = GA:GetSelectedDungeonCharacter()
         if not selected or not (selected.isArcadeGenerated or selected.sourceType == "arcade") then
@@ -2545,8 +2735,8 @@ function GA:CreateDungeonRunPage(parent)
     deleteHero:Hide()
     self.DungeonDeleteHeroButton = deleteHero
 
-    local abandonSaved = CreateFlatButton(selectedPanel, "ABANDON SAVED", 112, 34)
-    abandonSaved:SetPoint("BOTTOMLEFT", 16, 20)
+    local abandonSaved = CreateFlatButton(selectedPanel, "ABANDON SAVED", actionButtonWidth, actionButtonHeight)
+    abandonSaved:SetPoint("BOTTOMLEFT", 16, 16)
     abandonSaved:SetScript("OnClick", function()
         local selected = GA:GetSelectedDungeonCharacter()
         if not selected or not GA.HasSuspendedRun or not GA:HasSuspendedRun(selected.key) then
@@ -3715,39 +3905,114 @@ function GA:RefreshDungeonCharacterSelection()
     local weapon = effectiveMainHand and effectiveMainHand.arcadeWeapon
         and CopyTable(effectiveMainHand.arcadeWeapon)
         or ResolveCharacterWeapon(self, selected)
+    local displayItem = effectiveMainHand
+    if not displayItem and weapon then
+        displayItem = {
+            name = selected.weaponName or weapon.sourceName or "Cached main hand",
+            icon = selected.weaponIcon,
+            itemLevel = selected.weaponItemLevel or weapon.itemLevel or 1,
+            quality = selected.weaponQuality or weapon.quality or 1,
+            itemSubType = selected.weaponSubtype or weapon.style,
+            equipLoc = "INVTYPE_WEAPONMAINHAND",
+            baselineLocked = true,
+        }
+    end
+
+    if self.DungeonSelectedStatusTitle then
+        if savedRun then
+            self.DungeonSelectedStatusTitle:SetText("SAVED RUN")
+            self.DungeonSelectedStatusTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+            self.DungeonSelectedStatusPanel:SetBackdropBorderColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 1)
+        elseif selected.dead and selected.hardcore then
+            self.DungeonSelectedStatusTitle:SetText("HARDCORE MEMORIAL")
+            self.DungeonSelectedStatusTitle:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+            self.DungeonSelectedStatusPanel:SetBackdropBorderColor(COLORS.red[1], COLORS.red[2], COLORS.red[3], 1)
+        else
+            self.DungeonSelectedStatusTitle:SetText("HERO STATUS")
+            self.DungeonSelectedStatusTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+            self.DungeonSelectedStatusPanel:SetBackdropBorderColor(
+                COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 1
+            )
+        end
+    end
+
+    if self.DungeonSelectedWeaponCard then
+        self.DungeonSelectedWeaponCard.gaItem = displayItem
+        self.DungeonSelectedWeaponCard.gaWeapon = weapon
+    end
+
     if selected.dead and selected.hardcore then
-        self.DungeonSelectedWeaponName:SetText("This Hardcore hero is dead")
-        self.DungeonSelectedWeaponStats:SetText("Permanent death: no further Dungeon Runs are allowed.")
+        self.DungeonSelectedWeaponIcon:SetTexture("Interface\\Icons\\Ability_Rogue_FeignDeath")
+        self.DungeonSelectedWeaponIcon:SetAlpha(0.35)
+        self.DungeonSelectedWeaponName:SetText("No active loadout")
+        self.DungeonSelectedWeaponName:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+        self.DungeonSelectedWeaponItemLevel:SetText("")
+        self.DungeonSelectedWeaponType:SetText("Hardcore hero - permanently dead")
+        self.DungeonSelectedWeaponStats:SetText("")
+        self.DungeonSelectedWeaponPower:SetText("")
         self.DungeonSelectedWeaponTrait:SetText("")
         self.DungeonSetupBeginButton:SetEnabled(false)
         self.DungeonSetupBeginButton.label:SetText("DEAD")
         self.DungeonSetupBeginButton.label:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
     elseif not classReady then
+        self.DungeonSelectedWeaponIcon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+        self.DungeonSelectedWeaponIcon:SetAlpha(0.25)
         self.DungeonSelectedWeaponName:SetText((selected.className or "This class") .. " is not implemented yet")
-        self.DungeonSelectedWeaponStats:SetText("Choose a READY class or create an Arcade hero.")
+        self.DungeonSelectedWeaponName:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+        self.DungeonSelectedWeaponItemLevel:SetText("")
+        self.DungeonSelectedWeaponType:SetText("Choose a READY class or create an Arcade hero.")
+        self.DungeonSelectedWeaponStats:SetText("")
+        self.DungeonSelectedWeaponPower:SetText("")
         self.DungeonSelectedWeaponTrait:SetText("")
         self.DungeonSetupBeginButton:SetEnabled(false)
         self.DungeonSetupBeginButton.label:SetText("CLASS NOT READY")
         self.DungeonSetupBeginButton.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
     elseif weapon then
-        self.DungeonSelectedWeaponName:SetText(
-            (effectiveMainHand and effectiveMainHand.name)
+        local itemName = displayItem and displayItem.name
             or selected.weaponName
             or weapon.sourceName
             or "Cached main hand"
+        local itemLevel = tonumber(displayItem and displayItem.itemLevel or selected.weaponItemLevel or weapon.itemLevel) or 1
+        local quality = tonumber(displayItem and displayItem.quality or selected.weaponQuality or weapon.quality) or 1
+        local qualityR, qualityG, qualityB = GetSetupItemQualityColor(quality)
+        local speedSeconds = GetSetupWeaponSpeedSeconds(weapon)
+        local slotLabel = GetSetupWeaponSlotLabel(displayItem)
+        local typeLabel = GetSetupWeaponTypeLabel(displayItem, weapon)
+        local attackPower = tonumber(weapon.attackPower) or 0
+
+        self.DungeonSelectedWeaponIcon:SetTexture(
+            (displayItem and displayItem.icon)
+            or selected.weaponIcon
+            or "Interface\\Icons\\INV_Misc_QuestionMark"
         )
+        self.DungeonSelectedWeaponIcon:SetAlpha(1)
+        self.DungeonSelectedWeaponName:SetText(itemName)
+        self.DungeonSelectedWeaponName:SetTextColor(qualityR, qualityG, qualityB)
+        self.DungeonSelectedWeaponItemLevel:SetText("Item Level " .. tostring(itemLevel))
+        self.DungeonSelectedWeaponType:SetText(slotLabel .. "  -  " .. typeLabel)
         self.DungeonSelectedWeaponStats:SetText(string.format(
-            "%s  -  Damage %d-%d  -  %s  -  Range %d",
-            weapon.style or "Weapon",
-            weapon.damageMin or 0,
-            weapon.damageMax or 0,
-            weapon.speed or "NORMAL",
-            weapon.range or 1
+            "%d - %d Damage     Speed %.2f     Range %d",
+            tonumber(weapon.damageMin) or 0,
+            tonumber(weapon.damageMax) or 0,
+            speedSeconds,
+            tonumber(weapon.range) or 1
         ))
-        if weapon.traitName then
-            self.DungeonSelectedWeaponTrait:SetText(weapon.traitName .. "  -  " .. (weapon.traitDescription or ""))
+
+        if attackPower > 0 then
+            self.DungeonSelectedWeaponPower:SetText(string.format("+%d Attack Power", attackPower))
+            self.DungeonSelectedWeaponPower:SetTextColor(0.25, 1.00, 0.35)
         else
-            self.DungeonSelectedWeaponTrait:SetText("NO SIGNATURE TRAIT")
+            self.DungeonSelectedWeaponPower:SetText("")
+        end
+
+        if weapon.traitName then
+            self.DungeonSelectedWeaponTrait:SetText(
+                "Equip: " .. tostring(weapon.traitName) .. " - " .. tostring(weapon.traitDescription or "")
+            )
+            self.DungeonSelectedWeaponTrait:SetTextColor(0.25, 1.00, 0.35)
+        else
+            self.DungeonSelectedWeaponTrait:SetText("No special equip effect.")
+            self.DungeonSelectedWeaponTrait:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
         end
 
         self.DungeonSetupBeginButton:SetEnabled(true)
@@ -3755,21 +4020,26 @@ function GA:RefreshDungeonCharacterSelection()
             savedRun and string.format("RESUME FLOOR %d", tonumber(savedRun.floor) or 1) or "BEGIN RUN"
         )
         self.DungeonSetupBeginButton.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
         if savedRun and self.DungeonSelectedNote then
-            self.DungeonSelectedNote:SetText(
-                string.format(
-                    "Saved run: Floor %d, %d/%d HP, Score %d. Loadout is locked until this run is resumed or abandoned.",
-                    tonumber(savedRun.floor) or 1,
-                    tonumber(savedRun.playerHealth) or 0,
-                    tonumber(savedRun.playerMaxHealth) or 0,
-                    tonumber(savedRun.score) or 0
-                )
-            )
+            self.DungeonSelectedNote:SetText(string.format(
+                "Floor %d    HP %d / %d    Score %d\nLoadout locked until this run is resumed or abandoned.",
+                tonumber(savedRun.floor) or 1,
+                tonumber(savedRun.playerHealth) or 0,
+                tonumber(savedRun.playerMaxHealth) or 0,
+                tonumber(savedRun.score) or 0
+            ))
             self.DungeonSelectedNote:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
         end
     else
+        self.DungeonSelectedWeaponIcon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+        self.DungeonSelectedWeaponIcon:SetAlpha(0.25)
         self.DungeonSelectedWeaponName:SetText("No cached main-hand weapon")
-        self.DungeonSelectedWeaponStats:SetText("Log into this character and equip a weapon to sync it.")
+        self.DungeonSelectedWeaponName:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+        self.DungeonSelectedWeaponItemLevel:SetText("")
+        self.DungeonSelectedWeaponType:SetText("Equip a weapon in WoW to sync it.")
+        self.DungeonSelectedWeaponStats:SetText("")
+        self.DungeonSelectedWeaponPower:SetText("")
         self.DungeonSelectedWeaponTrait:SetText("")
         self.DungeonSetupBeginButton:SetEnabled(false)
         self.DungeonSetupBeginButton.label:SetText("NO LOADOUT")

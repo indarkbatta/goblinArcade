@@ -3,9 +3,54 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.48.0**  
+Current addon version: **0.49.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.49.0 — centered character-select UI and WoW-style weapon presentation
+
+- Addon **0.49.0** is a focused presentation pass for the Dungeon Run character-selection screen.
+- The setup UI now uses a fixed **900 px centered content frame** instead of placing the roster against the far-left edge of the full overlay.
+- Character roster and Selected Hero panels are now a balanced two-column composition:
+  - Characters: **410 x 480**;
+  - Selected Hero: **470 x 480**;
+  - 20 px gap;
+  - both panels share the same top alignment and height.
+- Character rows are wider and slightly taller for cleaner name/meta spacing.
+- Central Stash is now a **220 x 44** top-right button inside the centered content header.
+- Central Stash button now includes a real WoW bag icon (`INV_Misc_Bag_10`) and keeps the live stash item count in its label.
+- Selected Hero header spacing was tightened and cleaned up.
+- Run Loadout is now a dedicated **item card** rather than three loose text lines.
+- The visible weapon card shows:
+  - item icon;
+  - quality-colored item name;
+  - item level;
+  - hand/type;
+  - damage;
+  - WoW-like numeric weapon speed;
+  - range;
+  - Attack Power when present;
+  - green `Equip:` trait text.
+- Hovering the weapon card opens a structured WoW-style GameTooltip:
+  - quality-colored name;
+  - Item Level;
+  - hand/type on a double line;
+  - damage and numeric speed on a double line;
+  - range;
+  - Attack Power;
+  - green Equip trait and description;
+  - build profile;
+  - Run Level requirement;
+  - baseline/extracted ownership state;
+  - sell value.
+- Saved-run / hero-state messaging now lives in its own bordered status box instead of floating above the action buttons.
+- Saved runs display Floor, HP and Score in the status box and use a highlighted **SAVED RUN** header.
+- Dead Hardcore heroes use a red **HARDCORE MEMORIAL** status treatment.
+- The two Selected Hero action buttons are now exactly the same size: **212 x 42**.
+  - Left: Delete Hero or Abandon Saved depending on state.
+  - Right: Begin Run / Resume Floor / disabled state.
+- Existing mechanics are unchanged: suspend/resume, Killswitch, Central Stash ownership rules, 100 items, 366 Loot Entries, single Floor 6 Shop, Warrior `HP / Level = 3`.
+- Next major step remains the consumable/supply rule and then the full Warrior Floor 1-9 balance pass.
 
 ## 0.48.0 — active-run exit controls, suspend/resume and Killswitch
 
@@ -2088,7 +2133,7 @@ Deterministic scaling, bounded density, multi-enemy support, three active archet
 
 Recommended order:
 
-**Current priority after 0.48.0:** decide the pre-run consumable/supply rule, then perform the full Warrior Floor 1-9 balance pass before adding more item quantity or starting Rogue.
+**Current priority after 0.49.0:** decide the pre-run consumable/supply rule, then perform the full Warrior Floor 1-9 balance pass before adding more item quantity or starting Rogue.
 
 1. **Studio data migration**
    - configure the two Vercel publish secrets once
