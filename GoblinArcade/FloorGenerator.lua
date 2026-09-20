@@ -3,12 +3,12 @@ local _, GA = ...
 GA.FloorGenerator = GA.FloorGenerator or {}
 local FG = GA.FloorGenerator
 
-FG.VERSION = 3
+FG.VERSION = 4
 
 local DENSITY_PROFILES = {
     {
         key = "QUIET",
-        multiplier = 0.85,
+        multiplier = 0.90,
         minRoll = 1,
         maxRoll = 20,
     },
@@ -20,7 +20,7 @@ local DENSITY_PROFILES = {
     },
     {
         key = "CROWDED",
-        multiplier = 1.15,
+        multiplier = 1.10,
         minRoll = 81,
         maxRoll = 100,
     },
@@ -94,8 +94,8 @@ local RANK_MIXES = {
         minFloor = 3,
         maxFloor = 4,
         weights = {
-            normal = 85,
-            veteran = 15,
+            normal = 80,
+            veteran = 20,
             elite = 0,
         },
     },
@@ -103,27 +103,27 @@ local RANK_MIXES = {
         minFloor = 5,
         maxFloor = 6,
         weights = {
-            normal = 70,
+            normal = 75,
             veteran = 25,
-            elite = 5,
+            elite = 0,
         },
     },
     {
         minFloor = 7,
         maxFloor = 8,
         weights = {
-            normal = 55,
+            normal = 60,
             veteran = 30,
-            elite = 15,
+            elite = 10,
         },
     },
     {
         minFloor = 9,
         maxFloor = 9,
         weights = {
-            normal = 40,
+            normal = 45,
             veteran = 35,
-            elite = 25,
+            elite = 20,
         },
     },
 }
@@ -189,14 +189,28 @@ function FG:RollDensityProfile()
     }
 end
 
-function FG:CalculateBaseEnemyCount(walkableTiles, floor)
-    local walkable = math.max(1, tonumber(walkableTiles) or 1)
-    local floorNumber = math.max(1, tonumber(floor) or 1)
+local FLOOR_BASE_ENEMY_COUNT = {
+    [1] = 6,
+    [2] = 6,
+    [3] = 7,
+    [4] = 7,
+    [5] = 8,
+    [6] = 8,
+    [7] = 9,
+    [8] = 9,
+    [9] = 10,
+}
 
-    return math.max(1, Round(
-        (walkable / 70)
-        * (1 + 0.05 * (floorNumber - 1))
-    ))
+function FG:CalculateBaseEnemyCount(walkableTiles, floor)
+    local floorNumber = math.max(1, math.floor(tonumber(floor) or 1))
+    local base = FLOOR_BASE_ENEMY_COUNT[math.min(9, floorNumber)]
+        or FLOOR_BASE_ENEMY_COUNT[9]
+
+    -- The current dungeon footprint is fixed at 25x25. Keep encounter count
+    -- tied to depth rather than room/corridor RNG so two layouts on the same
+    -- floor remain in the same difficulty band. walkableTiles stays in the
+    -- signature for future map-size scaling.
+    return base
 end
 
 function FG:CalculateEnemyCount(walkableTiles, floor, densityProfile)

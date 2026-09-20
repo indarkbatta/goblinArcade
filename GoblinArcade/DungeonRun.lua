@@ -712,7 +712,7 @@ local function GetStudioShrineChoice(choiceId)
     return nil
 end
 
-local DEFAULT_RUN_XP_CURVE = { 100, 125, 155, 190, 230, 275, 325, 380 }
+local DEFAULT_RUN_XP_CURVE = { 80, 90, 100, 110, 125, 140, 155, 175 }
 
 local RUN_SCORE = {
     ELITE_KILL_BONUS = 100,
@@ -726,9 +726,9 @@ local RUN_SCORE = {
 
 local RUN_COPPER_RANK_MULTIPLIER = {
     normal = 1.00,
-    veteran = 1.50,
-    elite = 2.50,
-    boss = 6.00,
+    veteran = 1.40,
+    elite = 2.25,
+    boss = 5.00,
 }
 
 local function FormatCopperValue(copper)
@@ -795,7 +795,7 @@ local function AwardEnemyCopper(run, enemy)
     local danger = math.max(1, tonumber(enemy.dangerRating) or 1)
     local rank = string.lower(tostring(enemy.rank or "normal"))
     local rankMultiplier = RUN_COPPER_RANK_MULTIPLIER[rank] or 1
-    local reward = math.max(1, math.floor(((floor * 40) + (danger * 25)) * rankMultiplier + 0.5))
+    local reward = math.max(1, math.floor(((floor * 20) + (danger * 15)) * rankMultiplier + 0.5))
 
     run.copper = (run.copper or 0) + reward
     stats.copperEarned = stats.copperEarned + reward
@@ -852,9 +852,9 @@ end
 
 local function GetRunProgression()
     local fallback = {
-        xpPerDanger = 8,
-        firstLevelXp = 100,
-        levelGrowth = 1.22,
+        xpPerDanger = 9,
+        firstLevelXp = 80,
+        levelGrowth = 1.10,
         maxRunLevel = 60,
         levelCosts = CopyTable(DEFAULT_RUN_XP_CURVE),
     }

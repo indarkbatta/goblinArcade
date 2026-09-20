@@ -3,9 +3,201 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.52.0**  
+Current addon version: **0.53.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.53.0 — first full Warrior Floor 1-9 balance pass
+
+- Addon **0.53.0** is the first coherent end-to-end balance pass for the 9-floor Warrior run.
+- Studio data moves to **1.6.2 / schema 7** and the Studio browser cache key moves to `goblinArcadeStudio.v19`.
+- Canonical Studio HTML files remain byte-identical.
+- The published catalog remains **100 items / 366 Loot Entries**; this pass changes progression and weights rather than adding item quantity.
+- Warrior `HP / Level` remains exactly **3**.
+
+### Run XP / tier timing
+
+Goal: a fresh level-1 Arcade Warrior should naturally reach the item gates during the same 9-floor run instead of finding late-tier gear that can never become usable.
+
+Published progression:
+
+```
+XP per Danger: 9
+
+Level-up costs:
+80, 90, 100, 110, 125, 140, 155, 175
+then ×1.10 per additional level
+```
+
+With a standard-density run and the new rank curve, the approximate level cadence for a level-1 Arcade Warrior is:
+
+```
+after F1  -> Level 2
+after F2  -> Level 3   (T2 usable)
+after F3  -> Level 4
+after F4  -> Level 5
+after F5  -> Level 7   (T3 usable)
+after F6  -> Level 8
+after F7  -> Level 9   (T4 usable)
+after F8  -> Level 11
+during F9 -> Level 12  (T5 usable)
+```
+
+This is an expected standard-run cadence, not a guaranteed fixed level, because density/archetype/rank composition still varies inside bounded limits.
+
+### Encounter population
+
+`FloorGenerator.VERSION = 4`.
+
+Base enemy count is now depth-driven rather than derived from procedural walkable-tile count:
+
+```
+F1 6
+F2 6
+F3 7
+F4 7
+F5 8
+F6 8
+F7 9
+F8 9
+F9 10
+```
+
+Density remains a one-time per-floor roll but has been tightened:
+
+```
+QUIET     20% -> ×0.90
+STANDARD  60% -> ×1.00
+CROWDED   20% -> ×1.10
+```
+
+This keeps different layouts on the same floor in the same encounter band instead of letting room/corridor RNG indirectly change combat volume.
+
+### Rank ramp
+
+Normal/Veteran/Elite mix:
+
+```
+F1-2: 100 / 0  / 0
+F3-4:  80 / 20 / 0
+F5-6:  75 / 25 / 0
+F7-8:  60 / 30 / 10
+F9:    45 / 35 / 20
+```
+
+The dedicated Elite room on Floors 5-9 still forces an Elite anchor, and Floor 9 still forces its Boss anchor. Random Elite weight was removed from F5-6 specifically so the first elite encounter is a readable dungeon event rather than background rank noise.
+
+Studio/runtime rank stats are now:
+
+- Normal: HP ×1.00 / damage ×1.00
+- Veteran: HP ×1.30 / damage ×1.12
+- Elite: HP ×1.80 / damage ×1.30
+- Boss: HP ×3.60 / damage ×1.60
+
+Rank XP multipliers remain 1.00 / 1.35 / 2.00 / 5.00.
+
+### Enemy pressure
+
+`EnemyGenerator.VERSION = 8`.
+
+Base formulas:
+
+```
+Reference Damage = 5 + Effective Enemy Level × 0.90
+Base Enemy HP = Reference Damage × 2.50
+
+Reference Player HP = 100 + Effective Enemy Level × 20
+Average Enemy Damage = Reference Player HP × 4.0%
+Damage roll = 80%-120% of that deterministic average
+```
+
+Floor pressure:
+
+```
+HP multiplier     = 1 + 0.07 × (Floor - 1)
+Damage multiplier = 1 + 0.05 × (Floor - 1)
+```
+
+Reference:
+- F1: HP 1.00 / damage 1.00
+- F5: HP 1.28 / damage 1.20
+- F9: HP 1.56 / damage 1.40
+
+The target shape is readable F1-2 normals, a clear mid-run step at the first Elite room, and genuinely threatening F7-9 Veterans/Elites/Boss without changing the global combat-number divisor.
+
+### Copper / Floor 6 shop
+
+Kill Copper is reduced from `floor × 40 + danger × 25` to:
+
+```
+floor × 20 + danger × 15
+```
+
+Copper rank multipliers are now:
+
+- Normal 1.00
+- Veteran 1.40
+- Elite 2.25
+- Boss 5.00
+
+A standard expected run now reaches Floor 6 with roughly **5.1k Copper before sales**, instead of enough raw kill Copper to trivialize most shop decisions. The intent is:
+- T3 purchases are realistic;
+- a T4 purchase is a meaningful spend;
+- premium T4 / 2H offers may require selling carried loot;
+- Copper remains run-only.
+
+The Floor 6 shop itself remains the single merchant and retains its existing T3-majority / T4-preview stock weights.
+
+### Potion pressure
+
+`common_enemy_drops` drop chance is reduced from **15% to 10%**. The table still drops only the floor-appropriate healing potion.
+
+Potion healing values are unchanged:
+25% / 35% / 45% / 55% / 70%.
+
+This is tuned around the new three-item pre-run supply system: preparation matters, but dungeon potion drops are still common enough to support recovery across nine floors.
+
+### Treasure tier pacing
+
+Treasure-room tier mixes now are:
+
+```
+F1  T1 100%
+F2  T1 80% / T2 20%
+F3  T2 100%
+F4  T2 70% / T3 30%
+F5  T3 100%
+F6  T3 70% / T4 30%
+F7  T4 100%
+F8  T4 85% / T5 15%
+F9  T4 50% / T5 50%
+```
+
+This makes late T5 finds relevant to the new level-12 endgame cadence rather than being almost entirely Boss-Cache-only.
+
+Elite Cache, Boss Cache and Shop item pools are intentionally unchanged in this first pass so not every reward axis is moved at once.
+
+### 1H + shield versus 2H
+
+No raw weapon/shield item stats were rewritten in 0.53.0. This is deliberate because extracted Studio items persist their generated stat payloads; silently changing item definitions would create old/new versions of the same named item in existing stashes.
+
+The current tradeoff remains:
+- 2H = substantially higher per-hit damage and stronger AP conversion from slow weapon speed;
+- 1H + shield = armor, block, an occupied defensive slot, and access to shield-required Warrior abilities.
+
+The next playtest should compare actual damage taken / turns-to-kill for both builds on Floors 5-9. If the gap is too wide, do a versioned item-stat migration rather than creating invisible legacy-item discrepancies.
+
+### Validation target
+
+- 100 items
+- 366 Loot Entries
+- single Floor 6 Shop
+- Warrior `HP / Level = 3`
+- combat divisor remains 10
+- existing Central Stash / BASELINE / LOADOUT / FOUND ownership rules unchanged
+- existing 3-slot pre-run supply system unchanged
+
+**Next priority after 0.53.0:** playtest one fresh/generated Warrior run and one geared WoW Warrior run through at least Floor 6, then tune based on observed HP loss, potion use, level timing, Copper at merchant, and 1H+shield versus 2H performance.
 
 ## 0.52.0 — pre-run supplies, ownership states and Misc-item clarity
 
@@ -1943,7 +2135,7 @@ Level 60 → 1.15x
 
 This pressure is intentionally mild. Leveling a character must not feel like punishment, but a level-60 character should not face exactly the same relative difficulty as a level-1 character.
 
-**Implementation status: active in EnemyGenerator v2 (addon 0.14.1).**
+**Implementation status: active; current EnemyGenerator is v8 after the 0.53.0 balance pass.**
 
 ### Floor progression pressure
 
@@ -1953,21 +2145,21 @@ Use:
 
 ```
 Floor HP Multiplier =
-1 + 0.06 × (Floor - 1)
+1 + 0.07 × (Floor - 1)
 
 Floor Damage Multiplier =
-1 + 0.04 × (Floor - 1)
+1 + 0.05 × (Floor - 1)
 ```
 
 Reference progression:
 
 ```
 Floor 1 → HP 1.00x / Damage 1.00x
-Floor 2 → HP 1.06x / Damage 1.04x
-Floor 3 → HP 1.12x / Damage 1.08x
-Floor 5 → HP 1.24x / Damage 1.16x
-Floor 7 → HP 1.36x / Damage 1.24x
-Floor 9 → HP 1.48x / Damage 1.32x
+Floor 2 → HP 1.07x / Damage 1.05x
+Floor 3 → HP 1.14x / Damage 1.10x
+Floor 5 → HP 1.28x / Damage 1.20x
+Floor 7 → HP 1.42x / Damage 1.30x
+Floor 9 → HP 1.56x / Damage 1.40x
 ```
 
 This is deliberately stronger than the character-level pressure. The run should become meaningfully more dangerous as the player descends through floors.
@@ -2026,7 +2218,7 @@ After level and Gear Pressure are calculated, individual enemy archetypes modify
 
 Current generator profiles:
 
-- Kobold: HP ×0.95, damage ×0.90, vision 6, NORMAL movement
+- Kobold: HP ×0.95, damage ×1.00, vision 6, NORMAL movement
 - Spider: HP ×0.70, damage ×0.80, vision 7, QUICK movement
 - Skeleton: HP ×1.20, damage ×1.00, vision 5, SLOW movement
 - Brute: HP ×1.50, damage ×1.25, vision 5, generator-only future content
@@ -2040,18 +2232,18 @@ Movement behavior:
 Current ranks:
 
 - Normal: level +0, HP ×1.00, damage ×1.00
-- Veteran: level +1, HP ×1.25, damage ×1.10
-- Elite: level +2, HP ×1.60, damage ×1.25
-- Boss: level +3, HP ×2.80, damage ×1.45
+- Veteran: level +1, HP ×1.30, damage ×1.12
+- Elite: level +2, HP ×1.80, damage ×1.30
+- Boss: level +3, HP ×3.60, damage ×1.60
 
 Base formulas currently implemented:
 
 ```
 Reference Damage = 5 + Effective Enemy Level × 0.90
-Base Enemy HP = Reference Damage × 2.20
+Base Enemy HP = Reference Damage × 2.50
 
 Reference Player HP = 100 + Effective Enemy Level × 20
-Average Enemy Damage = Reference Player HP × 3.5%
+Average Enemy Damage = Reference Player HP × 4.0%
 Damage range = 80%–120% of that deterministic average
 ```
 
@@ -2069,37 +2261,36 @@ Monster density should vary from floor to floor, but only inside controlled, hum
 
 ### Base enemy count
 
-For a generated floor:
+The current fixed 25×25 dungeon uses a depth table so procedural room/corridor RNG cannot accidentally change the combat budget:
 
 ```
-Base Enemy Count =
-round((Walkable Tiles / 70) × (1 + 0.05 × (Floor - 1)))
+Floor 1  → 6
+Floor 2  → 6
+Floor 3  → 7
+Floor 4  → 7
+Floor 5  → 8
+Floor 6  → 8
+Floor 7  → 9
+Floor 8  → 9
+Floor 9  → 10
 ```
 
-The current 25×25 test map has roughly 497 walkable tiles, giving approximately:
-
-```
-Floor 1  → ~7 enemies
-Floor 3  → ~8 enemies
-Floor 5  → ~9 enemies
-Floor 7  → ~9–10 enemies
-Floor 9  → ~10 enemies
-```
+`walkableTiles` remains in the FloorGenerator API for future map-size scaling, but does not currently change this base count.
 
 ### Random density profile
 
 Each floor rolls exactly one bounded density profile when the floor is created:
 
 ```
-QUIET      20% → ×0.85
+QUIET      20% → ×0.90
 STANDARD   60% → ×1.00
-CROWDED    20% → ×1.15
+CROWDED    20% → ×1.10
 ```
 
 Expected practical range on the current map is roughly:
 
-- Floor 1: about 6–8 enemies
-- Floor 9: about 8–12 enemies
+- Floor 1: about 5–7 enemies
+- Floor 9: about 9–11 enemies
 
 The goal is noticeable variation without empty floors or excessive swarms.
 
@@ -2165,7 +2356,7 @@ The generator converts these weights into bounded integer counts for the floor, 
 
 ### Rank interaction
 
-**Implemented in FloorGenerator v3 / GoblinArcade 0.17.0.**
+**Originally implemented in FloorGenerator v3 / GoblinArcade 0.17.0; current tuned generator is FloorGenerator v4 in 0.53.0.**
 
 Veteran and Elite enemies replace Normal enemies inside the existing population budget; they do **not** add extra bodies. Boss remains reserved for objective-specific encounters.
 
@@ -2178,24 +2369,24 @@ Veteran 0%
 Elite 0%
 
 Floor 3–4:
-Normal 85%
-Veteran 15%
+Normal 80%
+Veteran 20%
 Elite 0%
 
 Floor 5–6:
-Normal 70%
+Normal 75%
 Veteran 25%
-Elite 5%
+Elite 0%
 
 Floor 7–8:
-Normal 55%
+Normal 60%
 Veteran 30%
-Elite 15%
+Elite 10%
 
 Floor 9:
-Normal 40%
+Normal 45%
 Veteran 35%
-Elite 25%
+Elite 20%
 ```
 
 Weights are converted into bounded integer counts for the actual floor population and the resulting rank plan is shuffled before assignment. Existing deterministic rank stat multipliers in EnemyGenerator remain authoritative.
@@ -2220,7 +2411,7 @@ Deterministic scaling, bounded density, multi-enemy support, three active archet
 
 Recommended order:
 
-**Current priority after 0.50.0:** decide the pre-run consumable/supply rule, then perform the full Warrior Floor 1-9 balance pass before adding more item quantity or starting Rogue.
+**Current priority after 0.53.0:** playtest the new balance curve through Floor 6+ with both a fresh Arcade Warrior and a geared WoW Warrior; tune observed pain points before adding more item quantity or starting Rogue.
 
 1. **Studio data migration**
    - configure the two Vercel publish secrets once

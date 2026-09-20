@@ -3,7 +3,7 @@ local _, GA = ...
 GA.EnemyGenerator = GA.EnemyGenerator or {}
 local EG = GA.EnemyGenerator
 
-EG.VERSION = 7
+EG.VERSION = 8
 
 local GEAR_SLOTS = {
     "head",
@@ -34,22 +34,22 @@ local RANKS = {
     },
     veteran = {
         levelBonus = 1,
-        hpMultiplier = 1.25,
-        damageMultiplier = 1.10,
+        hpMultiplier = 1.30,
+        damageMultiplier = 1.12,
         scoreMultiplier = 1.30,
         xpMultiplier = 1.35,
     },
     elite = {
         levelBonus = 2,
-        hpMultiplier = 1.60,
-        damageMultiplier = 1.25,
+        hpMultiplier = 1.80,
+        damageMultiplier = 1.30,
         scoreMultiplier = 1.80,
         xpMultiplier = 2.00,
     },
     boss = {
         levelBonus = 3,
-        hpMultiplier = 2.80,
-        damageMultiplier = 1.45,
+        hpMultiplier = 3.60,
+        damageMultiplier = 1.60,
         scoreMultiplier = 3.00,
         xpMultiplier = 5.00,
     },
@@ -190,8 +190,8 @@ local function GetFloorPressure(floor)
     local depth = floorNumber - 1
 
     return {
-        hpMultiplier = 1 + 0.06 * depth,
-        damageMultiplier = 1 + 0.04 * depth,
+        hpMultiplier = 1 + 0.07 * depth,
+        damageMultiplier = 1 + 0.05 * depth,
     }
 end
 
@@ -289,15 +289,17 @@ function EG:CreateEnemy(options)
     local levelPressure = GetLevelPressure(playerLevel)
     local floorPressure = GetFloorPressure(floor)
 
-    -- Reference attack power is calibrated so a level-13 normal enemy lands
-    -- around the original prototype's ~36 HP before archetype adjustments.
+    -- Balance v2: HP is intentionally a little chunkier so late-floor
+    -- Veterans/Elites survive long enough for Warrior control/defense tools
+    -- to matter without turning early normals into damage sponges.
     local referenceDamage = 5 + effectiveLevel * 0.90
-    local baseHp = referenceDamage * 2.20
+    local baseHp = referenceDamage * 2.50
 
-    -- Damage is based on a deterministic reference player-health curve.
-    -- The individual hit still rolls inside the resulting fixed damage range.
+    -- Damage remains deterministic before the final bounded hit roll. The
+    -- steeper floor pressure makes Floors 7-9 meaningfully dangerous while
+    -- keeping Floors 1-2 readable for fresh Arcade heroes.
     local referencePlayerHealth = 100 + effectiveLevel * 20
-    local averageDamage = referencePlayerHealth * 0.035
+    local averageDamage = referencePlayerHealth * 0.040
 
     local rawMaxHp = math.max(1, Round(
         baseHp
