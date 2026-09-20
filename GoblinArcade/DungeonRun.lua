@@ -1503,41 +1503,58 @@ function GA:CreateDungeonRunPage(parent)
     sacrificeDesc:SetPoint("BOTTOM", sacrificeButton, "TOP", 0, 5)
     sacrificeDesc:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    local abilityFrame = CreateFrame("Frame", nil, center, "BackdropTemplate")
-    abilityFrame:SetSize(558, 470)
-    abilityFrame:SetPoint("CENTER", center, "CENTER", 0, 0)
-    abilityFrame:SetFrameLevel(center:GetFrameLevel() + 55)
-    abilityFrame:EnableMouse(true)
-    ApplyBackdrop(abilityFrame, { 0.025, 0.021, 0.017, 0.985 }, COLORS.gold)
-    abilityFrame:Hide()
-    self.DungeonAbilityFrame = abilityFrame
+    local spellbook = CreateFrame("Frame", nil, center, "BackdropTemplate")
+    spellbook:SetSize(558, 470)
+    spellbook:SetPoint("CENTER", center, "CENTER", 0, 0)
+    spellbook:SetFrameLevel(center:GetFrameLevel() + 55)
+    spellbook:EnableMouse(true)
+    ApplyBackdrop(spellbook, { 0.025, 0.021, 0.017, 0.985 }, COLORS.gold)
+    spellbook:Hide()
+    self.DungeonSpellbookFrame = spellbook
 
-    local abilityTitle = CreateText(abilityFrame, "GameFontNormalLarge", "WARRIOR ABILITIES")
-    abilityTitle:SetPoint("TOP", 0, -16)
-    abilityTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    local spellbookTitle = CreateText(spellbook, "GameFontNormalLarge", "SPELLBOOK")
+    spellbookTitle:SetPoint("TOP", 0, -16)
+    spellbookTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
-    local abilityHint = CreateText(abilityFrame, "GameFontHighlightSmall", "Unlocked abilities from your current Run Level")
-    abilityHint:SetPoint("TOP", abilityTitle, "BOTTOM", 0, -7)
-    abilityHint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    local spellbookHint = CreateText(
+        spellbook,
+        "GameFontHighlightSmall",
+        "Drag a learned ability onto action slots 2-5. Locked spells show their required Run Level."
+    )
+    spellbookHint:SetPoint("TOP", spellbookTitle, "BOTTOM", 0, -7)
+    spellbookHint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    self.DungeonAbilityButtons = {}
+    self.DungeonSpellbookButtons = {}
     for i = 1, #RUN_ABILITY_IDS do
         local col = (i - 1) % 3
         local row = math.floor((i - 1) / 3)
-        local hotkey = i <= 9 and tostring(i) or (i == 10 and "0" or "•")
-        local abilityButton = CreateFlatButton(abilityFrame, hotkey .. "  --", 166, 30)
-        abilityButton:SetPoint("TOPLEFT", 16 + col * 174, -62 - row * 34)
-        abilityButton.gaAbilityIndex = i
-        abilityButton:SetScript("OnClick", function(button)
-            GA:UseAbilityPanelIndex(button.gaAbilityIndex)
+        local spellButton = CreateFlatButton(spellbook, "--", 166, 30)
+        spellButton:SetPoint("TOPLEFT", 16 + col * 174, -62 - row * 34)
+        spellButton.gaAbilityIndex = i
+        spellButton:RegisterForDrag("LeftButton")
+        spellButton:SetScript("OnDragStart", function(button)
+            if button.gaAbilityId and button.gaUnlocked then
+                GA:BeginSpellbookDrag(button.gaAbilityId)
+            end
         end)
-        self.DungeonAbilityButtons[i] = abilityButton
+        spellButton:SetScript("OnClick", function(button)
+            if button.gaAbilityId and button.gaUnlocked then
+                GA:BeginSpellbookDrag(button.gaAbilityId)
+            end
+        end)
+        spellButton:SetScript("OnEnter", function(button)
+            GA:ShowSpellbookAbilityTooltip(button)
+        end)
+        spellButton:SetScript("OnLeave", function()
+            GameTooltip:Hide()
+        end)
+        self.DungeonSpellbookButtons[i] = spellButton
     end
 
-    local abilityClose = CreateFlatButton(abilityFrame, "B / ESC  CLOSE", 160, 30)
-    abilityClose:SetPoint("BOTTOM", 0, 12)
-    abilityClose:SetScript("OnClick", function()
-        GA:CloseAbilityPanel()
+    local spellbookClose = CreateFlatButton(spellbook, "B / ESC  CLOSE", 160, 30)
+    spellbookClose:SetPoint("BOTTOM", 0, 12)
+    spellbookClose:SetScript("OnClick", function()
+        GA:CloseSpellbook()
     end)
 
     local legend = CreateText(center, "GameFontDisableSmall", "@ YOU    ENEMY SPRITE    * CLEARED    S SHRINE    $ CHEST    < / > STAIRS")
@@ -1554,39 +1571,69 @@ function GA:CreateDungeonRunPage(parent)
     actionLabel:SetPoint("BOTTOMLEFT", 12, 14)
     actionLabel:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
-    local actions = {
-        { "1", "ATTACK" },
-        { "2", "HEROIC STRIKE" },
-        { "3", "ABILITIES" },
-        { "4", "POTION" },
-    }
+    local spellbookButton = CreateFlatButton(actionBar, "B  SPELLBOOK", 108, 24)
+    spellbookButton:SetPoint("TOPLEFT", 72, -4)
+    spellbookButton:SetScript("OnClick", function()
+        GA:ToggleSpellbook()
+    end)
+    self.DungeonSpellbookButton = spellbookButton
 
     self.DungeonActionButtons = {}
+    self.DungeonAbilitySlotButtons = {}
 
-    for i, action in ipairs(actions) do
-        local button = CreateFlatButton(actionBar, action[1] .. "  " .. action[2], 116, 32)
-        button:SetPoint("BOTTOMLEFT", 88 + (i - 1) * 124, 8)
+    local attackButton = CreateFlatButton(actionBar, "1  ATTACK", 108, 32)
+    attackButton:SetPoint("BOTTOMLEFT", 12, 8)
+    attackButton:SetEnabled(false)
+    attackButton.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    attackButton:SetScript("OnClick", function()
+        GA:PlayerAttackEnemy()
+    end)
+    self.DungeonAttackButton = attackButton
+    self.DungeonActionButtons[1] = attackButton
+
+    for slotIndex = 1, 4 do
+        local hotkey = tostring(slotIndex + 1)
+        local button = CreateFlatButton(actionBar, hotkey .. "  [EMPTY]", 132, 32)
+        button:SetPoint("BOTTOMLEFT", 128 + (slotIndex - 1) * 140, 8)
         button:SetEnabled(false)
         button.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
-        self.DungeonActionButtons[i] = button
-
-        if i == 1 then
-            self.DungeonAttackButton = button
-            button:SetScript("OnClick", function()
-                GA:PlayerAttackEnemy()
-            end)
-        elseif i == 2 then
-            self.DungeonHeroicStrikeButton = button
-            button:SetScript("OnClick", function()
-                GA:UseRunAbility("heroic_strike")
-            end)
-        elseif i == 3 then
-            self.DungeonAbilitiesButton = button
-            button:SetScript("OnClick", function()
-                GA:ToggleAbilityPanel()
-            end)
-        end
+        button.gaActionSlot = slotIndex
+        button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        button:SetScript("OnClick", function(slotButton, mouseButton)
+            if mouseButton == "RightButton" then
+                GA:ClearRunActionSlot(slotButton.gaActionSlot)
+            elseif GA.DungeonSpellDrag then
+                GA:DropSpellOnActionSlot(slotButton.gaActionSlot)
+            else
+                GA:UseRunActionSlot(slotButton.gaActionSlot)
+            end
+        end)
+        button:SetScript("OnReceiveDrag", function(slotButton)
+            GA:DropSpellOnActionSlot(slotButton.gaActionSlot)
+        end)
+        button:HookScript("OnMouseUp", function(slotButton, mouseButton)
+            if mouseButton == "LeftButton" and GA.DungeonSpellDrag then
+                GA:DropSpellOnActionSlot(slotButton.gaActionSlot)
+            end
+        end)
+        button:SetScript("OnEnter", function(slotButton)
+            GA:SetActionSlotDropHighlight(slotButton, GA.DungeonSpellDrag ~= nil)
+            GA:ShowActionSlotTooltip(slotButton)
+        end)
+        button:SetScript("OnLeave", function(slotButton)
+            GA:SetActionSlotDropHighlight(slotButton, GA.DungeonSpellDrag ~= nil)
+            GameTooltip:Hide()
+        end)
+        self.DungeonAbilitySlotButtons[slotIndex] = button
+        self.DungeonActionButtons[slotIndex + 1] = button
     end
+
+    local potionButton = CreateFlatButton(actionBar, "6  POTION", 108, 32)
+    potionButton:SetPoint("BOTTOMRIGHT", -12, 8)
+    potionButton:SetEnabled(false)
+    potionButton.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    self.DungeonPotionButton = potionButton
+    self.DungeonActionButtons[6] = potionButton
 
     local state = CreateText(actionBar, "GameFontDisableSmall", "READY - BEGIN A RUN")
     state:SetPoint("TOPLEFT", 12, -8)
@@ -1791,20 +1838,15 @@ function GA:CreateDungeonRunPage(parent)
             return
         end
 
-        if GA.DungeonAbilityFrame and GA.DungeonAbilityFrame:IsShown() then
+        if GA.DungeonSpellbookFrame and GA.DungeonSpellbookFrame:IsShown() then
             if key == "ESCAPE" or key == "B" then
-                GA:CloseAbilityPanel()
-            else
-                local abilityIndex = key == "0" and 10 or tonumber(key)
-                if abilityIndex then
-                    GA:UseAbilityPanelIndex(abilityIndex)
-                end
+                GA:CloseSpellbook()
             end
             return
         end
 
-        if key == "B" or key == "3" then
-            GA:ToggleAbilityPanel()
+        if key == "B" then
+            GA:ToggleSpellbook()
             return
         end
 
@@ -1831,8 +1873,14 @@ function GA:CreateDungeonRunPage(parent)
         if key == "1" then
             GA:PlayerAttackEnemy()
             return
-        elseif key == "2" then
-            GA:UseRunAbility("heroic_strike")
+        elseif key == "2" or key == "3" or key == "4" or key == "5" then
+            GA:UseRunActionSlot(tonumber(key) - 1)
+            return
+        elseif key == "6" then
+            if GA.DungeonRunStateText then
+                GA.DungeonRunStateText:SetText("POTION SLOT - NOT IMPLEMENTED YET")
+                GA.DungeonRunStateText:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+            end
             return
         end
 
@@ -2296,6 +2344,291 @@ function GA:RefreshEnemyCombatCard()
     end
 end
 
+local DEFAULT_ACTION_SLOT_PRIORITY = {
+    "heroic_strike",
+    "battle_shout",
+    "charge",
+    "rend",
+    "thunder_clap",
+    "hamstring",
+    "bloodrage",
+    "defensive_stance",
+    "sunder_armor",
+    "overpower",
+    "revenge",
+    "shield_block",
+    "execute",
+    "whirlwind",
+}
+
+function GA:LoadSavedActionSlots(characterKey, unlockedAbilities)
+    GoblinArcadeDB = GoblinArcadeDB or {}
+    GoblinArcadeDB.actionBars = GoblinArcadeDB.actionBars or {}
+
+    local saved = characterKey and GoblinArcadeDB.actionBars[characterKey] or nil
+    local slots = {}
+
+    if saved then
+        for i = 1, 4 do
+            local abilityId = saved[i]
+            if abilityId and unlockedAbilities and unlockedAbilities[abilityId] then
+                slots[i] = abilityId
+            end
+        end
+        return slots
+    end
+
+    local nextSlot = 1
+    for _, abilityId in ipairs(DEFAULT_ACTION_SLOT_PRIORITY) do
+        if nextSlot > 4 then break end
+        if unlockedAbilities and unlockedAbilities[abilityId] then
+            slots[nextSlot] = abilityId
+            nextSlot = nextSlot + 1
+        end
+    end
+
+    return slots
+end
+
+function GA:SaveRunActionSlots()
+    local run = self.RunState
+    if not run or not run.actionBarKey then return end
+
+    GoblinArcadeDB = GoblinArcadeDB or {}
+    GoblinArcadeDB.actionBars = GoblinArcadeDB.actionBars or {}
+    GoblinArcadeDB.actionBars[run.actionBarKey] = {
+        run.actionSlots and run.actionSlots[1] or nil,
+        run.actionSlots and run.actionSlots[2] or nil,
+        run.actionSlots and run.actionSlots[3] or nil,
+        run.actionSlots and run.actionSlots[4] or nil,
+    }
+end
+
+function GA:SetActionSlotDropHighlight(button, active)
+    if not button or not button.SetBackdropBorderColor then return end
+    local color = active and COLORS.green or COLORS.goldDim
+    button:SetBackdropBorderColor(color[1], color[2], color[3], color[4] or 1)
+end
+
+function GA:RefreshActionSlotDropHighlights(active)
+    for _, button in ipairs(self.DungeonAbilitySlotButtons or {}) do
+        self:SetActionSlotDropHighlight(button, active)
+    end
+end
+
+function GA:BeginSpellbookDrag(abilityId)
+    local run = self.RunState
+    if not run or not run.active or not run.unlockedAbilities or not run.unlockedAbilities[abilityId] then
+        return false
+    end
+
+    local ability = GetStudioAbilityById(abilityId)
+    if not ability then return false end
+
+    self.DungeonSpellDrag = {
+        abilityId = abilityId,
+    }
+    self:RefreshActionSlotDropHighlights(true)
+    self:RefreshActionButtons()
+
+    if self.DungeonRunStateText then
+        self.DungeonRunStateText:SetText(
+            "DROP " .. string.upper(ability.name or abilityId) .. " ON ACTION SLOT 2-5"
+        )
+        self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+    end
+
+    return true
+end
+
+function GA:CancelSpellbookDrag()
+    self.DungeonSpellDrag = nil
+    self:RefreshActionSlotDropHighlights(false)
+    self:RefreshActionButtons()
+end
+
+function GA:AssignRunActionSlot(slotIndex, abilityId)
+    local run = self.RunState
+    slotIndex = tonumber(slotIndex)
+
+    if not run or not run.active
+        or not slotIndex or slotIndex < 1 or slotIndex > 4
+        or not run.unlockedAbilities or not run.unlockedAbilities[abilityId] then
+        self:CancelSpellbookDrag()
+        return false
+    end
+
+    run.actionSlots = run.actionSlots or {}
+
+    for i = 1, 4 do
+        if i ~= slotIndex and run.actionSlots[i] == abilityId then
+            run.actionSlots[i] = nil
+        end
+    end
+
+    run.actionSlots[slotIndex] = abilityId
+    self:SaveRunActionSlots()
+    self:CancelSpellbookDrag()
+    self:RefreshActionButtons()
+    self:RefreshSpellbook()
+
+    local ability = GetStudioAbilityById(abilityId)
+    self:AddCombatLog(
+        string.format("%s assigned to action slot %d.", ability and ability.name or abilityId, slotIndex + 1),
+        "system"
+    )
+    return true
+end
+
+function GA:DropSpellOnActionSlot(slotIndex)
+    local drag = self.DungeonSpellDrag
+    if not drag or not drag.abilityId then return false end
+    return self:AssignRunActionSlot(slotIndex, drag.abilityId)
+end
+
+function GA:ClearRunActionSlot(slotIndex)
+    local run = self.RunState
+    slotIndex = tonumber(slotIndex)
+    if not run or not run.active or not slotIndex or slotIndex < 1 or slotIndex > 4 then
+        return false
+    end
+
+    run.actionSlots = run.actionSlots or {}
+    run.actionSlots[slotIndex] = nil
+    self:SaveRunActionSlots()
+    self:CancelSpellbookDrag()
+    self:RefreshActionButtons()
+    self:RefreshSpellbook()
+    return true
+end
+
+function GA:UseRunActionSlot(slotIndex)
+    local run = self.RunState
+    local abilityId = run and run.actionSlots and run.actionSlots[slotIndex]
+    if not abilityId then
+        if self.DungeonRunStateText then
+            self.DungeonRunStateText:SetText("ACTION SLOT " .. tostring((tonumber(slotIndex) or 0) + 1) .. " IS EMPTY")
+            self.DungeonRunStateText:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+        end
+        return false
+    end
+
+    return self:UseRunAbility(abilityId)
+end
+
+function GA:ShowSpellbookAbilityTooltip(button)
+    if not button or not button.gaAbilityId then return end
+    local ability = GetStudioAbilityById(button.gaAbilityId)
+    if not ability then return end
+
+    GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+    GameTooltip:SetText(ability.name or ability.id, 1, 0.82, 0.2)
+    GameTooltip:AddLine("Learn Level " .. tostring(ability.learnLevel or 1), 0.75, 0.75, 0.75)
+    if (tonumber(ability.resourceCost) or 0) > 0 then
+        GameTooltip:AddLine(
+            string.format("Cost: %d %s", tonumber(ability.resourceCost) or 0, self.RunState and self.RunState.resourceType or "RESOURCE"),
+            0.85, 0.7, 0.25
+        )
+    end
+    if (tonumber(ability.cooldownTurns) or 0) > 0 then
+        GameTooltip:AddLine("Cooldown: " .. tostring(ability.cooldownTurns) .. " turns", 0.75, 0.75, 0.75)
+    end
+    GameTooltip:AddLine(ability.description or "", 0.9, 0.9, 0.9, true)
+
+    if button.gaUnlocked then
+        GameTooltip:AddLine("Drag to action slots 2-5.", 0.35, 1, 0.35)
+    else
+        GameTooltip:AddLine("Locked at current Run Level.", 1, 0.35, 0.35)
+    end
+    GameTooltip:Show()
+end
+
+function GA:ShowActionSlotTooltip(button)
+    if not button or not button.gaActionSlot then return end
+    local run = self.RunState
+    local abilityId = run and run.actionSlots and run.actionSlots[button.gaActionSlot]
+    if not abilityId then
+        if self.DungeonSpellDrag then
+            GameTooltip:SetOwner(button, "ANCHOR_TOP")
+            GameTooltip:SetText("Drop ability here", 0.35, 1, 0.35)
+            GameTooltip:Show()
+        end
+        return
+    end
+
+    button.gaAbilityId = abilityId
+    button.gaUnlocked = true
+    self:ShowSpellbookAbilityTooltip(button)
+    GameTooltip:AddLine("Right-click to clear this slot.", 0.75, 0.75, 0.75)
+    GameTooltip:Show()
+end
+
+function GA:RefreshSpellbook()
+    local run = self.RunState
+    if not self.DungeonSpellbookButtons then return end
+
+    local assigned = {}
+    for slotIndex = 1, 4 do
+        local abilityId = run and run.actionSlots and run.actionSlots[slotIndex]
+        if abilityId then assigned[abilityId] = slotIndex + 1 end
+    end
+
+    for i, button in ipairs(self.DungeonSpellbookButtons) do
+        local abilityId = RUN_ABILITY_IDS[i]
+        local ability = GetStudioAbilityById(abilityId)
+        local unlocked = run and run.active and run.unlockedAbilities and run.unlockedAbilities[abilityId]
+
+        button.gaAbilityId = abilityId
+        button.gaUnlocked = unlocked and true or false
+
+        if ability then
+            local prefix = unlocked and "" or ("LV" .. tostring(ability.learnLevel or 1) .. "  ")
+            local suffix = assigned[abilityId] and ("  [S" .. tostring(assigned[abilityId]) .. "]") or ""
+            button.label:SetText(prefix .. string.upper(ability.name or abilityId) .. suffix)
+            button:SetEnabled(unlocked and true or false)
+            button.label:SetTextColor(
+                unlocked and COLORS.gold[1] or COLORS.muted[1],
+                unlocked and COLORS.gold[2] or COLORS.muted[2],
+                unlocked and COLORS.gold[3] or COLORS.muted[3]
+            )
+            button:Show()
+        else
+            button.gaAbilityId = nil
+            button.gaUnlocked = false
+            button:Hide()
+        end
+    end
+end
+
+function GA:OpenSpellbook()
+    if not self.RunState or not self.RunState.active or not self.DungeonSpellbookFrame then
+        return
+    end
+    if self.CharacterSheetFrame then
+        self.CharacterSheetFrame:Hide()
+    end
+    self:CloseShrineChoice()
+    self:CancelSpellbookDrag()
+    self:RefreshSpellbook()
+    self.DungeonSpellbookFrame:Show()
+end
+
+function GA:CloseSpellbook()
+    self:CancelSpellbookDrag()
+    if self.DungeonSpellbookFrame then
+        self.DungeonSpellbookFrame:Hide()
+    end
+end
+
+function GA:ToggleSpellbook()
+    if not self.DungeonSpellbookFrame then return end
+    if self.DungeonSpellbookFrame:IsShown() then
+        self:CloseSpellbook()
+    else
+        self:OpenSpellbook()
+    end
+end
+
 function GA:RefreshActionButtons()
     local run = self.RunState
     local enemy = run and run.active and GetAdjacentEnemy(run) or nil
@@ -2310,115 +2643,48 @@ function GA:RefreshActionButtons()
         )
     end
 
-    if self.DungeonHeroicStrikeButton then
-        local heroic = GetStudioAbilityById("heroic_strike")
-        local cost = math.max(0, tonumber(heroic and heroic.resourceCost) or 0)
-        local cooldown = run and run.cooldowns and (run.cooldowns.heroic_strike or 0) or 0
-        local unlocked = run and run.unlockedAbilities and run.unlockedAbilities.heroic_strike
-        local enoughResource = run and (run.resource or 0) >= cost
-        local usable = canAttack and unlocked and enoughResource and cooldown <= 0
-
-        self.DungeonHeroicStrikeButton.label:SetText("2  HEROIC STRIKE")
-        self.DungeonHeroicStrikeButton:SetEnabled(usable and true or false)
-        self.DungeonHeroicStrikeButton.label:SetTextColor(
-            usable and COLORS.gold[1] or COLORS.muted[1],
-            usable and COLORS.gold[2] or COLORS.muted[2],
-            usable and COLORS.gold[3] or COLORS.muted[3]
+    if self.DungeonSpellbookButton then
+        local enabled = run and run.active
+        self.DungeonSpellbookButton:SetEnabled(enabled and true or false)
+        self.DungeonSpellbookButton.label:SetTextColor(
+            enabled and COLORS.gold[1] or COLORS.muted[1],
+            enabled and COLORS.gold[2] or COLORS.muted[2],
+            enabled and COLORS.gold[3] or COLORS.muted[3]
         )
     end
 
-    if self.DungeonAbilitiesButton then
-        local hasAbility = false
-        if run and run.active then
-            for _, abilityId in ipairs(RUN_ABILITY_IDS) do
-                if run.unlockedAbilities and run.unlockedAbilities[abilityId] then
-                    hasAbility = true
-                    break
-                end
-            end
-        end
-        self.DungeonAbilitiesButton:SetEnabled(hasAbility)
-        self.DungeonAbilitiesButton.label:SetTextColor(
-            hasAbility and COLORS.gold[1] or COLORS.muted[1],
-            hasAbility and COLORS.gold[2] or COLORS.muted[2],
-            hasAbility and COLORS.gold[3] or COLORS.muted[3]
-        )
-    end
+    for slotIndex, button in ipairs(self.DungeonAbilitySlotButtons or {}) do
+        local hotkey = tostring(slotIndex + 1)
+        local abilityId = run and run.actionSlots and run.actionSlots[slotIndex]
+        local ability = abilityId and GetStudioAbilityById(abilityId) or nil
 
-    if self.DungeonAbilityFrame and self.DungeonAbilityFrame:IsShown() then
-        self:RefreshAbilityPanel()
-    end
-end
-
-function GA:RefreshAbilityPanel()
-    local run = self.RunState
-    for i, button in ipairs(self.DungeonAbilityButtons or {}) do
-        local abilityId = RUN_ABILITY_IDS[i]
-        local ability = GetStudioAbilityById(abilityId)
-        local unlocked = run and run.active and run.unlockedAbilities and run.unlockedAbilities[abilityId]
-
-        if ability and unlocked then
-            local hotkey = i <= 9 and tostring(i) or (i == 10 and "0" or "•")
+        if ability then
             local cost = math.max(0, tonumber(ability.resourceCost) or 0)
-            local cooldown = run.cooldowns and math.max(0, run.cooldowns[abilityId] or 0) or 0
+            local cooldown = run.cooldowns and math.max(0, tonumber(run.cooldowns[abilityId]) or 0) or 0
             local enoughResource = (run.resource or 0) >= cost
-            local suffix = ""
-            if cooldown > 0 then
-                suffix = string.format("  CD:%d", cooldown)
-            elseif cost > 0 then
-                suffix = string.format("  %d %s", cost, run.resourceType or "RESOURCE")
-            end
+            local unlocked = run.unlockedAbilities and run.unlockedAbilities[abilityId]
+            local usable = run.active and unlocked and enoughResource and cooldown <= 0
+            local suffix = cooldown > 0 and (" (" .. tostring(cooldown) .. ")") or ""
 
             button.gaAbilityId = abilityId
             button.label:SetText(hotkey .. "  " .. string.upper(ability.name or abilityId) .. suffix)
-            button:SetEnabled(enoughResource and cooldown <= 0)
+            button:SetEnabled(run.active and true or false)
             button.label:SetTextColor(
-                enoughResource and cooldown <= 0 and COLORS.gold[1] or COLORS.muted[1],
-                enoughResource and cooldown <= 0 and COLORS.gold[2] or COLORS.muted[2],
-                enoughResource and cooldown <= 0 and COLORS.gold[3] or COLORS.muted[3]
+                usable and COLORS.gold[1] or COLORS.muted[1],
+                usable and COLORS.gold[2] or COLORS.muted[2],
+                usable and COLORS.gold[3] or COLORS.muted[3]
             )
-            button:Show()
         else
             button.gaAbilityId = nil
-            button:Hide()
+            button.label:SetText(hotkey .. "  [EMPTY]")
+            button:SetEnabled(run and run.active and true or false)
+            button.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
         end
     end
-end
 
-function GA:OpenAbilityPanel()
-    if not self.RunState or not self.RunState.active or not self.DungeonAbilityFrame then
-        return
+    if self.DungeonSpellbookFrame and self.DungeonSpellbookFrame:IsShown() then
+        self:RefreshSpellbook()
     end
-    if self.CharacterSheetFrame then
-        self.CharacterSheetFrame:Hide()
-    end
-    self:CloseShrineChoice()
-    self:RefreshAbilityPanel()
-    self.DungeonAbilityFrame:Show()
-end
-
-function GA:CloseAbilityPanel()
-    if self.DungeonAbilityFrame then
-        self.DungeonAbilityFrame:Hide()
-    end
-end
-
-function GA:ToggleAbilityPanel()
-    if not self.DungeonAbilityFrame then return end
-    if self.DungeonAbilityFrame:IsShown() then
-        self:CloseAbilityPanel()
-    else
-        self:OpenAbilityPanel()
-    end
-end
-
-function GA:UseAbilityPanelIndex(index)
-    local button = self.DungeonAbilityButtons and self.DungeonAbilityButtons[index]
-    local abilityId = button and button.gaAbilityId
-    if not abilityId then return false end
-
-    self:CloseAbilityPanel()
-    return self:UseRunAbility(abilityId)
 end
 
 function GA:UpdateRunResource()
@@ -2463,7 +2729,7 @@ function GA:FailDungeonRun(reason)
     run.active = false
     run.failed = true
     self:CloseShrineChoice()
-    self:CloseAbilityPanel()
+    self:CloseSpellbook()
 
     self:AddCombatLog(reason or "The run is over.", "warning")
 
@@ -3961,6 +4227,8 @@ function GA:BeginDungeonRun()
     local roomRoleCounts = floorMap.roomRoleCounts or {}
     local floorEnemies = floorSetup.enemies
     local sampleEnemy = floorEnemies[1]
+    local unlockedAbilities = GetClassAbilityIdSet(classId, level)
+    local actionSlots = self:LoadSavedActionSlots(selected.key, unlockedAbilities)
 
     self.RunState = {
         active = true,
@@ -3984,7 +4252,9 @@ function GA:BeginDungeonRun()
         buffs = {},
         reactive = {},
         stance = "battle",
-        unlockedAbilities = GetClassAbilityIdSet(classId, level),
+        actionBarKey = selected.key,
+        actionSlots = actionSlots,
+        unlockedAbilities = unlockedAbilities,
         playerX = startX,
         playerY = startY,
         playerHealth = maxHealth,
@@ -4032,6 +4302,7 @@ function GA:BeginDungeonRun()
         self.RunState.equipment.mainhand.arcadeWeapon = CopyTable(selectedWeapon)
     end
 
+    self:SaveRunActionSlots()
     self:UpdateRunHealth()
     self:UpdateRunResource()
     self:RefreshRunWeaponFromEquipment()
@@ -4227,7 +4498,7 @@ end
 
 function GA:ApplyDungeonFloor(floorNumber, entryDirection)
     self:CloseShrineChoice()
-    self:CloseAbilityPanel()
+    self:CloseSpellbook()
 
     local run = self.RunState
     if not run or not run.active or not run.snapshot then
@@ -4399,7 +4670,7 @@ function GA:CompleteDungeonRun()
     run.active = false
     run.completed = true
     self:CloseShrineChoice()
-    self:CloseAbilityPanel()
+    self:CloseSpellbook()
 
     if self.DungeonFloorTitle then
         self.DungeonFloorTitle:SetText("RUN COMPLETE  -  FLOOR 9 CLEARED")

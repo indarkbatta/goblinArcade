@@ -3,9 +3,33 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.32.0**  
+Current addon version: **0.33.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.33.0 — Spellbook + configurable action bar
+
+- The old direct-cast ability panel is replaced by a real run Spellbook.
+- Press `B` or click `B SPELLBOOK` to open it.
+- The Spellbook lists all 29 retained Warrior abilities in spellbook order.
+- Learned abilities are active; locked abilities remain visible and show their required Run Level.
+- Learned abilities can be dragged from the Spellbook onto four configurable active ability slots.
+- Click-to-pick + click-slot is also supported as a robust fallback to drag-and-drop.
+- Drag/drop targets visibly highlight while an ability is held.
+- The combat action bar is now:
+  - `1` fixed Basic Attack
+  - `2-5` configurable ability slots
+  - `6` reserved Potion slot
+  - `B` Spellbook
+- Right-clicking an ability slot clears it.
+- Action slots remain interactive while the assigned ability is on cooldown or lacks Rage; the spell is shown muted and runtime validation reports why it cannot fire.
+- Duplicate action-bar assignments are prevented: assigning a spell to another slot removes its old assignment.
+- Loadouts are persisted per character in `GoblinArcadeDB.actionBars[characterKey]`.
+- New characters/runs without a saved bar receive a sensible initial loadout from already unlocked abilities.
+- Run-level unlocks immediately appear in the Spellbook and can be assigned without restarting the run.
+- Saved abilities that are not yet unlocked at the beginning of a run are not activated.
+- Assigning, clearing, or rearranging the action bar does not consume a combat turn.
+- Existing Warrior combat mechanics and the published `HP / Level = 3` remain unchanged.
 
 ## 0.32.0 — complete Warrior ability runtime
 
@@ -1571,8 +1595,10 @@ Recommended order:
 
 3. **Abilities / combat validation**
    - all 29 retained Warrior abilities are runtime-wired
-   - button 2 quick-casts Heroic Strike; button 3 / B opens the unlocked Warrior ability panel
-   - next: in-game validation and balance pass, then decide the final 4-active + passive loadout UX
+   - B opens the Spellbook; learned abilities drag onto configurable slots 2-5
+   - slot 1 is fixed Basic Attack; slot 6 is reserved for Potion
+   - per-character action-bar loadouts persist in SavedVariables
+   - next: in-game validation and balance pass, then finite potion handling
 
 4. **Potions**
    - finite run resource
@@ -1692,6 +1718,8 @@ Before changing layout conventions, remember the user's current preferences:
 - newly generated floors scale enemies from the current temporary run level; already generated floors retain their existing encounter state;
 - omit WoW abilities whose core mechanic has no meaningful solo-roguelike translation; currently Taunt, Mocking Blow and Challenging Shout are excluded;
 - do not modify or deploy the unrelated liminal-space Vercel project while working on GoblinArcade;
-- drag targets must visually highlight.
+- drag targets must visually highlight;
+- the run combat bar uses fixed Basic Attack on 1, configurable spell slots on 2-5, Potion on 6, and B for the Spellbook;
+- Spellbook/action-bar loadouts persist per character in GoblinArcadeDB.
 
 Preserve those decisions unless the user explicitly asks to change them.
