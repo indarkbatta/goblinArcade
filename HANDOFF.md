@@ -3,9 +3,46 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.31.0**  
+Current addon version: **0.32.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.32.0 — complete Warrior ability runtime
+
+All 29 retained Warrior abilities are now represented by the runtime ability system. The previously excluded Taunt, Mocking Blow and Challenging Shout remain intentionally omitted because their core threat-only mechanics do not translate cleanly to the solo roguelike.
+
+New level 22-50 runtime abilities:
+- Intimidating Shout: adjacent enemies lose actions for 2 enemy phases; 2 Rage, 6-turn cooldown.
+- Execute: adjacent-target finisher usable at or below 20% HP; 2.5x weapon damage, 2 Rage.
+- Shield Wall: requires a shield; -60% incoming damage for 2 enemy phases; 10-turn cooldown.
+- Berserker Stance: +10% crit chance, +15% incoming damage until another stance is chosen.
+- Intercept: range 2-4 mobility strike with one-turn stagger; 1 Rage, 4-turn cooldown.
+- Berserker Rage: +1 Rage immediately and +1 Rage whenever damaged for 4 enemy phases; 6-turn cooldown.
+- Whirlwind: 1.0x weapon damage to every adjacent enemy; 2 Rage, 2-turn cooldown.
+- Pummel: 0.75x weapon damage plus one-turn stagger; 1 Rage, 2-turn cooldown.
+- Recklessness: +50% crit chance and +25% incoming damage for 3 turns; 10-turn cooldown.
+
+The ability panel now exposes all 29 supported Warrior abilities. The first ten retain numeric panel hotkeys; later abilities are clickable. The panel is a compact 3-column layout and remains level-gated by Run Level.
+
+The shared engine now covers:
+- Rage generation/spending and resource caps;
+- cooldowns and duration ticking;
+- DoTs;
+- player buffs and enemy debuffs;
+- movement abilities;
+- AoE;
+- reactive windows;
+- stances;
+- shield requirements;
+- control/stagger/fear;
+- damage-taken and damage-done modifiers;
+- temporary crit modifiers;
+- stackable vulnerability;
+- kill-triggered Victory Rush;
+- retaliation/counter damage;
+- level-up kills from direct, AoE and DoT damage.
+
+The user's published Warrior HP / Level = 3 remains preserved.
 
 ## 0.31.0 — Warrior level 12-20 combat package
 
@@ -148,7 +185,7 @@ Deployment is automatic through GitHub Actions.
 
 ### GoblinArcade Studio / Vercel
 
-Studio v0.8.0 keeps a **static-first** architecture for Vercel cost efficiency:
+Studio v0.9.0 keeps a **static-first** architecture for Vercel cost efficiency:
 
 - no npm build is required;
 - no database is used;
@@ -1524,7 +1561,7 @@ Recommended order:
    - EnemyGenerator v5 reads enemy archetypes and ranks from GA.StudioData
    - DungeonGenerator v7 reads room door limits and map markers from GA.StudioData
    - Shrine effects and Shrine UI values read from GA.StudioData
-   - Warrior spellbook data is populated; level 1-20 abilities are runtime-wired on the shared ability/status/reactive engine. Next batch should cover the level 22-50 Warrior abilities
+   - Warrior spellbook data is populated and all 29 retained abilities are runtime-wired. Next priorities are in-game combat testing/balance, finite potion handling and Studio/runtime loot-table migration
 
 2. **Room-role gameplay polish**
    - test the stricter door rules, Shrine modal, Elite Cache and Floor 9 exit lock in-game
@@ -1532,10 +1569,10 @@ Recommended order:
    - tune room counts / sizes from screenshots
    - later add more reward tables / Shrine choices
 
-3. **Abilities**
-   - Warrior first
-   - basic attack + 4 actives + passive is the longer-term design
-   - button 2 quick-casts Heroic Strike; button 3 opens the unlocked Warrior ability panel
+3. **Abilities / combat validation**
+   - all 29 retained Warrior abilities are runtime-wired
+   - button 2 quick-casts Heroic Strike; button 3 / B opens the unlocked Warrior ability panel
+   - next: in-game validation and balance pass, then decide the final 4-active + passive loadout UX
 
 4. **Potions**
    - finite run resource

@@ -103,6 +103,15 @@ local RUN_ABILITY_IDS = {
     "victory_rush",
     "cleave",
     "slam",
+    "intimidating_shout",
+    "execute",
+    "shield_wall",
+    "berserker_stance",
+    "intercept",
+    "berserker_rage",
+    "whirlwind",
+    "pummel",
+    "recklessness",
 }
 
 local CHEST_LOOT_TEMPLATES = {
@@ -1495,7 +1504,7 @@ function GA:CreateDungeonRunPage(parent)
     sacrificeDesc:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
     local abilityFrame = CreateFrame("Frame", nil, center, "BackdropTemplate")
-    abilityFrame:SetSize(558, 410)
+    abilityFrame:SetSize(558, 470)
     abilityFrame:SetPoint("CENTER", center, "CENTER", 0, 0)
     abilityFrame:SetFrameLevel(center:GetFrameLevel() + 55)
     abilityFrame:EnableMouse(true)
@@ -1516,8 +1525,8 @@ function GA:CreateDungeonRunPage(parent)
         local col = (i - 1) % 3
         local row = math.floor((i - 1) / 3)
         local hotkey = i <= 9 and tostring(i) or (i == 10 and "0" or "•")
-        local abilityButton = CreateFlatButton(abilityFrame, hotkey .. "  --", 166, 34)
-        abilityButton:SetPoint("TOPLEFT", 16 + col * 174, -66 - row * 40)
+        local abilityButton = CreateFlatButton(abilityFrame, hotkey .. "  --", 166, 30)
+        abilityButton:SetPoint("TOPLEFT", 16 + col * 174, -62 - row * 34)
         abilityButton.gaAbilityIndex = i
         abilityButton:SetScript("OnClick", function(button)
             GA:UseAbilityPanelIndex(button.gaAbilityIndex)
@@ -2701,6 +2710,15 @@ local function RollRunWeaponDamage(self, run, enemy, ability)
     end
 
     local critChance = run.arcadeStats and run.arcadeStats.crit or 0
+    if run.stance == "berserker" then
+        local berserker = GetStudioAbilityById("berserker_stance") or {}
+        critChance = critChance + math.max(0, tonumber(berserker.effectValue) or 0)
+    end
+    local recklessness = run.buffs and run.buffs.recklessness
+    if recklessness and (recklessness.turns or 0) > 0 then
+        critChance = critChance + math.max(0, tonumber(recklessness.critBonus) or 0)
+    end
+    critChance = math.min(100, critChance)
     local critical = critChance > 0 and math.random(1, 1000) <= math.floor(critChance * 10)
     if critical then
         damage = math.max(1, math.floor(damage * 1.5 + 0.5))
@@ -2784,7 +2802,10 @@ function GA:DealRunDamage(enemy, ability, options)
         enemy.statuses = enemy.statuses or {}
         local duration = math.max(0, math.floor(tonumber(ability.durationTurns) or 0))
 
-        if ability.id == "charge" or ability.id == "shield_bash" then
+        if ability.id == "charge"
+            or ability.id == "shield_bash"
+            or ability.id == "intercept"
+            or ability.id == "pummel" then
             enemy.skipTurn = true
             enemy.intent = "STAGGERED"
         elseif ability.id == "rend" and duration > 0 then
@@ -2846,7 +2867,7 @@ function GA:AdvanceCombatEffects()
                 end
             end
 
-            for _, statusId in ipairs({ "hamstring", "weakened", "sunder", "disarmed" }) do
+            for _, statusId in ipairs({ "hamstring", "weakened", "sunder", "disarmed", "feared" }) do
                 local status = enemy.statuses[statusId]
                 if status then
                     status.turns = (status.turns or 1) - 1
@@ -2867,7 +2888,7 @@ function GA:AdvanceCombatEffects()
         end
     end
 
-    for _, buffId in ipairs({ "shield_block", "retaliation" }) do
+    for _, buffId in ipairs({ "shield_block", "retaliation", "shield_wall", "berserker_rage", "recklessness" }) do
         local buff = run.buffs and run.buffs[buffId]
         if buff then
             buff.turns = (buff.turns or 1) - 1
@@ -2940,11 +2961,19 @@ function GA:UseRunAbility(abilityId)
         return false
     end
 
-    if abilityId == "battle_stance" or abilityId == "defensive_stance" then
+    if abilityId == "battle_stance"
+        or abilityId == "defensive_stance"
+        or abilityId == "berserker_stance" then
         SpendRunResource(run, resourceCost)
         GainRunResource(run, ability.resourceGain)
         SetRunAbilityCooldown(run, ability)
-        run.stance = abilityId == "defensive_stance" and "defensive" or "battle"
+        if abilityId == "defensive_stance" then
+            run.stance = "defensive"
+        elseif abilityId == "berserker_stance" then
+            run.stance = "berserker"
+        else
+            run.stance = "battle"
+        end
         run.turns = run.turns + 1
         self:AddCombatLog((ability.name or abilityId) .. " activated.", "player")
         self:UpdateRunResource()
@@ -3002,7 +3031,7 @@ function GA:UseRunAbility(abilityId)
         return true
     end
 
-    if abilityId == "charge" then
+    if abilityId == "charge" or abilityId == "intercept" then
         local target = GetNearestVisibleEnemyInRange(run, ability.range, 2)
         if not target then
             self:AddCombatLog("No visible enemy in Charge range.", "warning")
@@ -3017,7 +3046,7 @@ function GA:UseRunAbility(abilityId)
         run.playerX = destinationX
         run.playerY = destinationY
         run.activeEnemyId = target.uid
-        self:AddCombatLog("You charge " .. string.lower(GetEnemyDisplayName(target)) .. "!", "player")
+        self:AddCombatLog("You " .. string.lower(ability.name or "charge") .. " toward " .. string.lower(GetEnemyDisplayName(target)) .. "!", "player")
         return self:PlayerAttackEnemy(target, { ability = ability })
     end
 
@@ -3052,6 +3081,156 @@ function GA:UseRunAbility(abilityId)
         self:RenderDungeonGrid()
         self:RunEnemyTurn()
         return true
+    end
+
+    if abilityId == "intimidating_shout" then
+        local targets = GetAdjacentEnemies(run)
+        if #targets == 0 then
+            self:AddCombatLog("No adjacent enemies for Intimidating Shout.", "warning")
+            return false
+        end
+
+        SpendRunResource(run, resourceCost)
+        GainRunResource(run, ability.resourceGain)
+        SetRunAbilityCooldown(run, ability)
+        run.turns = run.turns + 1
+        local duration = math.max(1, math.floor(tonumber(ability.durationTurns) or 1))
+        for _, enemy in ipairs(targets) do
+            enemy.statuses = enemy.statuses or {}
+            enemy.statuses.feared = { turns = duration }
+        end
+        self:AddCombatLog(
+            string.format("Intimidating Shout: adjacent enemies are feared for %d turns.", duration),
+            "player"
+        )
+        self:UpdateRunResource()
+        self:RefreshRunCounters()
+        self:RenderDungeonGrid()
+        self:RunEnemyTurn()
+        return true
+    end
+
+    if abilityId == "shield_wall" then
+        if not HasRunShield(run) then
+            self:AddCombatLog("Shield Wall requires an equipped shield.", "warning")
+            return false
+        end
+
+        SpendRunResource(run, resourceCost)
+        GainRunResource(run, ability.resourceGain)
+        SetRunAbilityCooldown(run, ability)
+        run.buffs = run.buffs or {}
+        run.buffs.shield_wall = {
+            turns = math.max(1, math.floor(tonumber(ability.durationTurns) or 1)),
+            reduction = math.max(0, tonumber(ability.effectValue) or 0),
+            name = ability.name or "Shield Wall",
+        }
+        run.turns = run.turns + 1
+        self:AddCombatLog(
+            string.format("Shield Wall: -%d%% incoming damage for %d turns.",
+                run.buffs.shield_wall.reduction,
+                run.buffs.shield_wall.turns),
+            "player"
+        )
+        self:UpdateRunResource()
+        self:RefreshRunCounters()
+        self:RenderDungeonGrid()
+        self:RunEnemyTurn()
+        return true
+    end
+
+    if abilityId == "berserker_rage" then
+        SpendRunResource(run, resourceCost)
+        GainRunResource(run, ability.resourceGain)
+        SetRunAbilityCooldown(run, ability)
+        run.buffs = run.buffs or {}
+        run.buffs.berserker_rage = {
+            turns = math.max(1, math.floor(tonumber(ability.durationTurns) or 1)),
+            resourcePerHit = math.max(0, tonumber(ability.effectValue) or 0),
+            name = ability.name or "Berserker Rage",
+        }
+        run.turns = run.turns + 1
+        self:AddCombatLog(
+            string.format("Berserker Rage: +%d %s now and +%d when hit for %d turns.",
+                tonumber(ability.resourceGain) or 0,
+                run.resourceType or "RESOURCE",
+                run.buffs.berserker_rage.resourcePerHit,
+                run.buffs.berserker_rage.turns),
+            "player"
+        )
+        self:UpdateRunResource()
+        self:RefreshRunCounters()
+        self:RenderDungeonGrid()
+        self:RunEnemyTurn()
+        return true
+    end
+
+    if abilityId == "recklessness" then
+        SpendRunResource(run, resourceCost)
+        GainRunResource(run, ability.resourceGain)
+        SetRunAbilityCooldown(run, ability)
+        run.buffs = run.buffs or {}
+        run.buffs.recklessness = {
+            turns = math.max(1, math.floor(tonumber(ability.durationTurns) or 1)),
+            critBonus = math.max(0, tonumber(ability.effectValue) or 0),
+            damageTaken = math.max(0, tonumber(ability.secondaryValue) or 0),
+            name = ability.name or "Recklessness",
+        }
+        run.turns = run.turns + 1
+        self:AddCombatLog(
+            string.format("Recklessness: +%d%% crit, +%d%% damage taken for %d turns.",
+                run.buffs.recklessness.critBonus,
+                run.buffs.recklessness.damageTaken,
+                run.buffs.recklessness.turns),
+            "player"
+        )
+        self:UpdateRunResource()
+        self:RefreshRunCounters()
+        self:RenderDungeonGrid()
+        self:RunEnemyTurn()
+        return true
+    end
+
+    if abilityId == "whirlwind" then
+        local targets = GetAdjacentEnemies(run)
+        if #targets == 0 then
+            self:AddCombatLog("No adjacent enemies for Whirlwind.", "warning")
+            return false
+        end
+
+        SpendRunResource(run, resourceCost)
+        GainRunResource(run, ability.resourceGain)
+        SetRunAbilityCooldown(run, ability)
+        run.turns = run.turns + 1
+        self:AddCombatLog("Whirlwind strikes every adjacent enemy!", "player")
+        for _, enemy in ipairs(targets) do
+            if enemy.alive ~= false then
+                self:DealRunDamage(enemy, ability, { allowWeaponTrait = false })
+            end
+        end
+        self:UpdateRunResource()
+        self:RefreshRunCounters()
+        self:RenderDungeonGrid()
+        self:RunEnemyTurn()
+        return true
+    end
+
+    if abilityId == "execute" then
+        local target = GetAdjacentEnemy(run)
+        if not target then
+            self:AddCombatLog("No adjacent enemy to Execute.", "warning")
+            return false
+        end
+        local threshold = math.max(1, math.min(100, tonumber(ability.effectValue) or 20))
+        local healthPercent = (target.hp or 0) * 100 / math.max(1, target.maxHp or 1)
+        if healthPercent > threshold then
+            self:AddCombatLog(
+                string.format("Execute requires the target at or below %d%% health.", threshold),
+                "warning"
+            )
+            return false
+        end
+        return self:PlayerAttackEnemy(target, { ability = ability })
     end
 
     if abilityId == "overpower" or abilityId == "revenge" then
@@ -3195,7 +3374,8 @@ function GA:UseRunAbility(abilityId)
         or abilityId == "hamstring"
         or abilityId == "sunder_armor"
         or abilityId == "cleave"
-        or abilityId == "slam" then
+        or abilityId == "slam"
+        or abilityId == "pummel" then
         return self:PlayerAttackEnemy(nil, { ability = ability })
     end
 
@@ -4347,7 +4527,16 @@ function GA:RunEnemyTurn()
 
     for _, enemy in ipairs(run.enemies) do
         if enemy.alive ~= false and run.active then
-            if enemy.skipTurn then
+            local feared = enemy.statuses and enemy.statuses.feared
+            if feared and (feared.turns or 0) > 0 then
+                enemy.intent = "FEARED"
+                if self:IsDungeonCellVisible(enemy.x, enemy.y) then
+                    self:AddCombatLog(
+                        "The feared " .. string.lower(GetEnemyDisplayName(enemy)) .. " loses its action.",
+                        "enemy"
+                    )
+                end
+            elseif enemy.skipTurn then
                 enemy.intent = "STAGGERED"
                 enemy.skipTurn = false
 
@@ -4417,6 +4606,22 @@ function GA:RunEnemyTurn()
                             local defensive = GetStudioAbilityById("defensive_stance") or {}
                             local reduction = math.max(0, math.min(90, tonumber(defensive.effectValue) or 0))
                             enemyDamageMultiplier = enemyDamageMultiplier * (1 - reduction / 100)
+                        elseif run.stance == "berserker" then
+                            local berserker = GetStudioAbilityById("berserker_stance") or {}
+                            local penalty = math.max(0, tonumber(berserker.secondaryValue) or 0)
+                            enemyDamageMultiplier = enemyDamageMultiplier * (1 + penalty / 100)
+                        end
+
+                        local shieldWall = run.buffs and run.buffs.shield_wall
+                        if shieldWall and (shieldWall.turns or 0) > 0 then
+                            enemyDamageMultiplier = enemyDamageMultiplier
+                                * (1 - math.max(0, math.min(90, tonumber(shieldWall.reduction) or 0)) / 100)
+                        end
+
+                        local recklessness = run.buffs and run.buffs.recklessness
+                        if recklessness and (recklessness.turns or 0) > 0 then
+                            enemyDamageMultiplier = enemyDamageMultiplier
+                                * (1 + math.max(0, tonumber(recklessness.damageTaken) or 0) / 100)
                         end
 
                         rawDamage = math.max(1, math.floor(rawDamage * enemyDamageMultiplier + 0.5))
@@ -4461,6 +4666,12 @@ function GA:RunEnemyTurn()
                         )
 
                         self:UpdateRunHealth()
+
+                        local berserkerRage = run.buffs and run.buffs.berserker_rage
+                        if run.playerHealth > 0 and berserkerRage and (berserkerRage.turns or 0) > 0 then
+                            GainRunResource(run, berserkerRage.resourcePerHit or 0)
+                            self:UpdateRunResource()
+                        end
 
                         if run.playerHealth > 0 and run.buffs and run.buffs.retaliation and enemy.alive ~= false then
                             local retaliationAbility = GetStudioAbilityById("retaliation")
