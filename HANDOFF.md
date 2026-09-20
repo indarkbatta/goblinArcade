@@ -3,9 +3,33 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.54.1**  
+Current addon version: **0.55.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.55.0 — automated Warrior balance pass
+
+- Automated headless QA showed the 0.54.1 durability curve was too forgiving:
+  - clean 1v1 completion was about **99.5%**;
+  - even HEAVY_PRESSURE remained about **98%**;
+  - enemies commonly died in only **1–2 player attacks**.
+- A flat **5.0×** base-HP candidate was tested and rejected because it made the opening disproportionately punishing:
+  - Floor 1 clear fell to about **82%**;
+  - Floor 2 conditional clear fell to roughly **17% shield / 30% 2H**.
+- The accepted tuning changes enemy durability only:
+  - Base Enemy HP = `Reference Damage × 3.25` (was ×2.50);
+  - Floor HP Multiplier = `1 + 0.15 × (Floor - 1)` (was +0.07/floor);
+  - EnemyGenerator version = **9**.
+- Enemy damage remains unchanged at **4% Reference Player HP** before existing archetype/rank/floor/gear modifiers.
+- Accepted candidate audit:
+  - Floor 1–2 clear remains effectively **100%** for both Warrior profiles;
+  - PRESSURE full-run completion is about **71–74%**;
+  - HEAVY_PRESSURE completion is about **69–71%**;
+  - shield vs 2H completion gap is about **2.5 percentage points**;
+  - Floor 6 entry wallet stays around **3.4k–3.8k Copper (p10–p90)**;
+  - about **3.36 / 4** Floor 6 shop offers are affordable at entry;
+  - the run still finishes around temporary **Level 12**.
+- XP, Copper rewards, potion drop chance, item stats and shop prices are unchanged.
 
 ## Automated balance QA
 
@@ -150,7 +174,7 @@ Base formulas:
 
 ```
 Reference Damage = 5 + Effective Enemy Level × 0.90
-Base Enemy HP = Reference Damage × 2.50
+Base Enemy HP = Reference Damage × 3.25
 
 Reference Player HP = 100 + Effective Enemy Level × 20
 Average Enemy Damage = Reference Player HP × 4.0%
@@ -160,7 +184,7 @@ Damage roll = 80%-120% of that deterministic average
 Floor pressure:
 
 ```
-HP multiplier     = 1 + 0.07 × (Floor - 1)
+HP multiplier     = 1 + 0.15 × (Floor - 1)
 Damage multiplier = 1 + 0.05 × (Floor - 1)
 ```
 
@@ -2182,7 +2206,7 @@ Level 60 → 1.15x
 
 This pressure is intentionally mild. Leveling a character must not feel like punishment, but a level-60 character should not face exactly the same relative difficulty as a level-1 character.
 
-**Implementation status: active; current EnemyGenerator is v8 after the 0.53.0 balance pass.**
+**Implementation status: active; current EnemyGenerator is v9 after the 0.55.0 automated balance pass.**
 
 ### Floor progression pressure
 
@@ -2192,7 +2216,7 @@ Use:
 
 ```
 Floor HP Multiplier =
-1 + 0.07 × (Floor - 1)
+1 + 0.15 × (Floor - 1)
 
 Floor Damage Multiplier =
 1 + 0.05 × (Floor - 1)
@@ -2202,11 +2226,11 @@ Reference progression:
 
 ```
 Floor 1 → HP 1.00x / Damage 1.00x
-Floor 2 → HP 1.07x / Damage 1.05x
-Floor 3 → HP 1.14x / Damage 1.10x
-Floor 5 → HP 1.28x / Damage 1.20x
-Floor 7 → HP 1.42x / Damage 1.30x
-Floor 9 → HP 1.56x / Damage 1.40x
+Floor 2 → HP 1.15x / Damage 1.05x
+Floor 3 → HP 1.30x / Damage 1.10x
+Floor 5 → HP 1.60x / Damage 1.20x
+Floor 7 → HP 1.90x / Damage 1.30x
+Floor 9 → HP 2.20x / Damage 1.40x
 ```
 
 This is deliberately stronger than the character-level pressure. The run should become meaningfully more dangerous as the player descends through floors.
@@ -2287,7 +2311,7 @@ Base formulas currently implemented:
 
 ```
 Reference Damage = 5 + Effective Enemy Level × 0.90
-Base Enemy HP = Reference Damage × 2.50
+Base Enemy HP = Reference Damage × 3.25
 
 Reference Player HP = 100 + Effective Enemy Level × 20
 Average Enemy Damage = Reference Player HP × 4.0%

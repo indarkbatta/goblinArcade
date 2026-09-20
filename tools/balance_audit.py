@@ -188,9 +188,9 @@ class Audit:
     def __init__(
         self,
         seed: int,
-        enemy_hp_factor: float = 2.50,
+        enemy_hp_factor: float = 3.25,
         enemy_damage_fraction: float = 0.040,
-        floor_hp_slope: float = 0.070,
+        floor_hp_slope: float = 0.150,
     ):
         self.rng = random.Random(seed)
         self.enemy_hp_factor = enemy_hp_factor
@@ -920,9 +920,9 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--runs", type=int, default=6000, help="Runs per build/scenario")
     parser.add_argument("--seed", type=int, default=5401)
-    parser.add_argument("--enemy-hp-factor", type=float, default=2.50)
+    parser.add_argument("--enemy-hp-factor", type=float, default=3.25)
     parser.add_argument("--enemy-damage-fraction", type=float, default=0.040)
-    parser.add_argument("--floor-hp-slope", type=float, default=0.070)
+    parser.add_argument("--floor-hp-slope", type=float, default=0.150)
     args = parser.parse_args()
 
     audit = Audit(

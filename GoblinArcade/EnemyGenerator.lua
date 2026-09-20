@@ -3,7 +3,7 @@ local _, GA = ...
 GA.EnemyGenerator = GA.EnemyGenerator or {}
 local EG = GA.EnemyGenerator
 
-EG.VERSION = 8
+EG.VERSION = 9
 
 local GEAR_SLOTS = {
     "head",
@@ -190,7 +190,7 @@ local function GetFloorPressure(floor)
     local depth = floorNumber - 1
 
     return {
-        hpMultiplier = 1 + 0.07 * depth,
+        hpMultiplier = 1 + 0.15 * depth,
         damageMultiplier = 1 + 0.05 * depth,
     }
 end
@@ -293,7 +293,7 @@ function EG:CreateEnemy(options)
     -- Veterans/Elites survive long enough for Warrior control/defense tools
     -- to matter without turning early normals into damage sponges.
     local referenceDamage = 5 + effectiveLevel * 0.90
-    local baseHp = referenceDamage * 2.50
+    local baseHp = referenceDamage * 3.25
 
     -- Damage remains deterministic before the final bounded hit roll. The
     -- steeper floor pressure makes Floors 7-9 meaningfully dangerous while

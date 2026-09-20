@@ -21,29 +21,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run runtime baseline audit
+      - name: Run live balance audit
         shell: bash
         run: |
-          echo "## Current runtime balance" | tee balance-audit.md
-          python3 tools/balance_audit.py --runs 1800 --seed 5401 --enemy-hp-factor 2.5 --enemy-damage-fraction 0.04 --floor-hp-slope 0.07 | tee -a balance-audit.md
-
-      - name: Run depth candidate A
-        shell: bash
-        run: |
-          echo "## Candidate A: HP 3.25 / floor slope 0.12" | tee balance-candidate-a.md
-          python3 tools/balance_audit.py --runs 1800 --seed 5401 --enemy-hp-factor 3.25 --enemy-damage-fraction 0.04 --floor-hp-slope 0.12 | tee -a balance-candidate-a.md
-
-      - name: Run depth candidate B
-        shell: bash
-        run: |
-          echo "## Candidate B: HP 3.25 / floor slope 0.15" | tee balance-candidate-b.md
-          python3 tools/balance_audit.py --runs 1800 --seed 5401 --enemy-hp-factor 3.25 --enemy-damage-fraction 0.04 --floor-hp-slope 0.15 | tee -a balance-candidate-b.md
-
-      - name: Publish audit summary
-        shell: bash
-        run: |
+          python3 tools/balance_audit.py --runs 4000 --seed 5500 | tee balance-audit.md
           cat balance-audit.md >> "$GITHUB_STEP_SUMMARY"
-          printf "\n\n" >> "$GITHUB_STEP_SUMMARY"
-          cat balance-candidate-a.md >> "$GITHUB_STEP_SUMMARY"
-          printf "\n\n" >> "$GITHUB_STEP_SUMMARY"
-          cat balance-candidate-b.md >> "$GITHUB_STEP_SUMMARY"
