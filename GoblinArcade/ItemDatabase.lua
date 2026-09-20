@@ -3,7 +3,7 @@ local _, GA = ...
 GA.ItemDatabase = GA.ItemDatabase or {}
 local DB = GA.ItemDatabase
 
-DB.VERSION = 4
+DB.VERSION = 5
 
 local SLOT_LABELS = {
     INVTYPE_HEAD = "Head",
@@ -152,6 +152,7 @@ function DB:BuildItemInstance(itemId, options)
         icon = NormalizeIcon(definition.icon),
         itemLevel = itemLevel,
         tier = tostring(definition.tier or "T0"),
+        buildProfile = tostring(definition.buildProfile or "NONE"),
         quality = math.max(0, math.floor(tonumber(definition.quality) or 1)),
         requiredLevel = math.max(1, math.floor(tonumber(definition.requiredLevel) or 1)),
         price = math.max(0, math.floor(tonumber(definition.price) or 0)),
@@ -182,6 +183,7 @@ function DB:BuildItemInstance(itemId, options)
             attackPower = math.max(0, Round((tonumber(definition.attackPower) or 0) * powerMultiplier)),
             traitName = definition.traitName ~= "" and definition.traitName or nil,
             traitValue = math.max(0, tonumber(definition.traitValue) or 0),
+            buildProfile = tostring(definition.buildProfile or "NONE"),
             traitDescription = definition.traitDescription ~= "" and definition.traitDescription or nil,
         }
         if item.arcadeWeapon.damageMax < item.arcadeWeapon.damageMin then
@@ -205,6 +207,8 @@ function DB:BuildItemInstance(itemId, options)
             crit = math.max(0, Round1((tonumber(definition.crit) or 0) * powerMultiplier)),
             block = math.max(0, Round1((tonumber(definition.block) or 0) * powerMultiplier)),
             traitName = definition.traitName ~= "" and definition.traitName or nil,
+            traitValue = math.max(0, tonumber(definition.traitValue) or 0),
+            buildProfile = tostring(definition.buildProfile or "NONE"),
             traitDescription = definition.traitDescription ~= "" and definition.traitDescription or nil,
         }
     end
@@ -253,6 +257,52 @@ function DB:RollLootTable(tableId, floorNumber, sourceLabel)
     })
 end
 
+function DB:BuildShopStock(tableId, floorNumber, classId, runLevel, count)
+    local entries = self:GetLootEntries(tableId, floorNumber)
+    local candidates = {}
+    for _, entry in ipairs(entries) do
+        local definition = self:GetItemDefinition(entry.itemId)
+        if definition and self:IsItemAllowedForClass(definition, classId) then
+            candidates[#candidates + 1] = entry
+        end
+    end
+
+    local result = {}
+    local wanted = math.max(1, math.floor(tonumber(count) or 4))
+
+    while #result < wanted and #candidates > 0 do
+        local totalWeight = 0
+        for _, entry in ipairs(candidates) do
+            totalWeight = totalWeight + math.max(0, tonumber(entry.weight) or 0)
+        end
+        if totalWeight <= 0 then break end
+
+        local roll = math.random() * totalWeight
+        local cursor = 0
+        local selectedIndex = #candidates
+        for index, entry in ipairs(candidates) do
+            cursor = cursor + math.max(0, tonumber(entry.weight) or 0)
+            if roll <= cursor then
+                selectedIndex = index
+                break
+            end
+        end
+
+        local selected = table.remove(candidates, selectedIndex)
+        local item = self:BuildItemInstance(selected.itemId, {
+            source = "shop",
+            itemLevelBonus = tonumber(selected.itemLevelBonus) or 0,
+            powerMultiplier = tonumber(selected.powerMultiplier) or 1,
+            quantity = tonumber(selected.quantity) or 1,
+        })
+        if item then
+            result[#result + 1] = item
+        end
+    end
+
+    return result
+end
+
 function DB:RollObjectLoot(objectId, floorNumber)
     local object = self:GetObjectDefinition(objectId)
     if not object or not object.lootTableId or object.lootTableId == "" then
@@ -298,6 +348,12 @@ function GA:RollLootTable(tableId, floorNumber, sourceLabel)
     return self.ItemDatabase
         and self.ItemDatabase:RollLootTable(tableId, floorNumber, sourceLabel)
         or nil
+end
+
+function GA:BuildDungeonShopStock(floorNumber, classId, runLevel, count)
+    return self.ItemDatabase
+        and self.ItemDatabase:BuildShopStock("shop_inventory", floorNumber, classId, runLevel, count)
+        or {}
 end
 
 function GA:RollDungeonObjectLoot(objectId, floorNumber)

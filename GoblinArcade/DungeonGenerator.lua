@@ -3,7 +3,7 @@ local _, GA = ...
 GA.DungeonGenerator = GA.DungeonGenerator or {}
 local DG = GA.DungeonGenerator
 
-DG.VERSION = 9
+DG.VERSION = 10
 
 local MODULUS = 2147483647
 local MULTIPLIER = 48271
@@ -258,6 +258,7 @@ local function BuildDoorSet(rooms, walkable)
 
         if role == "TREASURE"
             or role == "SHRINE"
+            or role == "SHOP"
             or role == "ELITE"
             or role == "BOSS" then
             return 1
@@ -418,6 +419,7 @@ local function AssignRoomRoles(rooms, startRoomIndex, exitRoomIndex, floor, dist
         TREASURE = 0,
         ELITE = 0,
         SHRINE = 0,
+        SHOP = 0,
         EXIT = 0,
         BOSS = 0,
     }
@@ -473,8 +475,11 @@ local function AssignRoomRoles(rooms, startRoomIndex, exitRoomIndex, floor, dist
     end
 
     local shrineRoom
-    if floor >= 3 then
+    local shopRoom
+    if floor >= 3 and floor % 2 == 1 then
         shrineRoom = AssignNext("SHRINE")
+    elseif floor >= 2 and floor % 2 == 0 then
+        shopRoom = AssignNext("SHOP")
     end
 
     for _, room in ipairs(rooms) do
@@ -485,6 +490,7 @@ local function AssignRoomRoles(rooms, startRoomIndex, exitRoomIndex, floor, dist
         counts = roleCounts,
         treasureRoom = treasureRoom,
         shrineRoom = shrineRoom,
+        shopRoom = shopRoom,
         eliteRoom = eliteRoom,
         bossRoom = bossRoom,
     }
@@ -731,6 +737,7 @@ function DG:GenerateFloor(width, height, floorNumber, runSeed)
 
     AddTreasureChests(markers, chestKeys, roleData.treasureRoom, 2, GetStudioRoomMarker("TREASURE", "$"))
     AddRoomRoleMarker(markers, roleData.shrineRoom, GetStudioRoomMarker("SHRINE", "S"), "green", "shrine")
+    AddRoomRoleMarker(markers, roleData.shopRoom, GetStudioRoomMarker("SHOP", "M"), "gold", "shop")
     AddRoomRoleMarker(markers, roleData.eliteRoom, GetStudioRoomMarker("ELITE", "!"), "red", "elite")
     AddRoomRoleMarker(markers, roleData.bossRoom, GetStudioRoomMarker("BOSS", "B"), "red", "boss")
 

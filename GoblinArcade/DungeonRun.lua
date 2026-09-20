@@ -721,6 +721,28 @@ local RUN_SCORE = {
     COMPLETION = 1000,
 }
 
+local RUN_COPPER_RANK_MULTIPLIER = {
+    normal = 1.00,
+    veteran = 1.50,
+    elite = 2.50,
+    boss = 6.00,
+}
+
+local function FormatCopperValue(copper)
+    copper = math.max(0, math.floor(tonumber(copper) or 0))
+    local gold = math.floor(copper / 10000)
+    local silver = math.floor((copper % 10000) / 100)
+    local remainingCopper = copper % 100
+
+    if gold > 0 then
+        return string.format("%dg %ds %dc", gold, silver, remainingCopper)
+    end
+    if silver > 0 then
+        return string.format("%ds %dc", silver, remainingCopper)
+    end
+    return string.format("%dc", remainingCopper)
+end
+
 local function EnsureRunTracking(run)
     if not run then return nil end
 
@@ -731,6 +753,10 @@ local function EnsureRunTracking(run)
     run.stats.chests = run.stats.chests or 0
     run.stats.shrines = run.stats.shrines or 0
     run.stats.floorsCleared = run.stats.floorsCleared or 0
+    run.stats.copperEarned = run.stats.copperEarned or 0
+    run.stats.copperSpent = run.stats.copperSpent or 0
+    run.stats.itemsBought = run.stats.itemsBought or 0
+    run.stats.itemsSold = run.stats.itemsSold or 0
 
     run.scoreBreakdown = run.scoreBreakdown or {}
     run.scoreBreakdown.enemy = run.scoreBreakdown.enemy or 0
@@ -757,6 +783,20 @@ local function AddRunScore(run, bucket, amount)
         run.scoreBreakdown[bucket] = (run.scoreBreakdown[bucket] or 0) + value
     end
     return value
+end
+
+local function AwardEnemyCopper(run, enemy)
+    if not run or not enemy then return 0 end
+    local stats = EnsureRunTracking(run)
+    local floor = math.max(1, math.floor(tonumber(run.floor) or 1))
+    local danger = math.max(1, tonumber(enemy.dangerRating) or 1)
+    local rank = string.lower(tostring(enemy.rank or "normal"))
+    local rankMultiplier = RUN_COPPER_RANK_MULTIPLIER[rank] or 1
+    local reward = math.max(1, math.floor(((floor * 40) + (danger * 25)) * rankMultiplier + 0.5))
+
+    run.copper = (run.copper or 0) + reward
+    stats.copperEarned = stats.copperEarned + reward
+    return reward
 end
 
 local function RecordRunLoot(run, item)
@@ -1002,6 +1042,9 @@ local function BuildRoomRoleText(counts)
     end
     if (counts.SHRINE or 0) > 0 then
         parts[#parts + 1] = string.format("%d Shrine", counts.SHRINE)
+    end
+    if (counts.SHOP or 0) > 0 then
+        parts[#parts + 1] = string.format("%d Shop", counts.SHOP)
     end
     if (counts.BOSS or 0) > 0 then
         parts[#parts + 1] = string.format("%d Boss", counts.BOSS)
@@ -1612,16 +1655,17 @@ function GA:CreateDungeonRunPage(parent)
     self.DungeonXpValue, self.DungeonXpLabel = CreateStatRow(right, "XP", "--", -198)
     self.DungeonScoreValue, self.DungeonScoreLabel = CreateStatRow(right, "SCORE", "0", -222)
     self.DungeonTurnsValue, self.DungeonTurnsLabel = CreateStatRow(right, "TURNS", "0", -246)
+    self.DungeonCopperValue, self.DungeonCopperLabel = CreateStatRow(right, "COPPER", "0c", -270)
 
     local quickTitle = CreateText(right, "GameFontNormalSmall", "QUICK ACCESS")
-    quickTitle:SetPoint("TOPLEFT", 12, -278)
+    quickTitle:SetPoint("TOPLEFT", 12, -294)
     quickTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
     self.DungeonQuickAccessTitle = quickTitle
 
     local function CreateQuickAccessButton(parent, x, iconTexture, labelText, tooltipText, onClick)
         local button = CreateFrame("Button", nil, parent, "BackdropTemplate")
-        button:SetSize(72, 68)
-        button:SetPoint("TOPLEFT", x, -300)
+        button:SetSize(72, 62)
+        button:SetPoint("TOPLEFT", x, -314)
         ApplyBackdrop(button, { 0.035, 0.030, 0.024, 1 }, COLORS.goldDim)
 
         local icon = button:CreateTexture(nil, "ARTWORK")
@@ -1823,6 +1867,119 @@ function GA:CreateDungeonRunPage(parent)
     )
     sacrificeDesc:SetPoint("BOTTOM", sacrificeButton, "TOP", 0, 5)
     sacrificeDesc:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local shopFrame = CreateFrame("Frame", nil, center, "BackdropTemplate")
+    shopFrame:SetSize(560, 420)
+    shopFrame:SetPoint("CENTER", center, "CENTER", 0, 0)
+    shopFrame:SetFrameLevel(center:GetFrameLevel() + 52)
+    shopFrame:EnableMouse(true)
+    ApplyBackdrop(shopFrame, { 0.025, 0.021, 0.017, 0.99 }, COLORS.gold)
+    shopFrame:Hide()
+    self.DungeonShopFrame = shopFrame
+
+    local shopTitle = CreateText(shopFrame, "GameFontNormalLarge", "GOBLIN QUARTERMASTER")
+    shopTitle:SetPoint("TOPLEFT", 16, -16)
+    shopTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    local shopCopper = CreateText(shopFrame, "GameFontNormalSmall", "0c")
+    shopCopper:SetPoint("TOPRIGHT", -16, -20)
+    shopCopper:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    self.DungeonShopCopper = shopCopper
+
+    local shopHint = CreateText(shopFrame, "GameFontHighlightSmall", "Buy with run Copper. Sell backpack items for 50% of base value.")
+    shopHint:SetPoint("TOPLEFT", 16, -42)
+    shopHint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local buyTitle = CreateText(shopFrame, "GameFontNormalSmall", "BUY")
+    buyTitle:SetPoint("TOPLEFT", 16, -68)
+    buyTitle:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+
+    local sellTitle = CreateText(shopFrame, "GameFontNormalSmall", "SELL FROM BACKPACK")
+    sellTitle:SetPoint("TOPLEFT", 294, -68)
+    sellTitle:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+
+    self.DungeonShopBuyButtons = {}
+    for i = 1, 4 do
+        local button = CreateFlatButton(shopFrame, tostring(i) .. "  EMPTY", 250, 56)
+        button:SetPoint("TOPLEFT", 16, -88 - ((i - 1) * 64))
+        button:SetScript("OnClick", function()
+            GA:BuyDungeonShopItem(i)
+        end)
+        button:SetScript("OnEnter", function(selfButton)
+            if selfButton.gaShopItem then
+                GameTooltip:SetOwner(selfButton, "ANCHOR_RIGHT")
+                GameTooltip:SetText(selfButton.gaShopItem.name or "Shop Item", 1, 0.82, 0.2)
+                GameTooltip:AddLine(
+                    string.format("%s  -  Item Level %d", selfButton.gaShopItem.tier or "T0", selfButton.gaShopItem.itemLevel or 1),
+                    0.85, 0.82, 0.75
+                )
+                if selfButton.gaShopItem.buildProfile and selfButton.gaShopItem.buildProfile ~= "NONE" then
+                    GameTooltip:AddLine("Build: " .. selfButton.gaShopItem.buildProfile, 1, 0.72, 0.12)
+                end
+                local shopWeapon = selfButton.gaShopItem.arcadeWeapon
+                local shopGear = selfButton.gaShopItem.arcadeItem
+                if shopWeapon then
+                    GameTooltip:AddLine(string.format("Damage %d - %d", shopWeapon.damageMin or 0, shopWeapon.damageMax or 0), 0.92, 0.89, 0.82)
+                    if (shopWeapon.attackPower or 0) > 0 then
+                        GameTooltip:AddLine(string.format("Attack Power +%d", shopWeapon.attackPower), 1.00, 0.72, 0.12)
+                    end
+                    if shopWeapon.traitName then
+                        GameTooltip:AddLine(shopWeapon.traitName, 1, 0.72, 0.12)
+                        GameTooltip:AddLine(shopWeapon.traitDescription or "", 0.82, 0.79, 0.72, true)
+                    end
+                elseif shopGear then
+                    if (shopGear.health or 0) > 0 then GameTooltip:AddLine(string.format("Health +%d", shopGear.health), 0.30, 1.00, 0.38) end
+                    if (shopGear.armor or 0) > 0 then GameTooltip:AddLine(string.format("Armor +%d", shopGear.armor), 0.92, 0.89, 0.82) end
+                    if (shopGear.attackPower or 0) > 0 then GameTooltip:AddLine(string.format("Attack Power +%d", shopGear.attackPower), 1.00, 0.72, 0.12) end
+                    if (shopGear.dodge or 0) > 0 then GameTooltip:AddLine(string.format("Dodge +%.1f%%", shopGear.dodge), 0.92, 0.89, 0.82) end
+                    if (shopGear.crit or 0) > 0 then GameTooltip:AddLine(string.format("Crit +%.1f%%", shopGear.crit), 0.92, 0.89, 0.82) end
+                    if (shopGear.block or 0) > 0 then GameTooltip:AddLine(string.format("Block +%.1f%%", shopGear.block), 0.92, 0.89, 0.82) end
+                    if shopGear.traitName then
+                        GameTooltip:AddLine(shopGear.traitName, 1, 0.72, 0.12)
+                        GameTooltip:AddLine(shopGear.traitDescription or "", 0.82, 0.79, 0.72, true)
+                    end
+                end
+                if (selfButton.gaShopItem.requiredLevel or 1) > (GA.RunState and GA.RunState.runLevel or 1) then
+                    GameTooltip:AddLine(string.format("Requires Run Level %d", selfButton.gaShopItem.requiredLevel), 1.00, 0.35, 0.30)
+                end
+                GameTooltip:AddLine("Buy: " .. FormatCopperValue(selfButton.gaShopPrice or 0), 1, 0.82, 0.2)
+                GameTooltip:Show()
+            end
+        end)
+        button:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        self.DungeonShopBuyButtons[i] = button
+    end
+
+    self.DungeonShopSellButtons = {}
+    for i = 1, 6 do
+        local button = CreateFlatButton(shopFrame, "EMPTY", 250, 38)
+        button:SetPoint("TOPLEFT", 294, -88 - ((i - 1) * 46))
+        button:SetScript("OnClick", function(selfButton)
+            if selfButton.gaBackpackSlot then
+                GA:SellDungeonShopItem(selfButton.gaBackpackSlot)
+            end
+        end)
+        self.DungeonShopSellButtons[i] = button
+    end
+
+    local shopPrev = CreateFlatButton(shopFrame, "<", 38, 28)
+    shopPrev:SetPoint("BOTTOMLEFT", 294, 16)
+    shopPrev:SetScript("OnClick", function() GA:ChangeDungeonShopSellPage(-1) end)
+    self.DungeonShopPrev = shopPrev
+
+    local shopPage = CreateText(shopFrame, "GameFontNormalSmall", "1 / 4")
+    shopPage:SetPoint("BOTTOM", shopFrame, "BOTTOM", 150, 23)
+    shopPage:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    self.DungeonShopPageText = shopPage
+
+    local shopNext = CreateFlatButton(shopFrame, ">", 38, 28)
+    shopNext:SetPoint("BOTTOMRIGHT", -16, 16)
+    shopNext:SetScript("OnClick", function() GA:ChangeDungeonShopSellPage(1) end)
+    self.DungeonShopNext = shopNext
+
+    local shopClose = CreateFlatButton(shopFrame, "CLOSE", 120, 30)
+    shopClose:SetPoint("BOTTOMLEFT", 16, 16)
+    shopClose:SetScript("OnClick", function() GA:CloseDungeonShop() end)
 
     local spellbook = CreateFrame("Frame", nil, center, "BackdropTemplate")
     spellbook:SetSize(558, 470)
@@ -2586,6 +2743,15 @@ function GA:CreateDungeonRunPage(parent)
         -- it disabled for the entire run so WoW never receives movement keys.
         if pageFrame.SetPropagateKeyboardInput then
             pageFrame:SetPropagateKeyboardInput(false)
+        end
+
+        if GA.DungeonShopFrame and GA.DungeonShopFrame:IsShown() then
+            if key == "ESCAPE" then
+                GA:CloseDungeonShop()
+            elseif key == "1" or key == "2" or key == "3" or key == "4" then
+                GA:BuyDungeonShopItem(tonumber(key))
+            end
+            return
         end
 
         if GA.DungeonShrineFrame and GA.DungeonShrineFrame:IsShown() then
@@ -3369,6 +3535,7 @@ function GA:RefreshEnemyCombatCard()
             PositionRunRow(self.DungeonXpLabel, self.DungeonXpValue, -198)
             PositionRunRow(self.DungeonScoreLabel, self.DungeonScoreValue, -222)
             PositionRunRow(self.DungeonTurnsLabel, self.DungeonTurnsValue, -246)
+            PositionRunRow(self.DungeonCopperLabel, self.DungeonCopperValue, -270)
         else
             self.DungeonRunTitle:SetPoint("TOPLEFT", 12, -14)
             PositionRunRow(self.DungeonFloorLabel, self.DungeonFloorValue, -38)
@@ -3376,6 +3543,7 @@ function GA:RefreshEnemyCombatCard()
             PositionRunRow(self.DungeonXpLabel, self.DungeonXpValue, -86)
             PositionRunRow(self.DungeonScoreLabel, self.DungeonScoreValue, -110)
             PositionRunRow(self.DungeonTurnsLabel, self.DungeonTurnsValue, -134)
+            PositionRunRow(self.DungeonCopperLabel, self.DungeonCopperValue, -158)
         end
     end
 end
@@ -4157,7 +4325,7 @@ function GA:ShowDungeonRunSummary(completed, reason, hardcoreDeath)
 
     self.DungeonRunSummaryReason:SetText(reason or "")
     self.DungeonRunSummaryStats:SetText(string.format(
-        "SCORE  %d\nFLOOR  %d / 9\nKILLS  %d\nELITES  %d\nBOSSES  %d\nCHESTS  %d\nSHRINES  %d\nTURNS  %d\nTEMP LEVELS  +%d",
+        "SCORE  %d\nFLOOR  %d / 9\nKILLS  %d\nELITES  %d\nBOSSES  %d\nCHESTS  %d\nSHRINES  %d\nCOPPER  %s\nBOUGHT / SOLD  %d / %d\nTURNS  %d\nTEMP LEVELS  +%d",
         run.score or 0,
         run.floor or 1,
         stats.kills or 0,
@@ -4165,6 +4333,9 @@ function GA:ShowDungeonRunSummary(completed, reason, hardcoreDeath)
         stats.bossKills or 0,
         stats.chests or 0,
         stats.shrines or 0,
+        FormatCopperValue(run.copper or 0),
+        stats.itemsBought or 0,
+        stats.itemsSold or 0,
         run.turns or 0,
         run.levelsGained or 0
     ))
@@ -4203,6 +4374,7 @@ function GA:FailDungeonRun(reason)
     run.active = false
     run.failed = true
     self:CloseShrineChoice()
+    self:CloseDungeonShop()
     self:CloseSpellbook()
 
     local deathReason = reason or "The run is over."
@@ -4419,7 +4591,7 @@ local function FindChargeDestination(run, enemy)
     return bestX, bestY
 end
 
-local function GetRunDamageDoneMultiplier(run)
+local function GetRunDamageDoneMultiplier(run, enemy)
     local multiplier = 1
 
     local shout = run and run.buffs and run.buffs.battle_shout
@@ -4431,6 +4603,22 @@ local function GetRunDamageDoneMultiplier(run)
         local stance = GetStudioAbilityById("defensive_stance") or {}
         local penalty = math.max(0, math.min(90, tonumber(stance.secondaryValue) or 0))
         multiplier = multiplier * (1 - penalty / 100)
+    end
+
+    local traits = run and run.arcadeTraits or {}
+    local hpRatio = run and (run.playerMaxHealth or 0) > 0
+        and ((run.playerHealth or 0) / run.playerMaxHealth)
+        or 1
+
+    if hpRatio <= 0.50 and (traits.BLOOD_FURY or 0) > 0 then
+        multiplier = multiplier * (1 + traits.BLOOD_FURY / 100)
+    end
+    if hpRatio >= 0.80 and (traits.VANGUARD or 0) > 0 then
+        multiplier = multiplier * (1 + traits.VANGUARD / 100)
+    end
+    if enemy and (enemy.maxHp or 0) > 0 and (enemy.hp or 0) / enemy.maxHp <= 0.35
+        and (traits.EXECUTIONER or 0) > 0 then
+        multiplier = multiplier * (1 + traits.EXECUTIONER / 100)
     end
 
     return multiplier
@@ -4455,7 +4643,7 @@ local function RollRunWeaponDamage(self, run, enemy, ability)
 
     local abilityMultiplier = ability and math.max(0.01, tonumber(ability.damageMultiplier) or 1) or 1
     damage = math.max(1, math.floor(damage * abilityMultiplier + 0.5))
-    damage = math.max(1, math.floor(damage * GetRunDamageDoneMultiplier(run) + 0.5))
+    damage = math.max(1, math.floor(damage * GetRunDamageDoneMultiplier(run, enemy) + 0.5))
     damage = math.max(1, math.floor(damage * GetEnemyIncomingDamageMultiplier(enemy) + 0.5))
 
     local shrineDamageBonus = math.max(0, tonumber(run.shrineDamageBonus) or 0)
@@ -4510,14 +4698,16 @@ function GA:HandleEnemyDefeat(enemy)
         self:AddCombatLog("BOSS DEFEATED - THE WAY OUT OPENS. A boss cache appears.", "system")
     end
     AddRunScore(run, "rankBonus", rankBonus)
+    local copperReward = AwardEnemyCopper(run, enemy)
 
     self:AddCombatLog(
         string.format(
-            "%s defeated. +%d score%s, +%d XP.",
+            "%s defeated. +%d score%s, +%d XP, +%s.",
             GetEnemyDisplayName(enemy),
             scoreValue,
             rankBonus > 0 and string.format(" + %d rank bonus", rankBonus) or "",
-            xpValue
+            xpValue,
+            FormatCopperValue(copperReward)
         ),
         "system"
     )
@@ -4583,9 +4773,37 @@ function GA:DealRunDamage(enemy, ability, options)
         "player"
     )
 
-    if enemy.hp > 0 and options.allowWeaponTrait ~= false and weapon and weapon.traitName == "STAGGER" then
-        local staggerChance = tonumber(weapon.traitValue) or 0
-        if staggerChance > 0 and math.random(1, 100) <= staggerChance then
+    if options.allowWeaponTrait ~= false and weapon and weapon.traitName then
+        local traitName = string.upper(tostring(weapon.traitName))
+        local traitValue = math.max(0, tonumber(weapon.traitValue) or 0)
+
+        if traitName == "GUARD" and traitValue > 0 then
+            run.weaponGuardChance = math.max(run.weaponGuardChance or 0, traitValue)
+        elseif traitName == "CLEAVE" and traitValue > 0 then
+            for _, secondary in ipairs(run.enemies or {}) do
+                if secondary.alive ~= false
+                    and secondary.uid ~= enemy.uid
+                    and IsAdjacent(run.playerX, run.playerY, secondary.x, secondary.y) then
+                    local cleaveDamage = math.max(1, math.floor(damage * (traitValue / 100) + 0.5))
+                    secondary.hp = math.max(0, (secondary.hp or secondary.maxHp or 1) - cleaveDamage)
+                    self:AddCombatLog(
+                        string.format(
+                            "CLEAVE! %s takes %d damage. (%d/%d HP)",
+                            GetEnemyDisplayName(secondary),
+                            cleaveDamage,
+                            secondary.hp,
+                            secondary.maxHp or secondary.hp
+                        ),
+                        "player"
+                    )
+                    if secondary.hp <= 0 then
+                        self:HandleEnemyDefeat(secondary)
+                    end
+                    break
+                end
+            end
+        elseif traitName == "STAGGER" and enemy.hp > 0 and traitValue > 0
+            and math.random(1, 100) <= traitValue then
             enemy.skipTurn = true
             enemy.intent = "STAGGERED"
             self:AddCombatLog(
@@ -5434,6 +5652,9 @@ function GA:RefreshDungeonMiniMap()
                             else
                                 r, g, b, a = COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 1
                             end
+                        elseif marker.kind == "shop" then
+                            state = "shop"
+                            r, g, b, a = COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 1
                         elseif marker.kind == "shrine" then
                             local shrineUsed = marker.roomIndex
                                 and run.roomStates
@@ -5676,6 +5897,9 @@ function GA:RefreshRunCounters()
     if self.DungeonTurnsValue then
         self.DungeonTurnsValue:SetText(tostring(run and run.turns or 0))
     end
+    if self.DungeonCopperValue then
+        self.DungeonCopperValue:SetText(FormatCopperValue(run and run.copper or 0))
+    end
 end
 
 function GA:BeginDungeonRun()
@@ -5782,6 +6006,7 @@ function GA:BeginDungeonRun()
         completed = false,
         floor = floor,
         score = 0,
+        copper = 0,
         turns = 0,
         stats = {
             kills = 0,
@@ -5790,6 +6015,10 @@ function GA:BeginDungeonRun()
             chests = 0,
             shrines = 0,
             floorsCleared = 0,
+            copperEarned = 0,
+            copperSpent = 0,
+            itemsBought = 0,
+            itemsSold = 0,
         },
         scoreBreakdown = {
             enemy = 0,
@@ -5829,6 +6058,7 @@ function GA:BeginDungeonRun()
         backpack = {},
         openedChests = {},
         openDoors = {},
+        shopStock = nil,
         explored = {},
         visible = {},
         gearPressure = CopyTable(gearPressure),
@@ -5877,15 +6107,6 @@ function GA:BeginDungeonRun()
     self:UpdateRunResource()
     self:RecalculateRunGearStats()
     self:RefreshRunWeaponFromEquipment()
-    self.DungeonArcadeDamage:SetText(string.format("Damage %d - %d", selectedWeapon.damageMin, selectedWeapon.damageMax))
-    self.DungeonArcadeStyle:SetText(string.format(
-        "%s  -  %s  -  Range %d",
-        selectedWeapon.style or "Weapon",
-        selectedWeapon.speed or "NORMAL",
-        selectedWeapon.range or 1
-    ))
-    self.DungeonArcadeTraitName:SetText(selectedWeapon.traitName or "NO SIGNATURE TRAIT")
-    self.DungeonArcadeTraitDesc:SetText(selectedWeapon.traitDescription or "")
 
     if self.DungeonBeginButton then
         self.DungeonBeginButton:SetEnabled(false)
@@ -6012,6 +6233,7 @@ local function CaptureCurrentFloorState(run)
         chestLoot = CopyTable(run.chestLoot or {}),
         openedChests = CopyTable(run.openedChests or {}),
         openDoors = CopyTable(run.openDoors or {}),
+        shopStock = run.shopStock and CopyTable(run.shopStock) or nil,
         explored = CopyTable(run.explored or {}),
         densityProfile = CopyTable(run.densityProfile or {}),
         walkableTiles = run.walkableTiles,
@@ -6041,6 +6263,7 @@ local function ApplyStoredFloorState(run, floorNumber, stored, entryDirection)
     run.chestLoot = CopyTable(stored.chestLoot or {})
     run.openedChests = CopyTable(stored.openedChests or {})
     run.openDoors = CopyTable(stored.openDoors or {})
+    run.shopStock = stored.shopStock and CopyTable(stored.shopStock) or nil
     run.explored = CopyTable(stored.explored or {})
     run.visible = {}
     run.densityProfile = CopyTable(stored.densityProfile or {})
@@ -6068,6 +6291,7 @@ end
 
 function GA:ApplyDungeonFloor(floorNumber, entryDirection)
     self:CloseShrineChoice()
+    self:CloseDungeonShop()
     self:CloseSpellbook()
 
     local run = self.RunState
@@ -6120,6 +6344,7 @@ function GA:ApplyDungeonFloor(floorNumber, entryDirection)
         run.playerY = startY
         run.openedChests = {}
         run.openDoors = {}
+        run.shopStock = nil
         run.explored = {}
         run.visible = {}
         run.densityProfile = CopyTable(floorSetup.densityProfile)
@@ -6242,6 +6467,7 @@ function GA:CompleteDungeonRun()
     run.active = false
     run.completed = true
     self:CloseShrineChoice()
+    self:CloseDungeonShop()
     self:CloseSpellbook()
 
     if self.DungeonFloorTitle then
@@ -6412,11 +6638,21 @@ function GA:RunEnemyTurn()
                     enemy.intent = "ATTACKING"
                     run.activeEnemyId = run.activeEnemyId or enemy.uid
 
+                    local guardChance = math.max(0, tonumber(run.weaponGuardChance) or 0)
+                    local parried = guardChance > 0
+                        and math.random(1, 1000) <= math.floor(guardChance * 10)
                     local dodgeChance = stats.dodge or 0
-                    local dodged = dodgeChance > 0
+                    local dodged = not parried and dodgeChance > 0
                         and math.random(1, 1000) <= math.floor(dodgeChance * 10)
 
-                    if dodged then
+                    if parried then
+                        run.reactive = run.reactive or {}
+                        run.reactive.revenge = { turns = 2 }
+                        self:AddCombatLog(
+                            "PARRY! Your weapon guard deflects the " .. string.lower(GetEnemyDisplayName(enemy)) .. "'s attack. Revenge is ready.",
+                            "player"
+                        )
+                    elseif dodged then
                         run.reactive = run.reactive or {}
                         run.reactive.overpower = { turns = 2 }
                         run.reactive.revenge = { turns = 2 }
@@ -6468,6 +6704,11 @@ function GA:RunEnemyTurn()
                         rawDamage = math.max(1, math.floor(rawDamage * enemyDamageMultiplier + 0.5))
 
                         local armor = stats.armor or 0
+                        local lastStand = run.arcadeTraits and (run.arcadeTraits.LAST_STAND or 0) or 0
+                        if lastStand > 0 and (run.playerMaxHealth or 0) > 0
+                            and (run.playerHealth or 0) / run.playerMaxHealth <= 0.35 then
+                            armor = armor * (1 + lastStand / 100)
+                        end
                         local mitigation = math.min(0.55, armor / (armor + 100))
                         local damage = math.max(
                             1,
@@ -6596,6 +6837,7 @@ function GA:RunEnemyTurn()
         end
     end
 
+    run.weaponGuardChance = nil
     self:AdvanceCombatEffects()
     self:RenderDungeonGrid()
 
@@ -6680,6 +6922,163 @@ function GA:TryLootChest(x, y)
     end
     self:RefreshRunCounters()
     self:RenderDungeonGrid()
+    return true
+end
+
+function GA:CloseDungeonShop()
+    if self.DungeonShopFrame then
+        self.DungeonShopFrame:Hide()
+    end
+    self.PendingShopRoomIndex = nil
+end
+
+function GA:RefreshDungeonShop()
+    local run = self.RunState
+    if not run or not self.DungeonShopFrame then return end
+
+    if self.DungeonShopCopper then
+        self.DungeonShopCopper:SetText(FormatCopperValue(run.copper or 0))
+    end
+
+    for index = 1, 4 do
+        local button = self.DungeonShopBuyButtons and self.DungeonShopBuyButtons[index]
+        local item = run.shopStock and run.shopStock[index]
+        if button then
+            button.gaShopItem = type(item) == "table" and item or nil
+            button.gaShopPrice = type(item) == "table" and math.max(0, math.floor(tonumber(item.price) or 0)) or 0
+
+            if type(item) == "table" then
+                local shortName = tostring(item.name or "Item")
+                if #shortName > 24 then shortName = string.sub(shortName, 1, 23) .. "…" end
+                button.label:SetText(string.format("%d  %s  -  %s", index, shortName, FormatCopperValue(button.gaShopPrice)))
+                local affordable = (run.copper or 0) >= button.gaShopPrice
+                button:SetEnabled(affordable)
+                button.label:SetTextColor(
+                    affordable and COLORS.text[1] or COLORS.muted[1],
+                    affordable and COLORS.text[2] or COLORS.muted[2],
+                    affordable and COLORS.text[3] or COLORS.muted[3]
+                )
+            else
+                button.label:SetText(string.format("%d  SOLD", index))
+                button:SetEnabled(false)
+                button.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+            end
+        end
+    end
+
+    self.DungeonShopSellPage = math.max(1, math.min(4, tonumber(self.DungeonShopSellPage) or 1))
+    local firstSlot = ((self.DungeonShopSellPage - 1) * 6) + 1
+
+    for index = 1, 6 do
+        local slotIndex = firstSlot + index - 1
+        local button = self.DungeonShopSellButtons and self.DungeonShopSellButtons[index]
+        local item = run.backpack and run.backpack[slotIndex]
+        if button then
+            button.gaBackpackSlot = item and slotIndex or nil
+            if item then
+                local count = math.max(1, math.floor(tonumber(item.stackCount) or 1))
+                local unitValue = math.max(0, math.floor((tonumber(item.price) or 0) * 0.5))
+                local sellValue = unitValue * count
+                local shortName = tostring(item.name or "Item")
+                if #shortName > 21 then shortName = string.sub(shortName, 1, 20) .. "…" end
+                button.label:SetText(string.format("%d. %s  +%s", slotIndex, shortName, FormatCopperValue(sellValue)))
+                button:SetEnabled(sellValue > 0)
+            else
+                button.label:SetText(string.format("%d. EMPTY", slotIndex))
+                button:SetEnabled(false)
+            end
+        end
+    end
+
+    if self.DungeonShopPageText then
+        self.DungeonShopPageText:SetText(string.format("%d / 4", self.DungeonShopSellPage))
+    end
+    if self.DungeonShopPrev then self.DungeonShopPrev:SetEnabled(self.DungeonShopSellPage > 1) end
+    if self.DungeonShopNext then self.DungeonShopNext:SetEnabled(self.DungeonShopSellPage < 4) end
+
+    self:RefreshRunCounters()
+end
+
+function GA:OpenDungeonShop(roomIndex)
+    local run = self.RunState
+    if not run or not run.active or not roomIndex then return false end
+
+    if not run.shopStock then
+        run.shopStock = self.BuildDungeonShopStock
+            and self:BuildDungeonShopStock(run.floor, run.classId, run.runLevel, 4)
+            or {}
+    end
+
+    self.PendingShopRoomIndex = roomIndex
+    self.DungeonShopSellPage = 1
+    if self.CharacterSheetFrame then self.CharacterSheetFrame:Hide() end
+    self:CancelCharacterItemDrag()
+    self:CloseSpellbook()
+    self:CloseShrineChoice()
+    self:RefreshDungeonShop()
+    if self.DungeonShopFrame then self.DungeonShopFrame:Show() end
+    self:AddCombatLog("A goblin quartermaster opens a battered ledger.", "system")
+    return true
+end
+
+function GA:ChangeDungeonShopSellPage(delta)
+    self.DungeonShopSellPage = math.max(1, math.min(4, (tonumber(self.DungeonShopSellPage) or 1) + (tonumber(delta) or 0)))
+    self:RefreshDungeonShop()
+end
+
+function GA:BuyDungeonShopItem(index)
+    local run = self.RunState
+    index = tonumber(index)
+    local item = run and run.shopStock and index and run.shopStock[index]
+    if not run or not run.active or type(item) ~= "table" then return false end
+
+    local price = math.max(0, math.floor(tonumber(item.price) or 0))
+    if (run.copper or 0) < price then
+        self:AddCombatLog("You cannot afford " .. (item.name or "that item") .. ".", "warning")
+        return false
+    end
+
+    if not self:AddItemToBackpack(CopyTable(item)) then
+        self:AddCombatLog("Your backpack is full. Nothing was purchased.", "warning")
+        return false
+    end
+
+    run.copper = math.max(0, (run.copper or 0) - price)
+    run.shopStock[index] = false
+    local stats = EnsureRunTracking(run)
+    stats.copperSpent = stats.copperSpent + price
+    stats.itemsBought = stats.itemsBought + 1
+
+    self:AddCombatLog(string.format("Bought %s for %s.", item.name or "item", FormatCopperValue(price)), "system")
+    self:RefreshDungeonShop()
+    return true
+end
+
+function GA:SellDungeonShopItem(slotIndex)
+    local run = self.RunState
+    slotIndex = tonumber(slotIndex)
+    local item = run and run.backpack and slotIndex and run.backpack[slotIndex]
+    if not run or not run.active or not item then return false end
+
+    local count = math.max(1, math.floor(tonumber(item.stackCount) or 1))
+    local unitValue = math.max(0, math.floor((tonumber(item.price) or 0) * 0.5))
+    local sellValue = unitValue * count
+    if sellValue <= 0 then
+        self:AddCombatLog((item.name or "That item") .. " has no resale value.", "warning")
+        return false
+    end
+
+    run.backpack[slotIndex] = nil
+    run.copper = (run.copper or 0) + sellValue
+    local stats = EnsureRunTracking(run)
+    stats.copperEarned = stats.copperEarned + sellValue
+    stats.itemsSold = stats.itemsSold + count
+
+    self:AddCombatLog(string.format("Sold %s x%d for %s.", item.name or "item", count, FormatCopperValue(sellValue)), "system")
+    self:RefreshDungeonShop()
+    if self.CharacterSheetFrame and self.CharacterSheetFrame:IsShown() then
+        self:RefreshCharacterSheet()
+    end
     return true
 end
 
@@ -6883,6 +7282,14 @@ function GA:MoveDungeonPlayer(dx, dy)
         return
     end
 
+    if marker and marker.kind == "shop" and marker.roomIndex then
+        self:RunEnemyTurn()
+        if run.active then
+            self:OpenDungeonShop(marker.roomIndex)
+        end
+        return
+    end
+
     self:RunEnemyTurn()
 end
 
@@ -6903,8 +7310,8 @@ function GA:RefreshDungeonSummary()
 
         self:UpdateRunHealth()
 
-        self:RefreshRunWeaponFromEquipment()
         self:RecalculateRunGearStats()
+        self:RefreshRunWeaponFromEquipment()
 
         self:RefreshRunCounters()
         self:RenderDungeonGrid()

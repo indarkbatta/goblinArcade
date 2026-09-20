@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 6,
-  "studioVersion": "1.5.0",
+  "schemaVersion": 7,
+  "studioVersion": "1.6.0",
   "classes": [
     {
       "id": "warrior",
@@ -765,7 +765,16 @@
       "doorLimit": 1,
       "marker": "S",
       "reward": "SHRINE",
-      "description": "One-use choice room."
+      "description": "One-use choice room on odd service floors."
+    },
+    {
+      "id": "SHOP",
+      "name": "Shop",
+      "enemyPolicy": "NONE",
+      "doorLimit": 1,
+      "marker": "M",
+      "reward": "SHOP",
+      "description": "Safe quartermaster room on even service floors. Buy and sell with run Copper."
     },
     {
       "id": "ELITE",
@@ -4731,6 +4740,1146 @@
       "powerMultiplier": 1,
       "quantity": 1,
       "enabled": "YES"
+    },
+    {
+      "id": "shop_f2_t1_rusted_iron_head",
+      "tableId": "shop_inventory",
+      "itemId": "t1_rusted_iron_head",
+      "minFloor": 2,
+      "maxFloor": 2,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f2_t1_rusted_iron_shoulder",
+      "tableId": "shop_inventory",
+      "itemId": "t1_rusted_iron_shoulder",
+      "minFloor": 2,
+      "maxFloor": 2,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f2_t1_rusted_iron_chest",
+      "tableId": "shop_inventory",
+      "itemId": "t1_rusted_iron_chest",
+      "minFloor": 2,
+      "maxFloor": 2,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f2_t1_rusted_iron_waist",
+      "tableId": "shop_inventory",
+      "itemId": "t1_rusted_iron_waist",
+      "minFloor": 2,
+      "maxFloor": 2,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f2_t1_rusted_iron_legs",
+      "tableId": "shop_inventory",
+      "itemId": "t1_rusted_iron_legs",
+      "minFloor": 2,
+      "maxFloor": 2,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f2_t1_rusted_iron_feet",
+      "tableId": "shop_inventory",
+      "itemId": "t1_rusted_iron_feet",
+      "minFloor": 2,
+      "maxFloor": 2,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f2_t1_rusted_iron_wrist",
+      "tableId": "shop_inventory",
+      "itemId": "t1_rusted_iron_wrist",
+      "minFloor": 2,
+      "maxFloor": 2,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f2_t1_rusted_iron_hands",
+      "tableId": "shop_inventory",
+      "itemId": "t1_rusted_iron_hands",
+      "minFloor": 2,
+      "maxFloor": 2,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f2_t1_rusted_iron_longsword",
+      "tableId": "shop_inventory",
+      "itemId": "t1_rusted_iron_longsword",
+      "minFloor": 2,
+      "maxFloor": 2,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f2_t1_rusted_iron_battleaxe",
+      "tableId": "shop_inventory",
+      "itemId": "t1_rusted_iron_battleaxe",
+      "minFloor": 2,
+      "maxFloor": 2,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f2_t1_rusted_iron_war_mace",
+      "tableId": "shop_inventory",
+      "itemId": "t1_rusted_iron_war_mace",
+      "minFloor": 2,
+      "maxFloor": 2,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f2_t1_rusted_iron_greatsword",
+      "tableId": "shop_inventory",
+      "itemId": "t1_rusted_iron_greatsword",
+      "minFloor": 2,
+      "maxFloor": 2,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f2_t1_rusted_iron_greataxe",
+      "tableId": "shop_inventory",
+      "itemId": "t1_rusted_iron_greataxe",
+      "minFloor": 2,
+      "maxFloor": 2,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f2_t1_rusted_iron_great_maul",
+      "tableId": "shop_inventory",
+      "itemId": "t1_rusted_iron_great_maul",
+      "minFloor": 2,
+      "maxFloor": 2,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f2_t1_rusted_iron_shield",
+      "tableId": "shop_inventory",
+      "itemId": "t1_rusted_iron_shield",
+      "minFloor": 2,
+      "maxFloor": 2,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f4_t2_ironbound_head",
+      "tableId": "shop_inventory",
+      "itemId": "t2_ironbound_head",
+      "minFloor": 4,
+      "maxFloor": 4,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f4_t2_ironbound_shoulder",
+      "tableId": "shop_inventory",
+      "itemId": "t2_ironbound_shoulder",
+      "minFloor": 4,
+      "maxFloor": 4,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f4_t2_ironbound_chest",
+      "tableId": "shop_inventory",
+      "itemId": "t2_ironbound_chest",
+      "minFloor": 4,
+      "maxFloor": 4,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f4_t2_ironbound_waist",
+      "tableId": "shop_inventory",
+      "itemId": "t2_ironbound_waist",
+      "minFloor": 4,
+      "maxFloor": 4,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f4_t2_ironbound_legs",
+      "tableId": "shop_inventory",
+      "itemId": "t2_ironbound_legs",
+      "minFloor": 4,
+      "maxFloor": 4,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f4_t2_ironbound_feet",
+      "tableId": "shop_inventory",
+      "itemId": "t2_ironbound_feet",
+      "minFloor": 4,
+      "maxFloor": 4,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f4_t2_ironbound_wrist",
+      "tableId": "shop_inventory",
+      "itemId": "t2_ironbound_wrist",
+      "minFloor": 4,
+      "maxFloor": 4,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f4_t2_ironbound_hands",
+      "tableId": "shop_inventory",
+      "itemId": "t2_ironbound_hands",
+      "minFloor": 4,
+      "maxFloor": 4,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f4_t2_ironbound_longsword",
+      "tableId": "shop_inventory",
+      "itemId": "t2_ironbound_longsword",
+      "minFloor": 4,
+      "maxFloor": 4,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f4_t2_ironbound_battleaxe",
+      "tableId": "shop_inventory",
+      "itemId": "t2_ironbound_battleaxe",
+      "minFloor": 4,
+      "maxFloor": 4,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f4_t2_ironbound_war_mace",
+      "tableId": "shop_inventory",
+      "itemId": "t2_ironbound_war_mace",
+      "minFloor": 4,
+      "maxFloor": 4,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f4_t2_ironbound_greatsword",
+      "tableId": "shop_inventory",
+      "itemId": "t2_ironbound_greatsword",
+      "minFloor": 4,
+      "maxFloor": 4,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f4_t2_ironbound_greataxe",
+      "tableId": "shop_inventory",
+      "itemId": "t2_ironbound_greataxe",
+      "minFloor": 4,
+      "maxFloor": 4,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f4_t2_ironbound_great_maul",
+      "tableId": "shop_inventory",
+      "itemId": "t2_ironbound_great_maul",
+      "minFloor": 4,
+      "maxFloor": 4,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f4_t2_ironbound_shield",
+      "tableId": "shop_inventory",
+      "itemId": "t2_ironbound_shield",
+      "minFloor": 4,
+      "maxFloor": 4,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f6_t3_blacksteel_head",
+      "tableId": "shop_inventory",
+      "itemId": "t3_blacksteel_head",
+      "minFloor": 6,
+      "maxFloor": 6,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f6_t3_blacksteel_shoulder",
+      "tableId": "shop_inventory",
+      "itemId": "t3_blacksteel_shoulder",
+      "minFloor": 6,
+      "maxFloor": 6,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f6_t3_blacksteel_chest",
+      "tableId": "shop_inventory",
+      "itemId": "t3_blacksteel_chest",
+      "minFloor": 6,
+      "maxFloor": 6,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f6_t3_blacksteel_waist",
+      "tableId": "shop_inventory",
+      "itemId": "t3_blacksteel_waist",
+      "minFloor": 6,
+      "maxFloor": 6,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f6_t3_blacksteel_legs",
+      "tableId": "shop_inventory",
+      "itemId": "t3_blacksteel_legs",
+      "minFloor": 6,
+      "maxFloor": 6,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f6_t3_blacksteel_feet",
+      "tableId": "shop_inventory",
+      "itemId": "t3_blacksteel_feet",
+      "minFloor": 6,
+      "maxFloor": 6,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f6_t3_blacksteel_wrist",
+      "tableId": "shop_inventory",
+      "itemId": "t3_blacksteel_wrist",
+      "minFloor": 6,
+      "maxFloor": 6,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f6_t3_blacksteel_hands",
+      "tableId": "shop_inventory",
+      "itemId": "t3_blacksteel_hands",
+      "minFloor": 6,
+      "maxFloor": 6,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f6_t3_blacksteel_longsword",
+      "tableId": "shop_inventory",
+      "itemId": "t3_blacksteel_longsword",
+      "minFloor": 6,
+      "maxFloor": 6,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f6_t3_blacksteel_battleaxe",
+      "tableId": "shop_inventory",
+      "itemId": "t3_blacksteel_battleaxe",
+      "minFloor": 6,
+      "maxFloor": 6,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f6_t3_blacksteel_war_mace",
+      "tableId": "shop_inventory",
+      "itemId": "t3_blacksteel_war_mace",
+      "minFloor": 6,
+      "maxFloor": 6,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f6_t3_blacksteel_greatsword",
+      "tableId": "shop_inventory",
+      "itemId": "t3_blacksteel_greatsword",
+      "minFloor": 6,
+      "maxFloor": 6,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f6_t3_blacksteel_greataxe",
+      "tableId": "shop_inventory",
+      "itemId": "t3_blacksteel_greataxe",
+      "minFloor": 6,
+      "maxFloor": 6,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f6_t3_blacksteel_great_maul",
+      "tableId": "shop_inventory",
+      "itemId": "t3_blacksteel_great_maul",
+      "minFloor": 6,
+      "maxFloor": 6,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f6_t3_blacksteel_shield",
+      "tableId": "shop_inventory",
+      "itemId": "t3_blacksteel_shield",
+      "minFloor": 6,
+      "maxFloor": 6,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_t4_grimforged_head",
+      "tableId": "shop_inventory",
+      "itemId": "t4_grimforged_head",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_t4_grimforged_shoulder",
+      "tableId": "shop_inventory",
+      "itemId": "t4_grimforged_shoulder",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_t4_grimforged_chest",
+      "tableId": "shop_inventory",
+      "itemId": "t4_grimforged_chest",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_t4_grimforged_waist",
+      "tableId": "shop_inventory",
+      "itemId": "t4_grimforged_waist",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_t4_grimforged_legs",
+      "tableId": "shop_inventory",
+      "itemId": "t4_grimforged_legs",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_t4_grimforged_feet",
+      "tableId": "shop_inventory",
+      "itemId": "t4_grimforged_feet",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_t4_grimforged_wrist",
+      "tableId": "shop_inventory",
+      "itemId": "t4_grimforged_wrist",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_t4_grimforged_hands",
+      "tableId": "shop_inventory",
+      "itemId": "t4_grimforged_hands",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_t4_grimforged_longsword",
+      "tableId": "shop_inventory",
+      "itemId": "t4_grimforged_longsword",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_t4_grimforged_battleaxe",
+      "tableId": "shop_inventory",
+      "itemId": "t4_grimforged_battleaxe",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_t4_grimforged_war_mace",
+      "tableId": "shop_inventory",
+      "itemId": "t4_grimforged_war_mace",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_t4_grimforged_greatsword",
+      "tableId": "shop_inventory",
+      "itemId": "t4_grimforged_greatsword",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_t4_grimforged_greataxe",
+      "tableId": "shop_inventory",
+      "itemId": "t4_grimforged_greataxe",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_t4_grimforged_great_maul",
+      "tableId": "shop_inventory",
+      "itemId": "t4_grimforged_great_maul",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_t4_grimforged_shield",
+      "tableId": "shop_inventory",
+      "itemId": "t4_grimforged_shield",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_preview_t5_warlords_head",
+      "tableId": "shop_inventory",
+      "itemId": "t5_warlords_head",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 10,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_preview_t5_warlords_shoulder",
+      "tableId": "shop_inventory",
+      "itemId": "t5_warlords_shoulder",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 10,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_preview_t5_warlords_chest",
+      "tableId": "shop_inventory",
+      "itemId": "t5_warlords_chest",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 10,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_preview_t5_warlords_waist",
+      "tableId": "shop_inventory",
+      "itemId": "t5_warlords_waist",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 10,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_preview_t5_warlords_legs",
+      "tableId": "shop_inventory",
+      "itemId": "t5_warlords_legs",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 10,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_preview_t5_warlords_feet",
+      "tableId": "shop_inventory",
+      "itemId": "t5_warlords_feet",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 10,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_preview_t5_warlords_wrist",
+      "tableId": "shop_inventory",
+      "itemId": "t5_warlords_wrist",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 10,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_preview_t5_warlords_hands",
+      "tableId": "shop_inventory",
+      "itemId": "t5_warlords_hands",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 10,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_preview_t5_warlords_longsword",
+      "tableId": "shop_inventory",
+      "itemId": "t5_warlords_longsword",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 10,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_preview_t5_warlords_battleaxe",
+      "tableId": "shop_inventory",
+      "itemId": "t5_warlords_battleaxe",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 10,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_preview_t5_warlords_war_mace",
+      "tableId": "shop_inventory",
+      "itemId": "t5_warlords_war_mace",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 10,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_preview_t5_warlords_greatsword",
+      "tableId": "shop_inventory",
+      "itemId": "t5_warlords_greatsword",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 10,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_preview_t5_warlords_greataxe",
+      "tableId": "shop_inventory",
+      "itemId": "t5_warlords_greataxe",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 10,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_preview_t5_warlords_great_maul",
+      "tableId": "shop_inventory",
+      "itemId": "t5_warlords_great_maul",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 10,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_preview_t5_warlords_shield",
+      "tableId": "shop_inventory",
+      "itemId": "t5_warlords_shield",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 10,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f2_tarnished_copper_ring",
+      "tableId": "shop_inventory",
+      "itemId": "tarnished_copper_ring",
+      "minFloor": 2,
+      "maxFloor": 2,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f2_militia_chain",
+      "tableId": "shop_inventory",
+      "itemId": "militia_chain",
+      "minFloor": 2,
+      "maxFloor": 2,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f2_lucky_candle_stub",
+      "tableId": "shop_inventory",
+      "itemId": "lucky_candle_stub",
+      "minFloor": 2,
+      "maxFloor": 2,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f4_iron_signet",
+      "tableId": "shop_inventory",
+      "itemId": "iron_signet",
+      "minFloor": 4,
+      "maxFloor": 4,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f4_deepmine_chain",
+      "tableId": "shop_inventory",
+      "itemId": "deepmine_chain",
+      "minFloor": 4,
+      "maxFloor": 4,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f4_kobold_tooth_talisman",
+      "tableId": "shop_inventory",
+      "itemId": "kobold_tooth_talisman",
+      "minFloor": 4,
+      "maxFloor": 4,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f6_waxbound_ring",
+      "tableId": "shop_inventory",
+      "itemId": "waxbound_ring",
+      "minFloor": 6,
+      "maxFloor": 6,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f6_candlekeepers_charm",
+      "tableId": "shop_inventory",
+      "itemId": "candlekeepers_charm",
+      "minFloor": 6,
+      "maxFloor": 6,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f6_miners_lucky_coin",
+      "tableId": "shop_inventory",
+      "itemId": "miners_lucky_coin",
+      "minFloor": 6,
+      "maxFloor": 6,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_ring_of_the_last_watch",
+      "tableId": "shop_inventory",
+      "itemId": "ring_of_the_last_watch",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_black_candle_pendant",
+      "tableId": "shop_inventory",
+      "itemId": "black_candle_pendant",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_ossuary_seal",
+      "tableId": "shop_inventory",
+      "itemId": "ossuary_seal",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 100,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_preview_crownless_kings_signet",
+      "tableId": "shop_inventory",
+      "itemId": "crownless_kings_signet",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 10,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_preview_eye_of_the_dungeon",
+      "tableId": "shop_inventory",
+      "itemId": "eye_of_the_dungeon",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 10,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_preview_warlords_bloodstone",
+      "tableId": "shop_inventory",
+      "itemId": "warlords_bloodstone",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 10,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f2_minor_healing_potion",
+      "tableId": "shop_inventory",
+      "itemId": "minor_healing_potion",
+      "minFloor": 2,
+      "maxFloor": 2,
+      "weight": 35,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f4_healing_potion",
+      "tableId": "shop_inventory",
+      "itemId": "healing_potion",
+      "minFloor": 4,
+      "maxFloor": 4,
+      "weight": 35,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f6_greater_healing_potion",
+      "tableId": "shop_inventory",
+      "itemId": "greater_healing_potion",
+      "minFloor": 6,
+      "maxFloor": 6,
+      "weight": 35,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_major_healing_potion",
+      "tableId": "shop_inventory",
+      "itemId": "major_healing_potion",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 35,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
+    },
+    {
+      "id": "shop_f8_preview_superior_healing_potion",
+      "tableId": "shop_inventory",
+      "itemId": "superior_healing_potion",
+      "minFloor": 8,
+      "maxFloor": 8,
+      "weight": 3,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES"
     }
   ],
   "shrines": [
@@ -4871,7 +6020,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Standard-issue blade for a newly generated Warrior."
+      "description": "Standard-issue blade for a newly generated Warrior.",
+      "buildProfile": "VANGUARD"
     },
     {
       "id": "recruits_handaxe",
@@ -4902,7 +6052,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "A rough training axe with a little more damage spread."
+      "description": "A rough training axe with a little more damage spread.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "recruits_war_mace",
@@ -4933,7 +6084,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "A blunt training weapon for new Warriors."
+      "description": "A blunt training weapon for new Warriors.",
+      "buildProfile": "BREAKER"
     },
     {
       "id": "recruits_buckler",
@@ -4964,7 +6116,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "A basic buckler used before dungeon gear starts to appear."
+      "description": "A basic buckler used before dungeon gear starts to appear.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "recruits_hauberk",
@@ -4995,7 +6148,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Simple starter plate for Arcade-generated Warriors."
+      "description": "Simple starter plate for Arcade-generated Warriors.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "t1_rusted_iron_head",
@@ -5026,7 +6180,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Rusted Iron plate tuned for the T1 Warrior progression band."
+      "description": "Rusted Iron plate tuned for the T1 Warrior progression band.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "t1_rusted_iron_shoulder",
@@ -5057,7 +6212,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Rusted Iron plate tuned for the T1 Warrior progression band."
+      "description": "Rusted Iron plate tuned for the T1 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t1_rusted_iron_chest",
@@ -5088,7 +6244,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Rusted Iron plate tuned for the T1 Warrior progression band."
+      "description": "Rusted Iron plate tuned for the T1 Warrior progression band.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "t1_rusted_iron_waist",
@@ -5119,7 +6276,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Rusted Iron plate tuned for the T1 Warrior progression band."
+      "description": "Rusted Iron plate tuned for the T1 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t1_rusted_iron_legs",
@@ -5150,7 +6308,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Rusted Iron plate tuned for the T1 Warrior progression band."
+      "description": "Rusted Iron plate tuned for the T1 Warrior progression band.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "t1_rusted_iron_feet",
@@ -5181,7 +6340,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Rusted Iron plate tuned for the T1 Warrior progression band."
+      "description": "Rusted Iron plate tuned for the T1 Warrior progression band.",
+      "buildProfile": "VANGUARD"
     },
     {
       "id": "t1_rusted_iron_wrist",
@@ -5212,7 +6372,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Rusted Iron plate tuned for the T1 Warrior progression band."
+      "description": "Rusted Iron plate tuned for the T1 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t1_rusted_iron_hands",
@@ -5243,7 +6404,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Rusted Iron plate tuned for the T1 Warrior progression band."
+      "description": "Rusted Iron plate tuned for the T1 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t1_rusted_iron_longsword",
@@ -5274,7 +6436,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Rusted Iron sword for the T1 Warrior progression band."
+      "description": "Rusted Iron sword for the T1 Warrior progression band.",
+      "buildProfile": "VANGUARD"
     },
     {
       "id": "t1_rusted_iron_battleaxe",
@@ -5305,7 +6468,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Rusted Iron axe for the T1 Warrior progression band."
+      "description": "Rusted Iron axe for the T1 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t1_rusted_iron_war_mace",
@@ -5336,7 +6500,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Rusted Iron mace for the T1 Warrior progression band."
+      "description": "Rusted Iron mace for the T1 Warrior progression band.",
+      "buildProfile": "BREAKER"
     },
     {
       "id": "t1_rusted_iron_greatsword",
@@ -5367,7 +6532,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Rusted Iron two-handed sword for the T1 Warrior progression band."
+      "description": "Rusted Iron two-handed sword for the T1 Warrior progression band.",
+      "buildProfile": "VANGUARD"
     },
     {
       "id": "t1_rusted_iron_greataxe",
@@ -5398,7 +6564,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Rusted Iron two-handed axe for the T1 Warrior progression band."
+      "description": "Rusted Iron two-handed axe for the T1 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t1_rusted_iron_great_maul",
@@ -5429,7 +6596,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Rusted Iron two-handed mace for the T1 Warrior progression band."
+      "description": "Rusted Iron two-handed mace for the T1 Warrior progression band.",
+      "buildProfile": "BREAKER"
     },
     {
       "id": "t1_rusted_iron_shield",
@@ -5460,7 +6628,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Rusted Iron shield focused on Armor and Block."
+      "description": "Rusted Iron shield focused on Armor and Block.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "t2_ironbound_head",
@@ -5491,7 +6660,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Ironbound plate tuned for the T2 Warrior progression band."
+      "description": "Ironbound plate tuned for the T2 Warrior progression band.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "t2_ironbound_shoulder",
@@ -5522,7 +6692,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Ironbound plate tuned for the T2 Warrior progression band."
+      "description": "Ironbound plate tuned for the T2 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t2_ironbound_chest",
@@ -5553,7 +6724,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Ironbound plate tuned for the T2 Warrior progression band."
+      "description": "Ironbound plate tuned for the T2 Warrior progression band.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "t2_ironbound_waist",
@@ -5584,7 +6756,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Ironbound plate tuned for the T2 Warrior progression band."
+      "description": "Ironbound plate tuned for the T2 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t2_ironbound_legs",
@@ -5615,7 +6788,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Ironbound plate tuned for the T2 Warrior progression band."
+      "description": "Ironbound plate tuned for the T2 Warrior progression band.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "t2_ironbound_feet",
@@ -5646,7 +6820,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Ironbound plate tuned for the T2 Warrior progression band."
+      "description": "Ironbound plate tuned for the T2 Warrior progression band.",
+      "buildProfile": "VANGUARD"
     },
     {
       "id": "t2_ironbound_wrist",
@@ -5677,7 +6852,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Ironbound plate tuned for the T2 Warrior progression band."
+      "description": "Ironbound plate tuned for the T2 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t2_ironbound_hands",
@@ -5708,7 +6884,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Ironbound plate tuned for the T2 Warrior progression band."
+      "description": "Ironbound plate tuned for the T2 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t2_ironbound_longsword",
@@ -5734,12 +6911,13 @@
       "damageMax": 5,
       "weaponSpeed": "NORMAL",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "GUARD",
+      "traitValue": 8,
+      "traitDescription": "After attacking, gain 8% Parry for the following enemy phase. A parry readies Revenge.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Ironbound sword for the T2 Warrior progression band."
+      "description": "Ironbound sword for the T2 Warrior progression band.",
+      "buildProfile": "VANGUARD"
     },
     {
       "id": "t2_ironbound_battleaxe",
@@ -5765,12 +6943,13 @@
       "damageMax": 6,
       "weaponSpeed": "NORMAL",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "CLEAVE",
+      "traitValue": 15,
+      "traitDescription": "Weapon attacks splash 15% of dealt damage to one additional adjacent enemy.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Ironbound axe for the T2 Warrior progression band."
+      "description": "Ironbound axe for the T2 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t2_ironbound_war_mace",
@@ -5801,7 +6980,8 @@
       "traitDescription": "10% chance to stagger the target and delay its next action.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Ironbound mace for the T2 Warrior progression band."
+      "description": "Ironbound mace for the T2 Warrior progression band.",
+      "buildProfile": "BREAKER"
     },
     {
       "id": "t2_ironbound_greatsword",
@@ -5827,12 +7007,13 @@
       "damageMax": 7,
       "weaponSpeed": "SLOW",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "GUARD",
+      "traitValue": 8,
+      "traitDescription": "After attacking, gain 8% Parry for the following enemy phase. A parry readies Revenge.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Ironbound two-handed sword for the T2 Warrior progression band."
+      "description": "Ironbound two-handed sword for the T2 Warrior progression band.",
+      "buildProfile": "VANGUARD"
     },
     {
       "id": "t2_ironbound_greataxe",
@@ -5858,12 +7039,13 @@
       "damageMax": 8,
       "weaponSpeed": "SLOW",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "CLEAVE",
+      "traitValue": 15,
+      "traitDescription": "Weapon attacks splash 15% of dealt damage to one additional adjacent enemy.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Ironbound two-handed axe for the T2 Warrior progression band."
+      "description": "Ironbound two-handed axe for the T2 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t2_ironbound_great_maul",
@@ -5894,7 +7076,8 @@
       "traitDescription": "10% chance to stagger the target and delay its next action.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Ironbound two-handed mace for the T2 Warrior progression band."
+      "description": "Ironbound two-handed mace for the T2 Warrior progression band.",
+      "buildProfile": "BREAKER"
     },
     {
       "id": "t2_ironbound_shield",
@@ -5925,7 +7108,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Ironbound shield focused on Armor and Block."
+      "description": "Ironbound shield focused on Armor and Block.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "t3_blacksteel_head",
@@ -5956,7 +7140,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Blacksteel plate tuned for the T3 Warrior progression band."
+      "description": "Blacksteel plate tuned for the T3 Warrior progression band.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "t3_blacksteel_shoulder",
@@ -5987,7 +7172,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Blacksteel plate tuned for the T3 Warrior progression band."
+      "description": "Blacksteel plate tuned for the T3 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t3_blacksteel_chest",
@@ -6018,7 +7204,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Blacksteel plate tuned for the T3 Warrior progression band."
+      "description": "Blacksteel plate tuned for the T3 Warrior progression band.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "t3_blacksteel_waist",
@@ -6049,7 +7236,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Blacksteel plate tuned for the T3 Warrior progression band."
+      "description": "Blacksteel plate tuned for the T3 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t3_blacksteel_legs",
@@ -6080,7 +7268,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Blacksteel plate tuned for the T3 Warrior progression band."
+      "description": "Blacksteel plate tuned for the T3 Warrior progression band.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "t3_blacksteel_feet",
@@ -6111,7 +7300,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Blacksteel plate tuned for the T3 Warrior progression band."
+      "description": "Blacksteel plate tuned for the T3 Warrior progression band.",
+      "buildProfile": "VANGUARD"
     },
     {
       "id": "t3_blacksteel_wrist",
@@ -6142,7 +7332,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Blacksteel plate tuned for the T3 Warrior progression band."
+      "description": "Blacksteel plate tuned for the T3 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t3_blacksteel_hands",
@@ -6173,7 +7364,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Blacksteel plate tuned for the T3 Warrior progression band."
+      "description": "Blacksteel plate tuned for the T3 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t3_blacksteel_longsword",
@@ -6199,12 +7391,13 @@
       "damageMax": 6,
       "weaponSpeed": "NORMAL",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "GUARD",
+      "traitValue": 12,
+      "traitDescription": "After attacking, gain 12% Parry for the following enemy phase. A parry readies Revenge.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Blacksteel sword for the T3 Warrior progression band."
+      "description": "Blacksteel sword for the T3 Warrior progression band.",
+      "buildProfile": "VANGUARD"
     },
     {
       "id": "t3_blacksteel_battleaxe",
@@ -6230,12 +7423,13 @@
       "damageMax": 7,
       "weaponSpeed": "NORMAL",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "CLEAVE",
+      "traitValue": 20,
+      "traitDescription": "Weapon attacks splash 20% of dealt damage to one additional adjacent enemy.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Blacksteel axe for the T3 Warrior progression band."
+      "description": "Blacksteel axe for the T3 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t3_blacksteel_war_mace",
@@ -6266,7 +7460,8 @@
       "traitDescription": "15% chance to stagger the target and delay its next action.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Blacksteel mace for the T3 Warrior progression band."
+      "description": "Blacksteel mace for the T3 Warrior progression band.",
+      "buildProfile": "BREAKER"
     },
     {
       "id": "t3_blacksteel_greatsword",
@@ -6292,12 +7487,13 @@
       "damageMax": 9,
       "weaponSpeed": "SLOW",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "GUARD",
+      "traitValue": 12,
+      "traitDescription": "After attacking, gain 12% Parry for the following enemy phase. A parry readies Revenge.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Blacksteel two-handed sword for the T3 Warrior progression band."
+      "description": "Blacksteel two-handed sword for the T3 Warrior progression band.",
+      "buildProfile": "VANGUARD"
     },
     {
       "id": "t3_blacksteel_greataxe",
@@ -6323,12 +7519,13 @@
       "damageMax": 10,
       "weaponSpeed": "SLOW",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "CLEAVE",
+      "traitValue": 20,
+      "traitDescription": "Weapon attacks splash 20% of dealt damage to one additional adjacent enemy.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Blacksteel two-handed axe for the T3 Warrior progression band."
+      "description": "Blacksteel two-handed axe for the T3 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t3_blacksteel_great_maul",
@@ -6359,7 +7556,8 @@
       "traitDescription": "15% chance to stagger the target and delay its next action.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Blacksteel two-handed mace for the T3 Warrior progression band."
+      "description": "Blacksteel two-handed mace for the T3 Warrior progression band.",
+      "buildProfile": "BREAKER"
     },
     {
       "id": "t3_blacksteel_shield",
@@ -6390,7 +7588,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Blacksteel shield focused on Armor and Block."
+      "description": "Blacksteel shield focused on Armor and Block.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "t4_grimforged_head",
@@ -6421,7 +7620,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Grimforged plate tuned for the T4 Warrior progression band."
+      "description": "Grimforged plate tuned for the T4 Warrior progression band.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "t4_grimforged_shoulder",
@@ -6452,7 +7652,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Grimforged plate tuned for the T4 Warrior progression band."
+      "description": "Grimforged plate tuned for the T4 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t4_grimforged_chest",
@@ -6483,7 +7684,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Grimforged plate tuned for the T4 Warrior progression band."
+      "description": "Grimforged plate tuned for the T4 Warrior progression band.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "t4_grimforged_waist",
@@ -6514,7 +7716,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Grimforged plate tuned for the T4 Warrior progression band."
+      "description": "Grimforged plate tuned for the T4 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t4_grimforged_legs",
@@ -6545,7 +7748,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Grimforged plate tuned for the T4 Warrior progression band."
+      "description": "Grimforged plate tuned for the T4 Warrior progression band.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "t4_grimforged_feet",
@@ -6576,7 +7780,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Grimforged plate tuned for the T4 Warrior progression band."
+      "description": "Grimforged plate tuned for the T4 Warrior progression band.",
+      "buildProfile": "VANGUARD"
     },
     {
       "id": "t4_grimforged_wrist",
@@ -6607,7 +7812,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Grimforged plate tuned for the T4 Warrior progression band."
+      "description": "Grimforged plate tuned for the T4 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t4_grimforged_hands",
@@ -6638,7 +7844,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Grimforged plate tuned for the T4 Warrior progression band."
+      "description": "Grimforged plate tuned for the T4 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t4_grimforged_longsword",
@@ -6664,12 +7871,13 @@
       "damageMax": 8,
       "weaponSpeed": "NORMAL",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "GUARD",
+      "traitValue": 16,
+      "traitDescription": "After attacking, gain 16% Parry for the following enemy phase. A parry readies Revenge.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Grimforged sword for the T4 Warrior progression band."
+      "description": "Grimforged sword for the T4 Warrior progression band.",
+      "buildProfile": "VANGUARD"
     },
     {
       "id": "t4_grimforged_battleaxe",
@@ -6695,12 +7903,13 @@
       "damageMax": 9,
       "weaponSpeed": "NORMAL",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "CLEAVE",
+      "traitValue": 25,
+      "traitDescription": "Weapon attacks splash 25% of dealt damage to one additional adjacent enemy.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Grimforged axe for the T4 Warrior progression band."
+      "description": "Grimforged axe for the T4 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t4_grimforged_war_mace",
@@ -6731,7 +7940,8 @@
       "traitDescription": "20% chance to stagger the target and delay its next action.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Grimforged mace for the T4 Warrior progression band."
+      "description": "Grimforged mace for the T4 Warrior progression band.",
+      "buildProfile": "BREAKER"
     },
     {
       "id": "t4_grimforged_greatsword",
@@ -6757,12 +7967,13 @@
       "damageMax": 12,
       "weaponSpeed": "SLOW",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "GUARD",
+      "traitValue": 16,
+      "traitDescription": "After attacking, gain 16% Parry for the following enemy phase. A parry readies Revenge.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Grimforged two-handed sword for the T4 Warrior progression band."
+      "description": "Grimforged two-handed sword for the T4 Warrior progression band.",
+      "buildProfile": "VANGUARD"
     },
     {
       "id": "t4_grimforged_greataxe",
@@ -6788,12 +7999,13 @@
       "damageMax": 13,
       "weaponSpeed": "SLOW",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "CLEAVE",
+      "traitValue": 25,
+      "traitDescription": "Weapon attacks splash 25% of dealt damage to one additional adjacent enemy.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Grimforged two-handed axe for the T4 Warrior progression band."
+      "description": "Grimforged two-handed axe for the T4 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t4_grimforged_great_maul",
@@ -6824,7 +8036,8 @@
       "traitDescription": "20% chance to stagger the target and delay its next action.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Grimforged two-handed mace for the T4 Warrior progression band."
+      "description": "Grimforged two-handed mace for the T4 Warrior progression band.",
+      "buildProfile": "BREAKER"
     },
     {
       "id": "t4_grimforged_shield",
@@ -6855,7 +8068,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Grimforged shield focused on Armor and Block."
+      "description": "Grimforged shield focused on Armor and Block.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "t5_warlords_head",
@@ -6886,7 +8100,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Warlord's plate tuned for the T5 Warrior progression band."
+      "description": "Warlord's plate tuned for the T5 Warrior progression band.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "t5_warlords_shoulder",
@@ -6917,7 +8132,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Warlord's plate tuned for the T5 Warrior progression band."
+      "description": "Warlord's plate tuned for the T5 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t5_warlords_chest",
@@ -6948,7 +8164,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Warlord's plate tuned for the T5 Warrior progression band."
+      "description": "Warlord's plate tuned for the T5 Warrior progression band.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "t5_warlords_waist",
@@ -6979,7 +8196,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Warlord's plate tuned for the T5 Warrior progression band."
+      "description": "Warlord's plate tuned for the T5 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t5_warlords_legs",
@@ -7010,7 +8228,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Warlord's plate tuned for the T5 Warrior progression band."
+      "description": "Warlord's plate tuned for the T5 Warrior progression band.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "t5_warlords_feet",
@@ -7041,7 +8260,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Warlord's plate tuned for the T5 Warrior progression band."
+      "description": "Warlord's plate tuned for the T5 Warrior progression band.",
+      "buildProfile": "VANGUARD"
     },
     {
       "id": "t5_warlords_wrist",
@@ -7072,7 +8292,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Warlord's plate tuned for the T5 Warrior progression band."
+      "description": "Warlord's plate tuned for the T5 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t5_warlords_hands",
@@ -7103,7 +8324,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Warlord's plate tuned for the T5 Warrior progression band."
+      "description": "Warlord's plate tuned for the T5 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t5_warlords_longsword",
@@ -7129,12 +8351,13 @@
       "damageMax": 10,
       "weaponSpeed": "NORMAL",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "GUARD",
+      "traitValue": 20,
+      "traitDescription": "After attacking, gain 20% Parry for the following enemy phase. A parry readies Revenge.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Warlord's sword for the T5 Warrior progression band."
+      "description": "Warlord's sword for the T5 Warrior progression band.",
+      "buildProfile": "VANGUARD"
     },
     {
       "id": "t5_warlords_battleaxe",
@@ -7160,12 +8383,13 @@
       "damageMax": 11,
       "weaponSpeed": "NORMAL",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "CLEAVE",
+      "traitValue": 30,
+      "traitDescription": "Weapon attacks splash 30% of dealt damage to one additional adjacent enemy.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Warlord's axe for the T5 Warrior progression band."
+      "description": "Warlord's axe for the T5 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t5_warlords_war_mace",
@@ -7196,7 +8420,8 @@
       "traitDescription": "25% chance to stagger the target and delay its next action.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Warlord's mace for the T5 Warrior progression band."
+      "description": "Warlord's mace for the T5 Warrior progression band.",
+      "buildProfile": "BREAKER"
     },
     {
       "id": "t5_warlords_greatsword",
@@ -7222,12 +8447,13 @@
       "damageMax": 15,
       "weaponSpeed": "SLOW",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "GUARD",
+      "traitValue": 20,
+      "traitDescription": "After attacking, gain 20% Parry for the following enemy phase. A parry readies Revenge.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Warlord's two-handed sword for the T5 Warrior progression band."
+      "description": "Warlord's two-handed sword for the T5 Warrior progression band.",
+      "buildProfile": "VANGUARD"
     },
     {
       "id": "t5_warlords_greataxe",
@@ -7253,12 +8479,13 @@
       "damageMax": 16,
       "weaponSpeed": "SLOW",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "CLEAVE",
+      "traitValue": 30,
+      "traitDescription": "Weapon attacks splash 30% of dealt damage to one additional adjacent enemy.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Warlord's two-handed axe for the T5 Warrior progression band."
+      "description": "Warlord's two-handed axe for the T5 Warrior progression band.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "t5_warlords_great_maul",
@@ -7289,7 +8516,8 @@
       "traitDescription": "25% chance to stagger the target and delay its next action.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Warlord's two-handed mace for the T5 Warrior progression band."
+      "description": "Warlord's two-handed mace for the T5 Warrior progression band.",
+      "buildProfile": "BREAKER"
     },
     {
       "id": "t5_warlords_shield",
@@ -7320,7 +8548,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Warlord's shield focused on Armor and Block."
+      "description": "Warlord's shield focused on Armor and Block.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "tarnished_copper_ring",
@@ -7351,7 +8580,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "A cheap ring worn smooth by old soldiers."
+      "description": "A cheap ring worn smooth by old soldiers.",
+      "buildProfile": "EXECUTIONER"
     },
     {
       "id": "militia_chain",
@@ -7382,7 +8612,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "A plain iron chain issued to tunnel guards."
+      "description": "A plain iron chain issued to tunnel guards.",
+      "buildProfile": "VANGUARD"
     },
     {
       "id": "lucky_candle_stub",
@@ -7413,7 +8644,8 @@
       "traitDescription": "",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "A half-burned candle carried for luck."
+      "description": "A half-burned candle carried for luck.",
+      "buildProfile": "VANGUARD"
     },
     {
       "id": "iron_signet",
@@ -7439,12 +8671,13 @@
       "damageMax": 0,
       "weaponSpeed": "NORMAL",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "EXECUTIONER",
+      "traitValue": 5,
+      "traitDescription": "Deal +5% damage to enemies at or below 35% HP.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "A heavy signet cut with old mining marks."
+      "description": "A heavy signet cut with old mining marks.",
+      "buildProfile": "EXECUTIONER"
     },
     {
       "id": "deepmine_chain",
@@ -7470,12 +8703,13 @@
       "damageMax": 0,
       "weaponSpeed": "NORMAL",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "LAST_STAND",
+      "traitValue": 10,
+      "traitDescription": "Below 35% HP, Armor is increased by 10%.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "A chain blackened by years below ground."
+      "description": "A chain blackened by years below ground.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "kobold_tooth_talisman",
@@ -7501,12 +8735,13 @@
       "damageMax": 0,
       "weaponSpeed": "NORMAL",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "BLOOD_FURY",
+      "traitValue": 5,
+      "traitDescription": "At or below 50% HP, deal +5% damage.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "A crude charm that seems to encourage reckless swings."
+      "description": "A crude charm that seems to encourage reckless swings.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "waxbound_ring",
@@ -7532,12 +8767,13 @@
       "damageMax": 0,
       "weaponSpeed": "NORMAL",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "EXECUTIONER",
+      "traitValue": 8,
+      "traitDescription": "Deal +8% damage to enemies at or below 35% HP.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "A crude ring sealed with kobold wax."
+      "description": "A crude ring sealed with kobold wax.",
+      "buildProfile": "EXECUTIONER"
     },
     {
       "id": "candlekeepers_charm",
@@ -7563,12 +8799,13 @@
       "damageMax": 0,
       "weaponSpeed": "NORMAL",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "VANGUARD",
+      "traitValue": 6,
+      "traitDescription": "At or above 80% HP, deal +6% damage.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Warm wax hums faintly in your palm."
+      "description": "Warm wax hums faintly in your palm.",
+      "buildProfile": "VANGUARD"
     },
     {
       "id": "miners_lucky_coin",
@@ -7594,12 +8831,13 @@
       "damageMax": 0,
       "weaponSpeed": "NORMAL",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "BLOOD_FURY",
+      "traitValue": 8,
+      "traitDescription": "At or below 50% HP, deal +8% damage.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "A battered coin rubbed smooth by generations of miners."
+      "description": "A battered coin rubbed smooth by generations of miners.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "ring_of_the_last_watch",
@@ -7625,12 +8863,13 @@
       "damageMax": 0,
       "weaponSpeed": "NORMAL",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "LAST_STAND",
+      "traitValue": 25,
+      "traitDescription": "Below 35% HP, Armor is increased by 25%.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "A watchman's oath is scratched into the inner band."
+      "description": "A watchman's oath is scratched into the inner band.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "black_candle_pendant",
@@ -7656,12 +8895,13 @@
       "damageMax": 0,
       "weaponSpeed": "NORMAL",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "BLOOD_FURY",
+      "traitValue": 12,
+      "traitDescription": "At or below 50% HP, deal +12% damage.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Its wick burns without flame."
+      "description": "Its wick burns without flame.",
+      "buildProfile": "BERSERKER"
     },
     {
       "id": "ossuary_seal",
@@ -7687,12 +8927,13 @@
       "damageMax": 0,
       "weaponSpeed": "NORMAL",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "VANGUARD",
+      "traitValue": 10,
+      "traitDescription": "At or above 80% HP, deal +10% damage.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "Cold bone dust clings to this pale seal."
+      "description": "Cold bone dust clings to this pale seal.",
+      "buildProfile": "VANGUARD"
     },
     {
       "id": "crownless_kings_signet",
@@ -7718,12 +8959,13 @@
       "damageMax": 0,
       "weaponSpeed": "NORMAL",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "EXECUTIONER",
+      "traitValue": 20,
+      "traitDescription": "Deal +20% damage to enemies at or below 35% HP.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "A royal seal whose crest has been deliberately ground away."
+      "description": "A royal seal whose crest has been deliberately ground away.",
+      "buildProfile": "EXECUTIONER"
     },
     {
       "id": "eye_of_the_dungeon",
@@ -7749,12 +8991,13 @@
       "damageMax": 0,
       "weaponSpeed": "NORMAL",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "VANGUARD",
+      "traitValue": 12,
+      "traitDescription": "At or above 80% HP, deal +12% damage.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "It seems to watch corridors you have not entered yet."
+      "description": "It seems to watch corridors you have not entered yet.",
+      "buildProfile": "VANGUARD"
     },
     {
       "id": "warlords_bloodstone",
@@ -7780,12 +9023,13 @@
       "damageMax": 0,
       "weaponSpeed": "NORMAL",
       "range": 1,
-      "traitName": "",
-      "traitValue": 0,
-      "traitDescription": "",
+      "traitName": "LAST_STAND",
+      "traitValue": 30,
+      "traitDescription": "Below 35% HP, Armor is increased by 30%.",
       "consumableEffect": "NONE",
       "effectValue": 0,
-      "description": "A dark stone warm with the memory of battle."
+      "description": "A dark stone warm with the memory of battle.",
+      "buildProfile": "BULWARK"
     },
     {
       "id": "minor_healing_potion",
@@ -7816,7 +9060,8 @@
       "traitDescription": "",
       "consumableEffect": "HEAL_PERCENT",
       "effectValue": 25,
-      "description": "Restores 25% of maximum HP when consumed."
+      "description": "Restores 25% of maximum HP when consumed.",
+      "buildProfile": "SUPPORT"
     },
     {
       "id": "healing_potion",
@@ -7847,7 +9092,8 @@
       "traitDescription": "",
       "consumableEffect": "HEAL_PERCENT",
       "effectValue": 35,
-      "description": "Restores 35% of maximum HP when consumed."
+      "description": "Restores 35% of maximum HP when consumed.",
+      "buildProfile": "SUPPORT"
     },
     {
       "id": "greater_healing_potion",
@@ -7878,7 +9124,8 @@
       "traitDescription": "",
       "consumableEffect": "HEAL_PERCENT",
       "effectValue": 45,
-      "description": "Restores 45% of maximum HP when consumed."
+      "description": "Restores 45% of maximum HP when consumed.",
+      "buildProfile": "SUPPORT"
     },
     {
       "id": "major_healing_potion",
@@ -7909,7 +9156,8 @@
       "traitDescription": "",
       "consumableEffect": "HEAL_PERCENT",
       "effectValue": 55,
-      "description": "Restores 55% of maximum HP when consumed."
+      "description": "Restores 55% of maximum HP when consumed.",
+      "buildProfile": "SUPPORT"
     },
     {
       "id": "superior_healing_potion",
@@ -7940,7 +9188,8 @@
       "traitDescription": "",
       "consumableEffect": "HEAL_PERCENT",
       "effectValue": 70,
-      "description": "Restores 70% of maximum HP when consumed."
+      "description": "Restores 70% of maximum HP when consumed.",
+      "buildProfile": "SUPPORT"
     }
   ],
   "lootTables": [
@@ -7967,6 +9216,12 @@
       "name": "Boss Cache Loot",
       "dropChance": 100,
       "description": "High-value weighted loot table used by the Floor 9 Boss Cache."
+    },
+    {
+      "id": "shop_inventory",
+      "name": "Quartermaster Inventory",
+      "dropChance": 100,
+      "description": "Weighted stock pool used by SHOP rooms. Four unique items are rolled when the player first opens a floor shop."
     }
   ],
   "objects": [

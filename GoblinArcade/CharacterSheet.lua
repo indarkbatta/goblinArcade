@@ -266,6 +266,8 @@ function GA:RecalculateRunGearStats()
         crit = 0,
         block = 0,
         attackPower = 0,
+        traits = {},
+        buildProfiles = {},
     }
 
     for _, item in pairs(run.equipment or {}) do
@@ -285,12 +287,24 @@ function GA:RecalculateRunGearStats()
         if weapon then
             stats.attackPower = stats.attackPower + (weapon.attackPower or 0)
         end
+
+        local source = converted or weapon
+        if source and source.traitName and (tonumber(source.traitValue) or 0) > 0 then
+            local key = string.upper(tostring(source.traitName))
+            stats.traits[key] = math.min(50, (stats.traits[key] or 0) + (tonumber(source.traitValue) or 0))
+        end
+
+        local profile = string.upper(tostring(item and item.buildProfile or source and source.buildProfile or "NONE"))
+        if profile ~= "" and profile ~= "NONE" then
+            stats.buildProfiles[profile] = (stats.buildProfiles[profile] or 0) + 1
+        end
     end
 
     stats.dodge = math.min(35, stats.dodge)
     stats.crit = math.min(50, stats.crit)
     stats.block = math.min(40, stats.block)
     run.arcadeStats = stats
+    run.arcadeTraits = stats.traits
 
     local oldMaxHealth = math.max(1, run.playerMaxHealth or run.baseMaxHealth or 1)
     local oldHealth = math.max(0, run.playerHealth or oldMaxHealth)
@@ -495,6 +509,9 @@ local function AddArcadeConversionToTooltip(item)
 
     if item.tier then
         GameTooltip:AddLine(string.format("%s  -  Item Level %d", tostring(item.tier), tonumber(item.itemLevel) or 1), 0.75, 0.70, 0.62)
+        if item.buildProfile and item.buildProfile ~= "" and item.buildProfile ~= "NONE" then
+            GameTooltip:AddLine("Build: " .. tostring(item.buildProfile), 1.00, 0.72, 0.12)
+        end
     elseif item.itemLevel then
         GameTooltip:AddLine(string.format("Item Level %d", tonumber(item.itemLevel) or 1), 0.75, 0.70, 0.62)
     end

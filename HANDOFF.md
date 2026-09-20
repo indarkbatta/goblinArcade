@@ -3,9 +3,61 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.44.0**  
+Current addon version: **0.45.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.45.0 — item identities, build traits and run economy
+
+- Addon **0.45.0**, Studio schema **7**, Studio **1.6.0**, DungeonGenerator **v10**, ItemDatabase **v5**.
+- Weapon archetypes now have runtime gameplay identities on T2+ Studio weapons and imported Uncommon+ WoW weapons:
+  - **Sword / GUARD**: after attacking, grants a Parry chance for the following enemy phase; a successful parry prevents the hit and readies Revenge.
+  - **Axe / CLEAVE**: weapon attacks splash a percentage of dealt damage to one additional adjacent enemy.
+  - **Mace / STAGGER**: keeps the existing chance to make the target lose its next action.
+- T2/T3/T4/T5 weapon-trait scaling:
+  - Sword GUARD: 8 / 12 / 16 / 20%;
+  - Axe CLEAVE: 15 / 20 / 25 / 30%;
+  - Mace STAGGER: 10 / 15 / 20 / 25%.
+- Added first-class Item **Build Profile** metadata:
+  - VANGUARD;
+  - BERSERKER;
+  - BREAKER;
+  - BULWARK;
+  - EXECUTIONER;
+  - SUPPORT.
+- Character Sheet runtime now aggregates equipped active item traits.
+- Added functional build traits on named jewelry/trinkets:
+  - **BLOOD_FURY**: bonus damage at or below 50% HP;
+  - **VANGUARD**: bonus damage at or above 80% HP;
+  - **EXECUTIONER**: bonus damage against enemies at or below 35% HP;
+  - **LAST_STAND**: increases Armor while at or below 35% HP.
+- Build traits stack additively by trait name, capped at 50% per trait.
+- Existing T2-T5 named jewelry was assigned to Bulwark/Berserker/Vanguard/Executioner identities rather than creating another parallel item set.
+- Added a separate **run Copper** economy. Copper is independent of both Score and Run XP.
+- Enemy Copper rewards are deterministic from floor + Danger Rating and multiplied by rank:
+  - Normal 1.00x;
+  - Veteran 1.50x;
+  - Elite 2.50x;
+  - Boss 6.00x.
+- Added **SHOP** room role with marker **M**.
+- Service rooms alternate:
+  - even Floors 2/4/6/8 use a Shop;
+  - odd Floors 3/5/7/9 use a Shrine.
+- Shop rooms are safe rooms and do not join the enemy-spawn budget.
+- The quartermaster rolls **4 unique stock items** when first opened on that floor; the exact stock and sold-out state persist through floor backtracking.
+- Shop stock bands:
+  - Floor 2: T1;
+  - Floor 4: T2;
+  - Floor 6: T3;
+  - Floor 8: T4 with a low-weight T5 preview.
+- Buying uses the authoritative Item `price` value.
+- Selling removes the selected backpack stack and pays **50%** of its base value.
+- Shop UI includes buy stock, paged backpack selling, live Copper balance, item stats/build profile/trait tooltips, and keyboard shortcuts 1-4 for purchases.
+- Run HUD now shows Copper; the run-end summary records balance and bought/sold counts.
+- Added the Studio `shop_inventory` Loot Table with **95** floor-banded entries. Total published Loot Entries are now **423**.
+- Studio browser draft key bumped to `goblinArcadeStudio.v17`.
+- The 100-item catalog remains intact and Warrior `HP / Level = 3` remains unchanged.
+- Next major step should be a full Warrior Floor 1-9 balance/playtest pass, tuning Copper income, prices, trait strengths and tier power before adding more item quantity.
 
 ## 0.44.0 — Attack Power and first complete Warrior item progression
 
@@ -1941,7 +1993,7 @@ Deterministic scaling, bounded density, multi-enemy support, three active archet
 
 Recommended order:
 
-**Current priority after 0.43.0:** build the Shop / economy loop on top of Item `price`, then do a full Warrior start-to-finish balance/playtest pass before starting Rogue.
+**Current priority after 0.45.0:** run a full Warrior Floor 1-9 balance/playtest pass for item tiers, Copper economy and build traits before adding more item quantity or starting Rogue.
 
 1. **Studio data migration**
    - configure the two Vercel publish secrets once
