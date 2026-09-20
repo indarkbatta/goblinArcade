@@ -3,9 +3,50 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.42.0**  
+Current addon version: **0.43.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.43.0 — run end, score framework and boss reward
+
+- Added a real end-of-run overlay instead of immediately throwing the player back to setup.
+- Success and death summaries show:
+  - total score;
+  - floor reached;
+  - kills;
+  - Elite kills;
+  - Boss kills;
+  - chests/caches opened;
+  - shrines used;
+  - turns;
+  - temporary levels gained;
+  - loot acquired during the run;
+  - score-category breakdown.
+- Hardcore Arcade death is called out explicitly as **HARDCORE - CHARACTER DIED** on the summary.
+- Ended runs now transition through an explicit **BACK TO CHARACTERS** button.
+- Score is still completely separate from Run XP.
+- New score framework:
+  - enemy base score remains data-driven through EnemyGenerator;
+  - Elite kill bonus: +100;
+  - Boss kill bonus: +300;
+  - normal chest: +25;
+  - Elite Cache: +75;
+  - Boss Cache: +150;
+  - first clear of each floor: +100;
+  - full dungeon completion: +1000;
+  - Shrine Sacrifice continues to add its Studio-defined score reward.
+- Floor-clear scoring is guarded per floor, so backtracking cannot repeatedly farm the same floor bonus.
+- Run tracking now records score breakdown, encounter statistics and an acquired-loot summary.
+- Added `boss_cache_loot` and `boss_cache`.
+- Killing the actual Boss-rank enemy spawns the Boss Cache and opens the Floor 9 exit; the Boss Cache resolves through the same Dungeon Object -> Loot Table -> Loot Entry -> Item pipeline as other containers.
+- Default Boss Cache entries:
+  - Candlekeeper's Charm: +4 item level, 1.30 power multiplier;
+  - Waxbound Ring: +4 item level, 1.30 power multiplier;
+  - Minor Healing Potion x2.
+- Studio remains schema **5** and is bumped to **1.4.1** for the published Boss Cache defaults.
+- Re-audited the Berserker Rage resource path: `GainRunResource` is already lexically declared before `GA:RunEnemyTurn()` on current main, so no forward-declaration fix was required.
+- The published Warrior `HP / Level = 3` remains preserved.
+- Next major product block: **Shop / economy loop**, using the existing authoritative Item `price` values and the now-complete run-end/reward loop.
 
 ## 0.42.0 — attachable named loot tables
 
@@ -1856,6 +1897,8 @@ Randomness is appropriate in floor composition/density. It must remain bounded. 
 Deterministic scaling, bounded density, multi-enemy support, three active archetypes, the 9-floor run loop, bounded rank composition, enemy intent presentation, combat turn cleanup, and procedural room-and-corridor generation are complete.
 
 Recommended order:
+
+**Current priority after 0.43.0:** build the Shop / economy loop on top of Item `price`, then do a full Warrior start-to-finish balance/playtest pass before starting Rogue.
 
 1. **Studio data migration**
    - configure the two Vercel publish secrets once

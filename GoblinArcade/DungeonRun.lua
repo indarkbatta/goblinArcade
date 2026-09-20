@@ -711,6 +711,86 @@ end
 
 local DEFAULT_RUN_XP_CURVE = { 100, 125, 155, 190, 230, 275, 325, 380 }
 
+local RUN_SCORE = {
+    ELITE_KILL_BONUS = 100,
+    BOSS_KILL_BONUS = 300,
+    CHEST = 25,
+    ELITE_CACHE = 75,
+    BOSS_CACHE = 150,
+    FLOOR_CLEAR = 100,
+    COMPLETION = 1000,
+}
+
+local function EnsureRunTracking(run)
+    if not run then return nil end
+
+    run.stats = run.stats or {}
+    run.stats.kills = run.stats.kills or 0
+    run.stats.eliteKills = run.stats.eliteKills or 0
+    run.stats.bossKills = run.stats.bossKills or 0
+    run.stats.chests = run.stats.chests or 0
+    run.stats.shrines = run.stats.shrines or 0
+    run.stats.floorsCleared = run.stats.floorsCleared or 0
+
+    run.scoreBreakdown = run.scoreBreakdown or {}
+    run.scoreBreakdown.enemy = run.scoreBreakdown.enemy or 0
+    run.scoreBreakdown.rankBonus = run.scoreBreakdown.rankBonus or 0
+    run.scoreBreakdown.chest = run.scoreBreakdown.chest or 0
+    run.scoreBreakdown.floor = run.scoreBreakdown.floor or 0
+    run.scoreBreakdown.shrine = run.scoreBreakdown.shrine or 0
+    run.scoreBreakdown.completion = run.scoreBreakdown.completion or 0
+
+    run.lootSummary = run.lootSummary or {}
+    run.clearedFloors = run.clearedFloors or {}
+    return run.stats
+end
+
+local function AddRunScore(run, bucket, amount)
+    if not run then return 0 end
+    EnsureRunTracking(run)
+
+    local value = math.max(0, math.floor((tonumber(amount) or 0) + 0.5))
+    if value <= 0 then return 0 end
+
+    run.score = (run.score or 0) + value
+    if bucket then
+        run.scoreBreakdown[bucket] = (run.scoreBreakdown[bucket] or 0) + value
+    end
+    return value
+end
+
+local function RecordRunLoot(run, item)
+    if not run or not item or item.empty then return end
+    EnsureRunTracking(run)
+
+    local key = tostring(item.studioItemId or item.id or item.name or "unknown")
+    local amount = math.max(1, math.floor(tonumber(item.stackCount or item.quantity) or 1))
+    local entry = run.lootSummary[key]
+    if not entry then
+        entry = {
+            name = item.name or item.studioItemId or item.id or "Unknown Item",
+            count = 0,
+        }
+        run.lootSummary[key] = entry
+    end
+    entry.count = entry.count + amount
+end
+
+local function AwardFloorClear(run, floorNumber)
+    if not run then return false end
+    EnsureRunTracking(run)
+
+    local floor = math.max(1, math.floor(tonumber(floorNumber) or 1))
+    if run.clearedFloors[floor] then
+        return false
+    end
+
+    run.clearedFloors[floor] = true
+    run.stats.floorsCleared = run.stats.floorsCleared + 1
+    AddRunScore(run, "floor", RUN_SCORE.FLOOR_CLEAR)
+    return true
+end
+
 local function ParseRunXpCurve(value)
     local costs = {}
     for token in string.gmatch(tostring(value or ""), "[^,%s]+") do
@@ -944,6 +1024,8 @@ local function BuildInitialRoomStates(floorMap)
             shrineUsed = false,
             eliteRewardSpawned = false,
             eliteRewardClaimed = false,
+            bossRewardSpawned = false,
+            bossRewardClaimed = false,
         }
     end
 
@@ -1045,6 +1127,51 @@ local function SpawnEliteReward(run, roomIndex)
     state.eliteRewardSpawned = true
 end
 
+local function SpawnBossReward(run, roomIndex)
+    if not run or not run.floorMap or not roomIndex then
+        return
+    end
+
+    run.roomStates = run.roomStates or {}
+    local state = run.roomStates[roomIndex]
+    if not state or state.bossRewardSpawned then
+        return
+    end
+
+    local room = GetRoomByIndex(run.floorMap, roomIndex)
+    if not room or not room.center then
+        return
+    end
+
+    local key = CellKey(room.center.x, room.center.y)
+    local objectId = "boss_cache"
+    local objectDefinition = GA.GetDungeonObjectDefinition and GA:GetDungeonObjectDefinition(objectId)
+    local loot = GA.RollDungeonObjectLoot and GA:RollDungeonObjectLoot(objectId, run.floor)
+    if not loot then
+        if objectDefinition and objectDefinition.lootTableId then
+            loot = {
+                empty = true,
+                name = objectDefinition.name or "Boss Cache",
+                objectId = objectId,
+            }
+        else
+            loot = CopyTable(FALLBACK_CHEST_LOOT)
+        end
+    end
+
+    run.floorMap.markers[key] = {
+        text = objectDefinition and objectDefinition.marker or "$",
+        color = "gold",
+        kind = "chest",
+        objectId = objectId,
+        roomIndex = roomIndex,
+        rewardType = "boss",
+    }
+    run.chestLoot = run.chestLoot or {}
+    run.chestLoot[key] = loot
+    state.bossRewardSpawned = true
+end
+
 local function UpdateEncounterRoomClear(self, run, defeatedEnemy)
     if not run or not defeatedEnemy or not defeatedEnemy.roomIndex then
         return
@@ -1076,8 +1203,7 @@ local function UpdateEncounterRoomClear(self, run, defeatedEnemy)
         SpawnEliteReward(run, roomIndex)
         self:AddCombatLog("ELITE ROOM CLEARED - a reward cache appears.", "system")
     elseif roomRole == "BOSS" then
-        MarkRoomCleared(run, roomIndex)
-        self:AddCombatLog("BOSS DEFEATED - THE WAY OUT OPENS.", "system")
+        self:AddCombatLog("BOSS ROOM CLEARED.", "system")
     else
         MarkRoomCleared(run, roomIndex)
         self:AddCombatLog("ROOM CLEARED.", "system")
@@ -2355,6 +2481,77 @@ function GA:CreateDungeonRunPage(parent)
         end
     end)
     self.DungeonGeneratorCreateButton = createHero
+
+    local summaryOverlay = CreateFrame("Frame", nil, page, "BackdropTemplate")
+    summaryOverlay:SetAllPoints(page)
+    summaryOverlay:SetFrameLevel(page:GetFrameLevel() + 100)
+    summaryOverlay:EnableMouse(true)
+    ApplyBackdrop(summaryOverlay, { 0.005, 0.004, 0.003, 0.90 }, { 0, 0, 0, 0 })
+    summaryOverlay:Hide()
+    self.DungeonRunSummaryOverlay = summaryOverlay
+
+    local summaryModal = CreateFrame("Frame", nil, summaryOverlay, "BackdropTemplate")
+    summaryModal:SetSize(640, 560)
+    summaryModal:SetPoint("CENTER")
+    ApplyBackdrop(summaryModal, { 0.040, 0.034, 0.027, 1 }, COLORS.goldDim)
+
+    local summaryTitle = CreateText(summaryModal, "GameFontNormalHuge", "RUN COMPLETE")
+    summaryTitle:SetPoint("TOP", 0, -26)
+    self.DungeonRunSummaryTitle = summaryTitle
+
+    local summaryOutcome = CreateText(summaryModal, "GameFontNormalLarge", "")
+    summaryOutcome:SetPoint("TOP", summaryTitle, "BOTTOM", 0, -10)
+    self.DungeonRunSummaryOutcome = summaryOutcome
+
+    local summaryReason = CreateText(summaryModal, "GameFontHighlightSmall", "")
+    summaryReason:SetPoint("TOP", summaryOutcome, "BOTTOM", 0, -8)
+    summaryReason:SetWidth(560)
+    summaryReason:SetJustifyH("CENTER")
+    summaryReason:SetWordWrap(true)
+    summaryReason:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    self.DungeonRunSummaryReason = summaryReason
+
+    local summaryStatsLabel = CreateText(summaryModal, "GameFontNormalSmall", "RUN SUMMARY")
+    summaryStatsLabel:SetPoint("TOPLEFT", 34, -132)
+    summaryStatsLabel:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    local summaryStats = CreateText(summaryModal, "GameFontHighlight", "")
+    summaryStats:SetPoint("TOPLEFT", 34, -158)
+    summaryStats:SetWidth(250)
+    summaryStats:SetJustifyH("LEFT")
+    summaryStats:SetJustifyV("TOP")
+    summaryStats:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+    self.DungeonRunSummaryStats = summaryStats
+
+    local summaryLootLabel = CreateText(summaryModal, "GameFontNormalSmall", "LOOT ACQUIRED")
+    summaryLootLabel:SetPoint("TOPLEFT", 330, -132)
+    summaryLootLabel:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    local summaryLoot = CreateText(summaryModal, "GameFontHighlight", "")
+    summaryLoot:SetPoint("TOPLEFT", 330, -158)
+    summaryLoot:SetWidth(270)
+    summaryLoot:SetJustifyH("LEFT")
+    summaryLoot:SetJustifyV("TOP")
+    summaryLoot:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+    self.DungeonRunSummaryLoot = summaryLoot
+
+    local scoreLabel = CreateText(summaryModal, "GameFontNormalSmall", "SCORE BREAKDOWN")
+    scoreLabel:SetPoint("BOTTOMLEFT", 34, 102)
+    scoreLabel:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    local summaryScore = CreateText(summaryModal, "GameFontHighlightSmall", "")
+    summaryScore:SetPoint("BOTTOMLEFT", 34, 78)
+    summaryScore:SetWidth(572)
+    summaryScore:SetJustifyH("LEFT")
+    summaryScore:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    self.DungeonRunSummaryScore = summaryScore
+
+    local backToCharacters = CreateFlatButton(summaryModal, "BACK TO CHARACTERS", 220, 40)
+    backToCharacters:SetPoint("BOTTOM", 0, 22)
+    backToCharacters:SetScript("OnClick", function()
+        GA:ReturnToDungeonCharacters()
+    end)
+    self.DungeonRunSummaryBackButton = backToCharacters
 
     if self.CreateCharacterSheet then
         self:CreateCharacterSheet(page)
@@ -3897,6 +4094,106 @@ function GA:UpdateRunHealth()
     )
 end
 
+local function BuildRunLootSummary(run)
+    local entries = {}
+    for _, entry in pairs(run and run.lootSummary or {}) do
+        entries[#entries + 1] = {
+            name = entry.name or "Unknown Item",
+            count = math.max(1, tonumber(entry.count) or 1),
+        }
+    end
+
+    table.sort(entries, function(a, b)
+        return string.lower(a.name) < string.lower(b.name)
+    end)
+
+    if #entries == 0 then
+        return "No loot acquired."
+    end
+
+    local lines = {}
+    for index, entry in ipairs(entries) do
+        if index > 8 then
+            lines[#lines + 1] = string.format("+%d more item types", #entries - 8)
+            break
+        end
+        lines[#lines + 1] = string.format("%s  x%d", entry.name, entry.count)
+    end
+    return table.concat(lines, "\n")
+end
+
+function GA:HideDungeonRunSummary()
+    if self.DungeonRunSummaryOverlay then
+        self.DungeonRunSummaryOverlay:Hide()
+    end
+end
+
+function GA:ShowDungeonRunSummary(completed, reason, hardcoreDeath)
+    local run = self.RunState
+    if not run or not self.DungeonRunSummaryOverlay then
+        return
+    end
+
+    local stats = EnsureRunTracking(run)
+    local breakdown = run.scoreBreakdown or {}
+
+    self.DungeonRunSummaryTitle:SetText(completed and "RUN COMPLETE" or "RUN ENDED")
+    self.DungeonRunSummaryTitle:SetTextColor(
+        completed and COLORS.green[1] or COLORS.red[1],
+        completed and COLORS.green[2] or COLORS.red[2],
+        completed and COLORS.green[3] or COLORS.red[3]
+    )
+
+    local outcome = completed and "DUNGEON CLEARED" or "DEFEAT"
+    if hardcoreDeath then
+        outcome = "HARDCORE - CHARACTER DIED"
+    end
+    self.DungeonRunSummaryOutcome:SetText(outcome)
+    self.DungeonRunSummaryOutcome:SetTextColor(
+        hardcoreDeath and COLORS.red[1] or COLORS.gold[1],
+        hardcoreDeath and COLORS.red[2] or COLORS.gold[2],
+        hardcoreDeath and COLORS.red[3] or COLORS.gold[3]
+    )
+
+    self.DungeonRunSummaryReason:SetText(reason or "")
+    self.DungeonRunSummaryStats:SetText(string.format(
+        "SCORE  %d\nFLOOR  %d / 9\nKILLS  %d\nELITES  %d\nBOSSES  %d\nCHESTS  %d\nSHRINES  %d\nTURNS  %d\nTEMP LEVELS  +%d",
+        run.score or 0,
+        run.floor or 1,
+        stats.kills or 0,
+        stats.eliteKills or 0,
+        stats.bossKills or 0,
+        stats.chests or 0,
+        stats.shrines or 0,
+        run.turns or 0,
+        run.levelsGained or 0
+    ))
+    self.DungeonRunSummaryScore:SetText(string.format(
+        "Enemy %d   Rank %d   Chest %d   Floor %d   Shrine %d   Completion %d",
+        breakdown.enemy or 0,
+        breakdown.rankBonus or 0,
+        breakdown.chest or 0,
+        breakdown.floor or 0,
+        breakdown.shrine or 0,
+        breakdown.completion or 0
+    ))
+    self.DungeonRunSummaryLoot:SetText(BuildRunLootSummary(run))
+    self.DungeonRunSummaryOverlay:Show()
+end
+
+function GA:ReturnToDungeonCharacters()
+    self:HideDungeonRunSummary()
+    if self.CharacterSheetFrame then
+        self.CharacterSheetFrame:Hide()
+    end
+    self:CancelCharacterItemDrag()
+    self:SetDungeonRunPortraitMode(false)
+    self:SetRunMode(false)
+    self:RefreshMainHandInfo(true)
+    self:SetDungeonSetupMode(true)
+    self:RefreshRunCounters()
+end
+
 function GA:FailDungeonRun(reason)
     local run = self.RunState
     if not run then
@@ -3939,10 +4236,7 @@ function GA:FailDungeonRun(reason)
     end
     self:CancelCharacterItemDrag()
     self:RefreshActionButtons()
-    self:SetDungeonRunPortraitMode(false)
-    self:SetRunMode(false)
-    self:RefreshMainHandInfo(true)
-    self:SetDungeonSetupMode(true)
+    self:ShowDungeonRunSummary(false, deathReason, hardcoreDeath)
 end
 
 function GA:GrantRunExperience(amount)
@@ -4199,10 +4493,30 @@ function GA:HandleEnemyDefeat(enemy)
 
     local scoreValue = enemy.scoreValue or 100
     local xpValue = enemy.xpValue or math.max(1, (enemy.dangerRating or 1) * 8)
-    run.score = (run.score or 0) + scoreValue
+    local stats = EnsureRunTracking(run)
+    stats.kills = stats.kills + 1
+    AddRunScore(run, "enemy", scoreValue)
+
+    local rankBonus = 0
+    if enemy.rank == "elite" then
+        stats.eliteKills = stats.eliteKills + 1
+        rankBonus = RUN_SCORE.ELITE_KILL_BONUS
+    elseif enemy.rank == "boss" then
+        stats.bossKills = stats.bossKills + 1
+        rankBonus = RUN_SCORE.BOSS_KILL_BONUS
+        SpawnBossReward(run, enemy.roomIndex)
+        self:AddCombatLog("BOSS DEFEATED - THE WAY OUT OPENS. A boss cache appears.", "system")
+    end
+    AddRunScore(run, "rankBonus", rankBonus)
 
     self:AddCombatLog(
-        string.format("%s defeated. +%d score, +%d XP.", GetEnemyDisplayName(enemy), scoreValue, xpValue),
+        string.format(
+            "%s defeated. +%d score%s, +%d XP.",
+            GetEnemyDisplayName(enemy),
+            scoreValue,
+            rankBonus > 0 and string.format(" + %d rank bonus", rankBonus) or "",
+            xpValue
+        ),
         "system"
     )
 
@@ -4226,6 +4540,7 @@ function GA:HandleEnemyDefeat(enemy)
         )
         if drop then
             if self:AddItemToBackpack(drop) then
+                RecordRunLoot(run, drop)
                 self:AddCombatLog(
                     string.format("%s dropped %s.", GetEnemyDisplayName(enemy), drop.name or "an item"),
                     "system"
@@ -5362,6 +5677,7 @@ function GA:RefreshRunCounters()
 end
 
 function GA:BeginDungeonRun()
+    self:HideDungeonRunSummary()
     if self.RunState and self.RunState.active then
         return
     end
@@ -5465,6 +5781,24 @@ function GA:BeginDungeonRun()
         floor = floor,
         score = 0,
         turns = 0,
+        stats = {
+            kills = 0,
+            eliteKills = 0,
+            bossKills = 0,
+            chests = 0,
+            shrines = 0,
+            floorsCleared = 0,
+        },
+        scoreBreakdown = {
+            enemy = 0,
+            rankBonus = 0,
+            chest = 0,
+            floor = 0,
+            shrine = 0,
+            completion = 0,
+        },
+        lootSummary = {},
+        clearedFloors = {},
         startLevel = level,
         runLevel = level,
         runXp = 0,
@@ -5901,6 +6235,8 @@ function GA:CompleteDungeonRun()
         return
     end
 
+    AwardFloorClear(run, run.floor or 9)
+    AddRunScore(run, "completion", RUN_SCORE.COMPLETION)
     run.active = false
     run.completed = true
     self:CloseShrineChoice()
@@ -5953,12 +6289,9 @@ function GA:CompleteDungeonRun()
         self.DungeonRunPage:SetPropagateKeyboardInput(true)
     end
 
-    self:SetDungeonRunPortraitMode(false)
-    self:SetRunMode(false)
-    self:RefreshMainHandInfo(true)
-    self:SetDungeonSetupMode(true)
     self:RefreshRunCounters()
     self:RenderDungeonGrid()
+    self:ShowDungeonRunSummary(true, "Floor 9 boss defeated and the exit reached.", false)
 end
 
 function GA:AdvanceDungeonFloor()
@@ -5968,6 +6301,7 @@ function GA:AdvanceDungeonFloor()
     end
 
     local clearedFloor = run.floor or 1
+    AwardFloorClear(run, clearedFloor)
 
     if clearedFloor >= 9 then
         self:CompleteDungeonRun()
@@ -6307,14 +6641,31 @@ function GA:TryLootChest(x, y)
 
     run.openedChests = run.openedChests or {}
     run.openedChests[key] = true
-    run.score = (run.score or 0) + 25
 
     local marker = GetDungeonMarkers()[key]
-    if marker and marker.rewardType == "elite" and marker.roomIndex then
+    local chestScore = RUN_SCORE.CHEST
+    if marker and marker.rewardType == "elite" then
+        chestScore = RUN_SCORE.ELITE_CACHE
+    elseif marker and marker.rewardType == "boss" then
+        chestScore = RUN_SCORE.BOSS_CACHE
+    end
+
+    local stats = EnsureRunTracking(run)
+    stats.chests = stats.chests + 1
+    AddRunScore(run, "chest", chestScore)
+    if not loot.empty then
+        RecordRunLoot(run, loot)
+    end
+    if marker and marker.roomIndex
+        and (marker.rewardType == "elite" or marker.rewardType == "boss") then
         run.roomStates = run.roomStates or {}
         local state = run.roomStates[marker.roomIndex]
         if state then
-            state.eliteRewardClaimed = true
+            if marker.rewardType == "elite" then
+                state.eliteRewardClaimed = true
+            else
+                state.bossRewardClaimed = true
+            end
             MarkRoomCleared(run, marker.roomIndex)
         end
     end
@@ -6399,7 +6750,7 @@ function GA:ChooseShrineGift(choice)
         local scoreReward = math.max(0, math.floor((tonumber(definition and definition.secondaryValue) or 150) + 0.5))
         local cost = math.max(1, math.floor((run.playerMaxHealth or 1) * (costPercent / 100) + 0.5))
         run.playerHealth = math.max(1, (run.playerHealth or 1) - cost)
-        run.score = (run.score or 0) + scoreReward
+        AddRunScore(run, "shrine", scoreReward)
         self:AddCombatLog(
             string.format("SHRINE - SACRIFICE: -%d HP, +%d score.", cost, scoreReward),
             "system"
@@ -6410,6 +6761,8 @@ function GA:ChooseShrineGift(choice)
 
     state.shrineUsed = true
     state.shrineChoice = choice
+    local stats = EnsureRunTracking(run)
+    stats.shrines = stats.shrines + 1
 
     local room = GetRoomByIndex(run.floorMap, roomIndex)
     if room and room.center then
