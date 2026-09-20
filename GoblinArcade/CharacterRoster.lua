@@ -409,7 +409,129 @@ GetDB = function()
     GoblinArcadeDB = GoblinArcadeDB or {}
     GoblinArcadeDB.version = GoblinArcadeDB.version or 1
     GoblinArcadeDB.characters = GoblinArcadeDB.characters or {}
+    GoblinArcadeDB.centralStash = GoblinArcadeDB.centralStash or {}
     return GoblinArcadeDB
+end
+
+local function PrepareExtractedItem(item, run)
+    local stored = CopyTable(item)
+    stored.acquiredRunId = nil
+    stored.sourceSlot = nil
+    stored.extractedAt = time and time() or 0
+    stored.extractedFloor = run and run.floor or 9
+    stored.extractedFromCharacter = run and run.snapshot and run.snapshot.name or nil
+    stored.extractedFromCharacterKey = run and run.snapshot and run.snapshot.characterKey or nil
+    return stored
+end
+
+function GA:GetCentralStash()
+    local db = GetDB()
+    db.centralStash = db.centralStash or {}
+    return db.centralStash
+end
+
+function GA:GetCentralStashSlotCount()
+    return #(self:GetCentralStash() or {})
+end
+
+function GA:GetCentralStashItemCount()
+    local total = 0
+    for _, item in ipairs(self:GetCentralStash() or {}) do
+        total = total + math.max(1, math.floor(tonumber(item.stackCount) or 1))
+    end
+    return total
+end
+
+function GA:DepositCentralStashItem(item)
+    if not item then return false end
+
+    local stash = self:GetCentralStash()
+    local stored = CopyTable(item)
+    local amount = math.max(1, math.floor(tonumber(stored.stackCount) or 1))
+    local stackMax = math.max(1, math.floor(tonumber(stored.stackMax) or 1))
+    local stackable = stored.studioItemId and stackMax > 1
+
+    if stackable then
+        for _, existing in ipairs(stash) do
+            if amount <= 0 then break end
+            if existing.studioItemId == stored.studioItemId then
+                local current = math.max(1, math.floor(tonumber(existing.stackCount) or 1))
+                local existingMax = math.max(1, math.floor(tonumber(existing.stackMax) or stackMax))
+                local add = math.min(amount, math.max(0, existingMax - current))
+                if add > 0 then
+                    existing.stackCount = current + add
+                    amount = amount - add
+                end
+            end
+        end
+    end
+
+    while amount > 0 do
+        local entry = CopyTable(stored)
+        entry.stackCount = stackable and math.min(amount, stackMax) or 1
+        stash[#stash + 1] = entry
+        amount = amount - entry.stackCount
+        if not stackable then break end
+    end
+
+    return true
+end
+
+function GA:ExtractRunLootToCentralStash(run)
+    if not run or run.extractionDone then
+        return run and run.extractedLootCount or 0, run and run.extractedItemTypes or 0
+    end
+
+    local runId = run.runId
+    if not runId then
+        run.extractionDone = true
+        run.extractedLootCount = 0
+        run.extractedItemTypes = 0
+        return 0, 0
+    end
+
+    local extractedCount = 0
+    local extractedTypes = 0
+    local seenTypes = {}
+    run.extractedLootSummary = {}
+
+    local function Extract(item)
+        if not item or item.acquiredRunId ~= runId then return end
+
+        local stored = PrepareExtractedItem(item, run)
+        if self:DepositCentralStashItem(stored) then
+            local count = math.max(1, math.floor(tonumber(stored.stackCount) or 1))
+            extractedCount = extractedCount + count
+            local typeKey = tostring(stored.studioItemId or stored.name or stored.itemID or extractedCount)
+            local summary = run.extractedLootSummary[typeKey]
+            if not summary then
+                summary = {
+                    name = stored.name or stored.studioItemId or "Unknown Item",
+                    count = 0,
+                }
+                run.extractedLootSummary[typeKey] = summary
+            end
+            summary.count = summary.count + count
+
+            if not seenTypes[typeKey] then
+                seenTypes[typeKey] = true
+                extractedTypes = extractedTypes + 1
+            end
+        end
+    end
+
+    for _, item in pairs(run.equipment or {}) do
+        Extract(item)
+    end
+    for _, item in pairs(run.backpack or {}) do
+        Extract(item)
+    end
+
+    run.extractionDone = true
+    run.extractedLootCount = extractedCount
+    run.extractedItemTypes = extractedTypes
+    run.centralStashSlotsAfterRun = self:GetCentralStashSlotCount()
+    return extractedCount, extractedTypes
 end
 
 function GA:GetCurrentCharacterKey()

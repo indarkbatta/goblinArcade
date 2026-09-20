@@ -3,7 +3,7 @@ local _, GA = ...
 GA.DungeonGenerator = GA.DungeonGenerator or {}
 local DG = GA.DungeonGenerator
 
-DG.VERSION = 10
+DG.VERSION = 11
 
 local MODULUS = 2147483647
 local MULTIPLIER = 48271
@@ -478,7 +478,8 @@ local function AssignRoomRoles(rooms, startRoomIndex, exitRoomIndex, floor, dist
     local shopRoom
     if floor >= 3 and floor % 2 == 1 then
         shrineRoom = AssignNext("SHRINE")
-    elseif floor >= 2 and floor % 2 == 0 then
+    end
+    if floor == 6 then
         shopRoom = AssignNext("SHOP")
     end
 

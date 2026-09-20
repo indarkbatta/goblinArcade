@@ -3,9 +3,40 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.45.0**  
+Current addon version: **0.46.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.46.0 — looter extraction loop and Central Stash
+
+- Addon **0.46.0**, Studio **1.6.1**, schema **7**, DungeonGenerator **v11**.
+- The dungeon loop is now explicitly a **looter roguelike**:
+  - loot acquired during a run is tagged with that run's unique `runId`;
+  - only loot actually still carried at successful completion is extracted;
+  - extracted loot includes both backpack items and run-acquired items currently equipped;
+  - starting WoW gear / Arcade starter gear is never copied into the stash;
+  - consumed potions and sold items are naturally absent from extraction;
+  - failed runs extract nothing and their run-acquired loot is lost.
+- Added account-wide persistent **Central Stash** in `GoblinArcadeDB.centralStash`.
+- Central Stash is shared by all WoW-synced and Arcade-generated characters.
+- Successful Floor 9 completion automatically deposits extracted loot into the Central Stash and records extraction totals in the run summary.
+- Stackable Studio consumables merge in the Central Stash up to their normal `stackMax`; equipment remains individual.
+- Added a Central Stash browser to the pre-run character setup:
+  - paged 30-slot visual grid;
+  - item icons and stack counts;
+  - tooltips show tier, item level, build profile, stats, traits and extracting character;
+  - the setup button displays the total stored item count.
+- Run summary now distinguishes **EXTRACTED TO CENTRAL STASH** from **UNEXTRACTED LOOT - LOST**.
+- Shop frequency changed from four merchants to exactly **one merchant on Floor 6**.
+- Shrine rooms remain on Floors **3, 5, 7 and 9**.
+- The Floor 6 shop uses a smaller mid/late-run stock pool:
+  - T3 is the main stock band;
+  - T4 appears at lower weight as a preview;
+  - T1, T2 and T5 are not sold there.
+- Published shop loot entries reduced from 95 to **38**; total Loot Entries are now **366**.
+- Studio browser draft key bumped to `goblinArcadeStudio.v18`.
+- The 100-item catalog and Warrior `HP / Level = 3` remain unchanged.
+- The next major itemization step should make Central Stash gear usable as a persistent pre-run loadout, so extracted items become true meta-progression rather than storage-only trophies.
 
 ## 0.45.0 — item identities, build traits and run economy
 
@@ -1993,7 +2024,7 @@ Deterministic scaling, bounded density, multi-enemy support, three active archet
 
 Recommended order:
 
-**Current priority after 0.45.0:** run a full Warrior Floor 1-9 balance/playtest pass for item tiers, Copper economy and build traits before adding more item quantity or starting Rogue.
+**Current priority after 0.46.0:** add pre-run loadout management from the Central Stash, then do the full Warrior Floor 1-9 balance pass before adding more item quantity or starting Rogue.
 
 1. **Studio data migration**
    - configure the two Vercel publish secrets once

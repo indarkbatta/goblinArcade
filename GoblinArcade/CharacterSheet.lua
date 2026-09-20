@@ -918,15 +918,18 @@ function GA:AddItemToBackpack(item)
     end
 
     run.backpack = run.backpack or {}
-    local amount = math.max(1, math.floor(tonumber(item.stackCount) or 1))
-    local stackMax = math.max(1, math.floor(tonumber(item.stackMax) or 1))
-    local stackable = item.studioItemId and stackMax > 1
+    local incoming = CopyTable(item)
+    incoming.acquiredRunId = incoming.acquiredRunId or run.runId
+    local amount = math.max(1, math.floor(tonumber(incoming.stackCount) or 1))
+    local stackMax = math.max(1, math.floor(tonumber(incoming.stackMax) or 1))
+    local stackable = incoming.studioItemId and stackMax > 1
 
     if stackable then
         local capacity = 0
         for i = 1, BACKPACK_SLOTS do
             local existing = run.backpack[i]
-            if existing and existing.studioItemId == item.studioItemId then
+            if existing and existing.studioItemId == incoming.studioItemId
+                and existing.acquiredRunId == incoming.acquiredRunId then
                 local current = math.max(1, math.floor(tonumber(existing.stackCount) or 1))
                 local existingMax = math.max(1, math.floor(tonumber(existing.stackMax) or stackMax))
                 capacity = capacity + math.max(0, existingMax - current)
@@ -942,7 +945,8 @@ function GA:AddItemToBackpack(item)
         for i = 1, BACKPACK_SLOTS do
             if amount <= 0 then break end
             local existing = run.backpack[i]
-            if existing and existing.studioItemId == item.studioItemId then
+            if existing and existing.studioItemId == incoming.studioItemId
+                and existing.acquiredRunId == incoming.acquiredRunId then
                 local current = math.max(1, math.floor(tonumber(existing.stackCount) or 1))
                 local existingMax = math.max(1, math.floor(tonumber(existing.stackMax) or stackMax))
                 local add = math.min(amount, math.max(0, existingMax - current))
@@ -956,7 +960,7 @@ function GA:AddItemToBackpack(item)
         for i = 1, BACKPACK_SLOTS do
             if amount <= 0 then break end
             if not run.backpack[i] then
-                local storedItem = CopyTable(item)
+                local storedItem = CopyTable(incoming)
                 storedItem.stackCount = math.min(amount, stackMax)
                 self:EnsureArcadeItemConversion(storedItem)
                 run.backpack[i] = storedItem
@@ -966,7 +970,7 @@ function GA:AddItemToBackpack(item)
     else
         for i = 1, BACKPACK_SLOTS do
             if not run.backpack[i] then
-                local storedItem = CopyTable(item)
+                local storedItem = CopyTable(incoming)
                 self:EnsureArcadeItemConversion(storedItem)
                 run.backpack[i] = storedItem
                 amount = 0

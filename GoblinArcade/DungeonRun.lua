@@ -1438,7 +1438,7 @@ function GA:CreateDungeonRunPage(parent)
     title:SetPoint("TOPLEFT", 18, -16)
     title:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
-    local subtitle = CreateText(page, "GameFontHighlightSmall", "TURN-BASED ROGUELIKE  -  9 FLOOR DUNGEON RUN")
+    local subtitle = CreateText(page, "GameFontHighlightSmall", "LOOTER ROGUELIKE  -  9 FLOORS  -  EXTRACT LOOT ON VICTORY")
     subtitle:SetPoint("TOPRIGHT", -18, -22)
     subtitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
@@ -2262,11 +2262,18 @@ function GA:CreateDungeonRunPage(parent)
     setupSubtitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
     local setupHint = CreateText(setup, "GameFontHighlightSmall",
-        "Use a synced WoW character, or generate an Arcade hero when your class is not implemented yet.")
+        "Choose a hero, enter the dungeon, and extract found gear into the account-wide Central Stash by completing the run.")
     setupHint:SetPoint("TOPLEFT", setupSubtitle, "BOTTOMLEFT", 0, -8)
     setupHint:SetWidth(670)
     setupHint:SetJustifyH("LEFT")
     setupHint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local stashButton = CreateFlatButton(setup, "CENTRAL STASH", 170, 34)
+    stashButton:SetPoint("TOPRIGHT", -26, -24)
+    stashButton:SetScript("OnClick", function()
+        GA:OpenCentralStash()
+    end)
+    self.DungeonCentralStashButton = stashButton
 
     local rosterPanel = CreateFrame("Frame", nil, setup, "BackdropTemplate")
     rosterPanel:SetPoint("TOPLEFT", 26, -112)
@@ -2429,6 +2436,129 @@ function GA:CreateDungeonRunPage(parent)
     end)
     deleteHero:Hide()
     self.DungeonDeleteHeroButton = deleteHero
+
+    local stashOverlay = CreateFrame("Frame", nil, setup, "BackdropTemplate")
+    stashOverlay:SetAllPoints(setup)
+    stashOverlay:SetFrameLevel(setup:GetFrameLevel() + 55)
+    stashOverlay:EnableMouse(true)
+    ApplyBackdrop(stashOverlay, { 0.005, 0.004, 0.003, 0.86 }, { 0, 0, 0, 0 })
+    stashOverlay:Hide()
+    self.DungeonCentralStashOverlay = stashOverlay
+
+    local stashModal = CreateFrame("Frame", nil, stashOverlay, "BackdropTemplate")
+    stashModal:SetSize(700, 520)
+    stashModal:SetPoint("CENTER")
+    ApplyBackdrop(stashModal, { 0.040, 0.034, 0.027, 1 }, COLORS.goldDim)
+
+    local stashTitle = CreateText(stashModal, "GameFontNormalHuge", "CENTRAL STASH")
+    stashTitle:SetPoint("TOPLEFT", 24, -20)
+    stashTitle:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+
+    local stashCount = CreateText(stashModal, "GameFontNormalSmall", "0 ITEMS")
+    stashCount:SetPoint("TOPRIGHT", -24, -26)
+    stashCount:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    self.DungeonCentralStashCount = stashCount
+
+    local stashHint = CreateText(
+        stashModal,
+        "GameFontHighlightSmall",
+        "Account-wide extracted loot. Only items carried out of a successful run are stored here."
+    )
+    stashHint:SetPoint("TOPLEFT", stashTitle, "BOTTOMLEFT", 0, -8)
+    stashHint:SetWidth(640)
+    stashHint:SetJustifyH("LEFT")
+    stashHint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    self.DungeonCentralStashSlots = {}
+    local stashColumns = 6
+    local stashRows = 5
+    local stashSlotSize = 58
+    local stashGap = 10
+    local stashGridWidth = stashColumns * stashSlotSize + (stashColumns - 1) * stashGap
+    local stashStartX = math.floor((700 - stashGridWidth) / 2)
+
+    for i = 1, stashColumns * stashRows do
+        local col = (i - 1) % stashColumns
+        local row = math.floor((i - 1) / stashColumns)
+        local slot = CreateFrame("Button", nil, stashModal, "BackdropTemplate")
+        slot:SetSize(stashSlotSize, stashSlotSize)
+        slot:SetPoint("TOPLEFT", stashStartX + col * (stashSlotSize + stashGap), -92 - row * (stashSlotSize + stashGap))
+        ApplyBackdrop(slot, { 0.025, 0.022, 0.018, 1 }, COLORS.goldDim)
+
+        local icon = slot:CreateTexture(nil, "ARTWORK")
+        icon:SetPoint("TOPLEFT", 4, -4)
+        icon:SetPoint("BOTTOMRIGHT", -4, 4)
+        icon:SetTexture("Interface\\Icons\\INV_Misc_Bag_10")
+        icon:SetAlpha(0.12)
+        slot.icon = icon
+
+        local count = CreateText(slot, "GameFontNormalSmall", "")
+        count:SetPoint("BOTTOMRIGHT", -4, 3)
+        count:SetTextColor(1, 1, 1)
+        slot.countText = count
+
+        slot:SetScript("OnEnter", function(button)
+            local item = button.gaStashItem
+            if not item then return end
+            GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+            GameTooltip:SetText(item.name or "Extracted Item", 1, 0.82, 0.2)
+            GameTooltip:AddLine(
+                string.format("%s  -  Item Level %d", item.tier or "T0", tonumber(item.itemLevel) or 1),
+                0.85, 0.82, 0.75
+            )
+            if item.buildProfile and item.buildProfile ~= "" and item.buildProfile ~= "NONE" then
+                GameTooltip:AddLine("Build: " .. item.buildProfile, 1, 0.72, 0.12)
+            end
+            local weapon = item.arcadeWeapon
+            local gear = item.arcadeItem
+            if weapon then
+                GameTooltip:AddLine(string.format("Damage %d - %d", weapon.damageMin or 0, weapon.damageMax or 0), 0.92, 0.89, 0.82)
+                if (weapon.attackPower or 0) > 0 then GameTooltip:AddLine(string.format("Attack Power +%d", weapon.attackPower), 1, 0.72, 0.12) end
+                if weapon.traitName then
+                    GameTooltip:AddLine(weapon.traitName, 1, 0.72, 0.12)
+                    GameTooltip:AddLine(weapon.traitDescription or "", 0.82, 0.79, 0.72, true)
+                end
+            elseif gear then
+                if (gear.health or 0) > 0 then GameTooltip:AddLine(string.format("Health +%d", gear.health), 0.30, 1.00, 0.38) end
+                if (gear.armor or 0) > 0 then GameTooltip:AddLine(string.format("Armor +%d", gear.armor), 0.92, 0.89, 0.82) end
+                if (gear.attackPower or 0) > 0 then GameTooltip:AddLine(string.format("Attack Power +%d", gear.attackPower), 1, 0.72, 0.12) end
+                if (gear.dodge or 0) > 0 then GameTooltip:AddLine(string.format("Dodge +%.1f%%", gear.dodge), 0.92, 0.89, 0.82) end
+                if (gear.crit or 0) > 0 then GameTooltip:AddLine(string.format("Crit +%.1f%%", gear.crit), 0.92, 0.89, 0.82) end
+                if (gear.block or 0) > 0 then GameTooltip:AddLine(string.format("Block +%.1f%%", gear.block), 0.92, 0.89, 0.82) end
+                if gear.traitName then
+                    GameTooltip:AddLine(gear.traitName, 1, 0.72, 0.12)
+                    GameTooltip:AddLine(gear.traitDescription or "", 0.82, 0.79, 0.72, true)
+                end
+            elseif item.consumableEffect and item.consumableEffect ~= "NONE" then
+                GameTooltip:AddLine(item.description or "", 0.82, 0.79, 0.72, true)
+            end
+            if item.extractedFromCharacter then
+                GameTooltip:AddLine("Extracted by " .. item.extractedFromCharacter, 0.65, 0.65, 0.65)
+            end
+            GameTooltip:Show()
+        end)
+        slot:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        self.DungeonCentralStashSlots[i] = slot
+    end
+
+    local stashPrev = CreateFlatButton(stashModal, "<  PREV", 100, 30)
+    stashPrev:SetPoint("BOTTOMLEFT", 24, 18)
+    stashPrev:SetScript("OnClick", function() GA:ChangeCentralStashPage(-1) end)
+    self.DungeonCentralStashPrev = stashPrev
+
+    local stashPage = CreateText(stashModal, "GameFontNormalSmall", "PAGE 1 / 1")
+    stashPage:SetPoint("BOTTOM", 0, 27)
+    stashPage:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    self.DungeonCentralStashPageText = stashPage
+
+    local stashNext = CreateFlatButton(stashModal, "NEXT  >", 100, 30)
+    stashNext:SetPoint("BOTTOMRIGHT", -144, 18)
+    stashNext:SetScript("OnClick", function() GA:ChangeCentralStashPage(1) end)
+    self.DungeonCentralStashNext = stashNext
+
+    local stashClose = CreateFlatButton(stashModal, "CLOSE", 100, 30)
+    stashClose:SetPoint("BOTTOMRIGHT", -24, 18)
+    stashClose:SetScript("OnClick", function() GA:CloseCentralStash() end)
 
     local generatorOverlay = CreateFrame("Frame", nil, setup, "BackdropTemplate")
     generatorOverlay:SetAllPoints(setup)
@@ -2683,6 +2813,7 @@ function GA:CreateDungeonRunPage(parent)
     local summaryLootLabel = CreateText(summaryModal, "GameFontNormalSmall", "LOOT ACQUIRED")
     summaryLootLabel:SetPoint("TOPLEFT", 330, -132)
     summaryLootLabel:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    self.DungeonRunSummaryLootLabel = summaryLootLabel
 
     local summaryLoot = CreateText(summaryModal, "GameFontHighlight", "")
     summaryLoot:SetPoint("TOPLEFT", 330, -158)
@@ -2721,6 +2852,16 @@ function GA:CreateDungeonRunPage(parent)
 
     page:SetScript("OnKeyDown", function(pageFrame, key)
         local runActive = GA.RunState and GA.RunState.active
+
+        if not runActive and GA.DungeonCentralStashOverlay and GA.DungeonCentralStashOverlay:IsShown() then
+            if key == "ESCAPE" then
+                GA:CloseCentralStash()
+            end
+            if pageFrame.SetPropagateKeyboardInput then
+                pageFrame:SetPropagateKeyboardInput(false)
+            end
+            return
+        end
 
         if not runActive and GA.DungeonCharacterGeneratorOverlay and GA.DungeonCharacterGeneratorOverlay:IsShown() then
             if key == "ESCAPE" then
@@ -2834,6 +2975,62 @@ function GA:CreateDungeonRunPage(parent)
     return page
 end
 
+function GA:CloseCentralStash()
+    if self.DungeonCentralStashOverlay then
+        self.DungeonCentralStashOverlay:Hide()
+    end
+end
+
+function GA:RefreshCentralStash()
+    local stash = self.GetCentralStash and self:GetCentralStash() or {}
+    local slotsPerPage = #(self.DungeonCentralStashSlots or {})
+    if slotsPerPage <= 0 then return end
+
+    local pageCount = math.max(1, math.ceil(#stash / slotsPerPage))
+    self.DungeonCentralStashPage = math.max(1, math.min(pageCount, tonumber(self.DungeonCentralStashPage) or 1))
+    local firstIndex = ((self.DungeonCentralStashPage - 1) * slotsPerPage) + 1
+
+    for slotIndex, button in ipairs(self.DungeonCentralStashSlots or {}) do
+        local item = stash[firstIndex + slotIndex - 1]
+        button.gaStashItem = item
+        if item then
+            button.icon:SetTexture(item.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+            button.icon:SetAlpha(1)
+            local count = math.max(1, math.floor(tonumber(item.stackCount) or 1))
+            button.countText:SetText(count > 1 and tostring(count) or "")
+        else
+            button.icon:SetTexture("Interface\\Icons\\INV_Misc_Bag_10")
+            button.icon:SetAlpha(0.12)
+            button.countText:SetText("")
+        end
+    end
+
+    if self.DungeonCentralStashCount then
+        local itemCount = self.GetCentralStashItemCount and self:GetCentralStashItemCount() or #stash
+        self.DungeonCentralStashCount:SetText(
+            string.format("%d ITEM%s  -  %d SLOT%s", itemCount, itemCount == 1 and "" or "S", #stash, #stash == 1 and "" or "S")
+        )
+    end
+    if self.DungeonCentralStashPageText then
+        self.DungeonCentralStashPageText:SetText(string.format("PAGE %d / %d", self.DungeonCentralStashPage, pageCount))
+    end
+    if self.DungeonCentralStashPrev then self.DungeonCentralStashPrev:SetEnabled(self.DungeonCentralStashPage > 1) end
+    if self.DungeonCentralStashNext then self.DungeonCentralStashNext:SetEnabled(self.DungeonCentralStashPage < pageCount) end
+end
+
+function GA:OpenCentralStash()
+    if not self.DungeonCentralStashOverlay then return end
+    self:CloseCharacterGeneratorModal()
+    self.DungeonCentralStashPage = 1
+    self:RefreshCentralStash()
+    self.DungeonCentralStashOverlay:Show()
+end
+
+function GA:ChangeCentralStashPage(delta)
+    self.DungeonCentralStashPage = math.max(1, (tonumber(self.DungeonCentralStashPage) or 1) + (tonumber(delta) or 0))
+    self:RefreshCentralStash()
+end
+
 function GA:SetDungeonSetupMode(active)
     if not self.DungeonSetupFrame then
         return
@@ -2841,11 +3038,17 @@ function GA:SetDungeonSetupMode(active)
 
     if active then
         self:CloseCharacterGeneratorModal()
+        self:CloseCentralStash()
         self.DungeonSetupFrame:Show()
         self:SetRunMode(false)
         self:RefreshDungeonCharacterSelection()
+        if self.DungeonCentralStashButton and self.GetCentralStashItemCount then
+            local count = self:GetCentralStashItemCount()
+            self.DungeonCentralStashButton.label:SetText(string.format("CENTRAL STASH  %d", count))
+        end
     else
         self:CloseCharacterGeneratorModal()
+        self:CloseCentralStash()
         self.DungeonSetupFrame:Hide()
     end
 end
@@ -4325,7 +4528,7 @@ function GA:ShowDungeonRunSummary(completed, reason, hardcoreDeath)
 
     self.DungeonRunSummaryReason:SetText(reason or "")
     self.DungeonRunSummaryStats:SetText(string.format(
-        "SCORE  %d\nFLOOR  %d / 9\nKILLS  %d\nELITES  %d\nBOSSES  %d\nCHESTS  %d\nSHRINES  %d\nCOPPER  %s\nBOUGHT / SOLD  %d / %d\nTURNS  %d\nTEMP LEVELS  +%d",
+        "SCORE  %d\nFLOOR  %d / 9\nKILLS  %d\nELITES  %d\nBOSSES  %d\nCHESTS  %d\nSHRINES  %d\nCOPPER  %s\nBOUGHT / SOLD  %d / %d\nEXTRACTED  %d ITEMS\nTURNS  %d\nTEMP LEVELS  +%d",
         run.score or 0,
         run.floor or 1,
         stats.kills or 0,
@@ -4336,6 +4539,7 @@ function GA:ShowDungeonRunSummary(completed, reason, hardcoreDeath)
         FormatCopperValue(run.copper or 0),
         stats.itemsBought or 0,
         stats.itemsSold or 0,
+        completed and (run.extractedLootCount or 0) or 0,
         run.turns or 0,
         run.levelsGained or 0
     ))
@@ -4348,7 +4552,17 @@ function GA:ShowDungeonRunSummary(completed, reason, hardcoreDeath)
         breakdown.shrine or 0,
         breakdown.completion or 0
     ))
-    self.DungeonRunSummaryLoot:SetText(BuildRunLootSummary(run))
+    if self.DungeonRunSummaryLootLabel then
+        self.DungeonRunSummaryLootLabel:SetText(
+            completed and "EXTRACTED TO CENTRAL STASH" or "UNEXTRACTED LOOT - LOST"
+        )
+    end
+    if completed and run.extractedLootSummary then
+        local extractedView = { lootSummary = run.extractedLootSummary }
+        self.DungeonRunSummaryLoot:SetText(BuildRunLootSummary(extractedView))
+    else
+        self.DungeonRunSummaryLoot:SetText(BuildRunLootSummary(run))
+    end
     self.DungeonRunSummaryOverlay:Show()
 end
 
@@ -4390,6 +4604,7 @@ function GA:FailDungeonRun(reason)
     end
 
     self:AddCombatLog(deathReason, "warning")
+    self:AddCombatLog("Extraction failed: all loot acquired during this run is lost.", "warning")
     if hardcoreDeath then
         self:AddCombatLog("HARDCORE DEATH: this Arcade hero is permanently dead.", "warning")
     end
@@ -6005,6 +6220,7 @@ function GA:BeginDungeonRun()
         active = true,
         completed = false,
         floor = floor,
+        runId = tostring(dungeonSeed) .. ":" .. tostring(time and time() or 0),
         score = 0,
         copper = 0,
         turns = 0,
@@ -6464,6 +6680,10 @@ function GA:CompleteDungeonRun()
 
     AwardFloorClear(run, run.floor or 9)
     AddRunScore(run, "completion", RUN_SCORE.COMPLETION)
+    local extractedCount, extractedTypes = 0, 0
+    if self.ExtractRunLootToCentralStash then
+        extractedCount, extractedTypes = self:ExtractRunLootToCentralStash(run)
+    end
     run.active = false
     run.completed = true
     self:CloseShrineChoice()
@@ -6507,6 +6727,16 @@ function GA:CompleteDungeonRun()
         ),
         "system"
     )
+    self:AddCombatLog(
+        string.format(
+            "EXTRACTION COMPLETE: %d item%s across %d item type%s moved to the Central Stash.",
+            extractedCount,
+            extractedCount == 1 and "" or "s",
+            extractedTypes,
+            extractedTypes == 1 and "" or "s"
+        ),
+        "system"
+    )
 
     if self.CharacterSheetFrame then
         self.CharacterSheetFrame:Hide()
@@ -6519,7 +6749,15 @@ function GA:CompleteDungeonRun()
 
     self:RefreshRunCounters()
     self:RenderDungeonGrid()
-    self:ShowDungeonRunSummary(true, "Floor 9 boss defeated and the exit reached.", false)
+    self:ShowDungeonRunSummary(
+        true,
+        string.format(
+            "Extraction successful. %d item%s secured in the Central Stash.",
+            run.extractedLootCount or 0,
+            (run.extractedLootCount or 0) == 1 and "" or "s"
+        ),
+        false
+    )
 end
 
 function GA:AdvanceDungeonFloor()
@@ -7001,7 +7239,7 @@ end
 
 function GA:OpenDungeonShop(roomIndex)
     local run = self.RunState
-    if not run or not run.active or not roomIndex then return false end
+    if not run or not run.active or not roomIndex or (run.floor or 1) ~= 6 then return false end
 
     if not run.shopStock then
         run.shopStock = self.BuildDungeonShopStock
