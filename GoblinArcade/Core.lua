@@ -4,11 +4,57 @@ GA = GA or {}
 _G.GoblinArcade = GA
 
 GA.name = "GoblinArcade"
-GA.version = "0.55.0"
+GA.version = "0.56.0"
 
 GA.COMBAT_NUMBER_DIVISOR = 10
 GA.ATTACK_POWER_PER_DPS = 14
 GA.WEAPON_SPEED_SECONDS = { FAST = 1.8, NORMAL = 2.4, SLOW = 3.2 }
+
+GA.DIFFICULTY_ORDER = { "EASY", "NORMAL", "HARD" }
+GA.DIFFICULTIES = {
+    EASY = {
+        id = "EASY",
+        label = "Easy",
+        hpMultiplier = 0.85,
+        damageMultiplier = 0.85,
+        scoreMultiplier = 0.80,
+        description = "Forgiving combat. Enemies have 15% less health and deal 15% less damage.",
+    },
+    NORMAL = {
+        id = "NORMAL",
+        label = "Normal",
+        hpMultiplier = 1.00,
+        damageMultiplier = 1.00,
+        scoreMultiplier = 1.00,
+        description = "The baseline GoblinArcade balance.",
+    },
+    HARD = {
+        id = "HARD",
+        label = "Hard",
+        hpMultiplier = 1.12,
+        damageMultiplier = 1.10,
+        scoreMultiplier = 1.25,
+        description = "Dangerous combat. Enemies have 12% more health and deal 10% more damage.",
+    },
+}
+
+function GA:NormalizeDifficulty(value)
+    local key = string.upper(tostring(value or "NORMAL"))
+    if not self.DIFFICULTIES[key] then
+        key = "NORMAL"
+    end
+    return key
+end
+
+function GA:GetDifficultyDefinition(value)
+    local key = self:NormalizeDifficulty(value)
+    return self.DIFFICULTIES[key] or self.DIFFICULTIES.NORMAL
+end
+
+function GA:GetDifficultyLabel(value)
+    local definition = self:GetDifficultyDefinition(value)
+    return definition.label or definition.id or "Normal"
+end
 
 function GA:CalculateAttackPowerDamageBonus(attackPower, weaponSpeed)
     local ap = math.max(0, tonumber(attackPower) or 0)

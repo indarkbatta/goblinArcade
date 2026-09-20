@@ -3,7 +3,7 @@ local _, GA = ...
 GA.EnemyGenerator = GA.EnemyGenerator or {}
 local EG = GA.EnemyGenerator
 
-EG.VERSION = 9
+EG.VERSION = 10
 
 local GEAR_SLOTS = {
     "head",
@@ -288,6 +288,9 @@ function EG:CreateEnemy(options)
     local effectiveLevel = self:GetEffectiveLevel(playerLevel, floor, rankKey)
     local levelPressure = GetLevelPressure(playerLevel)
     local floorPressure = GetFloorPressure(floor)
+    local difficulty = GA.GetDifficultyDefinition
+        and GA:GetDifficultyDefinition(options.difficulty)
+        or { id = "NORMAL", hpMultiplier = 1, damageMultiplier = 1, scoreMultiplier = 1 }
 
     -- Balance v2: HP is intentionally a little chunkier so late-floor
     -- Veterans/Elites survive long enough for Warrior control/defense tools
@@ -308,6 +311,7 @@ function EG:CreateEnemy(options)
         * levelPressure
         * floorPressure.hpMultiplier
         * gearPressure.hpMultiplier
+        * (tonumber(difficulty.hpMultiplier) or 1)
     ))
 
     local scaledAverageDamage = averageDamage
@@ -316,6 +320,7 @@ function EG:CreateEnemy(options)
         * levelPressure
         * floorPressure.damageMultiplier
         * gearPressure.damageMultiplier
+        * (tonumber(difficulty.damageMultiplier) or 1)
 
     local rawDamageMin = math.max(1, Round(scaledAverageDamage * 0.80))
     local rawDamageMax = math.max(rawDamageMin, Round(scaledAverageDamage * 1.20))
@@ -335,6 +340,9 @@ function EG:CreateEnemy(options)
         level = effectiveLevel,
         playerLevel = playerLevel,
         floor = floor,
+        difficulty = difficulty.id or "NORMAL",
+        difficultyHpMultiplier = tonumber(difficulty.hpMultiplier) or 1,
+        difficultyDamageMultiplier = tonumber(difficulty.damageMultiplier) or 1,
         levelPressure = levelPressure,
         floorHpMultiplier = floorPressure.hpMultiplier,
         floorDamageMultiplier = floorPressure.damageMultiplier,

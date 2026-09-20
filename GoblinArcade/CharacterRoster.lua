@@ -268,12 +268,13 @@ local function BuildArcadeStarterWeapon(classId)
     }
 end
 
-function GA:CreateArcadeCharacter(name, raceId, classId, hardcore)
+function GA:CreateArcadeCharacter(name, raceId, classId, hardcore, difficulty)
     local db = GetDB()
     name = Trim(name)
     raceId = string.lower(tostring(raceId or ""))
     classId = string.lower(tostring(classId or ""))
     hardcore = hardcore == true
+    difficulty = self.NormalizeDifficulty and self:NormalizeDifficulty(difficulty) or "NORMAL"
 
     if name == "" then
         return nil, "Enter a character name."
@@ -334,6 +335,7 @@ function GA:CreateArcadeCharacter(name, raceId, classId, hardcore)
         sourceType = "arcade",
         isArcadeGenerated = true,
         hardcore = hardcore,
+        difficulty = difficulty,
         dead = false,
         name = name,
         realm = "GoblinArcade",
@@ -508,6 +510,7 @@ GetDB = function()
         if character then
             character.arcadeLoadout = character.arcadeLoadout or {}
             character.arcadeSupplies = character.arcadeSupplies or {}
+            character.difficulty = GA.NormalizeDifficulty and GA:NormalizeDifficulty(character.difficulty) or "NORMAL"
             for _, item in pairs(character.equipment or {}) do
                 if item then
                     item.baselineLocked = true
@@ -1058,6 +1061,7 @@ function GA:InitializeCharacterRoster()
     character.equipment = self:SnapshotCurrentEquipment()
     character.arcadeLoadout = character.arcadeLoadout or {}
     character.arcadeSupplies = character.arcadeSupplies or {}
+    character.difficulty = self.NormalizeDifficulty and self:NormalizeDifficulty(character.difficulty) or "NORMAL"
 
     db.characters[key] = character
     db.lastCharacterKey = key
@@ -1088,6 +1092,7 @@ function GA:SyncCurrentCharacterRoster(weapon, source)
     character.equipment = self:SnapshotCurrentEquipment()
     character.arcadeLoadout = character.arcadeLoadout or {}
     character.arcadeSupplies = character.arcadeSupplies or {}
+    character.difficulty = self.NormalizeDifficulty and self:NormalizeDifficulty(character.difficulty) or "NORMAL"
 
     source = source or {}
 
@@ -1165,6 +1170,32 @@ function GA:SelectDungeonCharacter(key)
     if self.RefreshDungeonCharacterSelection then
         self:RefreshDungeonCharacterSelection()
     end
+end
+
+function GA:SetCharacterDifficulty(key, difficulty)
+    local db = GetDB()
+    local character = key and db.characters[key]
+    if not character then
+        return false, "Character not found."
+    end
+
+    if self.RunState and self.RunState.active and self.RunState.snapshot
+        and self.RunState.snapshot.characterKey == key then
+        return false, "Difficulty is locked while a run is active."
+    end
+
+    if db.suspendedRuns and db.suspendedRuns[key] then
+        return false, "Resume or abandon the saved run before changing difficulty."
+    end
+
+    character.difficulty = self.NormalizeDifficulty and self:NormalizeDifficulty(difficulty) or "NORMAL"
+    character.updatedAt = time and time() or character.updatedAt or 0
+    db.characters[key] = character
+
+    if self.RefreshDungeonCharacterSelection then
+        self:RefreshDungeonCharacterSelection()
+    end
+    return true
 end
 
 function GA:GetSelectedDungeonCharacter()
