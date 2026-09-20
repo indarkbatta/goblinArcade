@@ -31,6 +31,43 @@ local EQUIPMENT_SLOTS = {
     { key = "offhand", slotID = 17, label = "Off Hand" },
 }
 
+local LOADOUT_SLOT_COMPATIBILITY = {
+    head = { INVTYPE_HEAD = true },
+    neck = { INVTYPE_NECK = true },
+    shoulder = { INVTYPE_SHOULDER = true },
+    chest = { INVTYPE_CHEST = true, INVTYPE_ROBE = true },
+    waist = { INVTYPE_WAIST = true },
+    legs = { INVTYPE_LEGS = true },
+    feet = { INVTYPE_FEET = true },
+    wrist = { INVTYPE_WRIST = true },
+    hands = { INVTYPE_HAND = true },
+    finger1 = { INVTYPE_FINGER = true },
+    finger2 = { INVTYPE_FINGER = true },
+    trinket1 = { INVTYPE_TRINKET = true },
+    trinket2 = { INVTYPE_TRINKET = true },
+    back = { INVTYPE_CLOAK = true },
+    mainhand = {
+        INVTYPE_WEAPON = true,
+        INVTYPE_WEAPONMAINHAND = true,
+        INVTYPE_2HWEAPON = true,
+        INVTYPE_RANGED = true,
+        INVTYPE_RANGEDRIGHT = true,
+    },
+    offhand = {
+        INVTYPE_WEAPON = true,
+        INVTYPE_WEAPONOFFHAND = true,
+        INVTYPE_SHIELD = true,
+        INVTYPE_HOLDABLE = true,
+    },
+}
+
+local LOADOUT_SLOT_PRIORITY = {
+    "head", "neck", "shoulder", "chest",
+    "waist", "legs", "feet", "wrist",
+    "hands", "finger1", "finger2", "trinket1",
+    "trinket2", "back", "mainhand", "offhand",
+}
+
 local function GetItemSnapshot(itemLink, icon, slotKey)
     if not itemLink then
         return nil
@@ -99,6 +136,9 @@ local function GetItemSnapshot(itemLink, icon, slotKey)
         itemType = itemType,
         itemSubType = itemSubType,
         equipLoc = equipLoc,
+        baselineLocked = true,
+        stashEligible = false,
+        ownershipSource = "baseline",
     }
 
     local metadata = {
@@ -254,6 +294,9 @@ function GA:CreateArcadeCharacter(name, raceId, classId, hardcore)
         if studioStarter and studioStarter.arcadeWeapon then
             mainHand = studioStarter
             mainHand.sourceSlot = "mainhand"
+            mainHand.baselineLocked = true
+            mainHand.stashEligible = false
+            mainHand.ownershipSource = "baseline"
             weapon = CopyTable(studioStarter.arcadeWeapon)
             weaponIcon = studioStarter.icon or weaponIcon
         end
@@ -270,6 +313,9 @@ function GA:CreateArcadeCharacter(name, raceId, classId, hardcore)
             itemType = "Weapon",
             itemSubType = "Sword",
             equipLoc = "INVTYPE_WEAPON",
+            baselineLocked = true,
+            stashEligible = false,
+            ownershipSource = "baseline",
             arcadeWeapon = CopyTable(weapon),
         }
     end
@@ -293,6 +339,7 @@ function GA:CreateArcadeCharacter(name, raceId, classId, hardcore)
         equipment = {
             mainhand = mainHand,
         },
+        arcadeLoadout = {},
         weapon = CopyTable(weapon),
         weaponName = weapon.sourceName,
         weaponIcon = weaponIcon,
@@ -357,6 +404,17 @@ function GA:DeleteArcadeCharacter(key)
         return false, "Cannot delete the hero while its run is active."
     end
 
+    for slotKey, item in pairs(character.arcadeLoadout or {}) do
+        if item and item.stashEligible == true and item.baselineLocked ~= true then
+            local stored = CopyTable(item)
+            stored.loadoutOverride = nil
+            stored.loadoutOwnerKey = nil
+            stored.acquiredRunId = nil
+            self:DepositCentralStashItem(stored)
+        end
+        character.arcadeLoadout[slotKey] = nil
+    end
+
     db.characters[key] = nil
     if db.actionBars then
         db.actionBars[key] = nil
@@ -410,6 +468,35 @@ GetDB = function()
     GoblinArcadeDB.version = GoblinArcadeDB.version or 1
     GoblinArcadeDB.characters = GoblinArcadeDB.characters or {}
     GoblinArcadeDB.centralStash = GoblinArcadeDB.centralStash or {}
+
+    for _, item in ipairs(GoblinArcadeDB.centralStash) do
+        if item and item.extractedAt then
+            item.stashEligible = true
+            item.ownershipSource = item.ownershipSource or "extracted"
+        end
+    end
+
+    for _, character in pairs(GoblinArcadeDB.characters) do
+        if character then
+            character.arcadeLoadout = character.arcadeLoadout or {}
+            for _, item in pairs(character.equipment or {}) do
+                if item then
+                    item.baselineLocked = true
+                    item.stashEligible = false
+                    item.ownershipSource = "baseline"
+                    item.acquiredRunId = nil
+                end
+            end
+            for _, item in pairs(character.arcadeLoadout) do
+                if item then
+                    item.stashEligible = true
+                    item.ownershipSource = item.ownershipSource or "extracted"
+                    item.acquiredRunId = nil
+                end
+            end
+        end
+    end
+
     return GoblinArcadeDB
 end
 
@@ -417,6 +504,9 @@ local function PrepareExtractedItem(item, run)
     local stored = CopyTable(item)
     stored.acquiredRunId = nil
     stored.sourceSlot = nil
+    stored.baselineLocked = nil
+    stored.stashEligible = true
+    stored.ownershipSource = "extracted"
     stored.extractedAt = time and time() or 0
     stored.extractedFloor = run and run.floor or 9
     stored.extractedFromCharacter = run and run.snapshot and run.snapshot.name or nil
@@ -443,7 +533,9 @@ function GA:GetCentralStashItemCount()
 end
 
 function GA:DepositCentralStashItem(item)
-    if not item then return false end
+    if not item or item.stashEligible ~= true or item.baselineLocked == true then
+        return false
+    end
 
     local stash = self:GetCentralStash()
     local stored = CopyTable(item)
@@ -534,6 +626,168 @@ function GA:ExtractRunLootToCentralStash(run)
     return extractedCount, extractedTypes
 end
 
+function GA:GetCharacterArcadeLoadout(characterOrKey)
+    local db = GetDB()
+    local character = type(characterOrKey) == "table"
+        and characterOrKey
+        or db.characters[characterOrKey]
+    if not character then return nil end
+
+    character.arcadeLoadout = character.arcadeLoadout or {}
+    return character.arcadeLoadout
+end
+
+function GA:GetEffectiveCharacterEquipment(character)
+    if not character then return {} end
+
+    local equipment = CopyTable(character.equipment or {})
+    for slotKey, item in pairs(character.arcadeLoadout or {}) do
+        if item then
+            local override = CopyTable(item)
+            override.acquiredRunId = nil
+            override.loadoutOverride = true
+            override.stashEligible = true
+            equipment[slotKey] = override
+        end
+    end
+
+    local mainHand = equipment.mainhand
+    if mainHand and mainHand.equipLoc == "INVTYPE_2HWEAPON" then
+        equipment.offhand = nil
+    end
+
+    return equipment
+end
+
+function GA:IsCentralStashItemCompatible(character, item, slotKey)
+    if not character or not item or not slotKey then return false end
+    if item.baselineLocked == true or item.stashEligible ~= true then return false end
+    if item.category == "CONSUMABLE" or item.itemType == "Consumable" then return false end
+
+    local classId = string.lower(tostring(character.classId or character.classFile or character.className or ""))
+    if self.ItemDatabase and item.studioDefined
+        and not self.ItemDatabase:IsItemAllowedForClass(item, classId) then
+        return false
+    end
+
+    local allowed = LOADOUT_SLOT_COMPATIBILITY[slotKey]
+    return allowed and item.equipLoc and allowed[item.equipLoc] == true or false
+end
+
+function GA:GetPreferredCentralStashLoadoutSlot(character, item)
+    if not character or not item then return nil end
+    local loadout = self:GetCharacterArcadeLoadout(character) or {}
+
+    if item.equipLoc == "INVTYPE_FINGER" then
+        if not loadout.finger1 then return "finger1" end
+        if not loadout.finger2 then return "finger2" end
+        return "finger1"
+    end
+    if item.equipLoc == "INVTYPE_TRINKET" then
+        if not loadout.trinket1 then return "trinket1" end
+        if not loadout.trinket2 then return "trinket2" end
+        return "trinket1"
+    end
+    if item.equipLoc == "INVTYPE_SHIELD" or item.equipLoc == "INVTYPE_HOLDABLE"
+        or item.equipLoc == "INVTYPE_WEAPONOFFHAND" then
+        return "offhand"
+    end
+
+    for _, slotKey in ipairs(LOADOUT_SLOT_PRIORITY) do
+        if self:IsCentralStashItemCompatible(character, item, slotKey) then
+            return slotKey
+        end
+    end
+    return nil
+end
+
+function GA:EquipCentralStashItem(characterKey, stashIndex)
+    local db = GetDB()
+    local character = db.characters[characterKey]
+    local index = math.floor(tonumber(stashIndex) or 0)
+    local item = db.centralStash[index]
+
+    if not character or not item then
+        return false, "Select a valid character and stash item."
+    end
+    if character.dead and character.hardcore then
+        return false, "A dead Hardcore hero cannot change loadout."
+    end
+    if item.baselineLocked == true or item.stashEligible ~= true then
+        return false, "Baseline items cannot be moved into or out of the Central Stash."
+    end
+
+    local slotKey = self:GetPreferredCentralStashLoadoutSlot(character, item)
+    if not slotKey or not self:IsCentralStashItemCompatible(character, item, slotKey) then
+        return false, "That item cannot be equipped by this character."
+    end
+
+    local loadout = self:GetCharacterArcadeLoadout(character)
+
+    if slotKey == "offhand" then
+        local effectiveMainHand = loadout.mainhand or (character.equipment and character.equipment.mainhand)
+        if effectiveMainHand and effectiveMainHand.equipLoc == "INVTYPE_2HWEAPON" then
+            return false, "Equip a one-handed main-hand weapon before adding an off-hand item."
+        end
+    elseif slotKey == "mainhand" and item.equipLoc == "INVTYPE_2HWEAPON" and loadout.offhand then
+        local oldOffhand = CopyTable(loadout.offhand)
+        oldOffhand.loadoutOverride = nil
+        oldOffhand.loadoutOwnerKey = nil
+        oldOffhand.acquiredRunId = nil
+        if not self:DepositCentralStashItem(oldOffhand) then
+            return false, "The off-hand item could not be returned to the stash."
+        end
+        loadout.offhand = nil
+    end
+
+    local replaced = loadout[slotKey]
+    if replaced and not self:DepositCentralStashItem(replaced) then
+        return false, "The replaced loadout item could not be returned to the stash."
+    end
+
+    local equipped = table.remove(db.centralStash, index)
+    equipped.acquiredRunId = nil
+    equipped.baselineLocked = nil
+    equipped.stashEligible = true
+    equipped.ownershipSource = "extracted"
+    equipped.loadoutOverride = true
+    equipped.loadoutOwnerKey = characterKey
+    loadout[slotKey] = equipped
+    db.characters[characterKey] = character
+    return true, slotKey
+end
+
+function GA:ReturnCharacterLoadoutItemToStash(characterKey, slotKey)
+    local db = GetDB()
+    local character = db.characters[characterKey]
+    if not character then return false, "Character not found." end
+
+    local loadout = self:GetCharacterArcadeLoadout(character)
+    local item = loadout and loadout[slotKey]
+    if not item then
+        return false, "This slot is using the locked baseline item."
+    end
+    if item.baselineLocked == true or item.stashEligible ~= true then
+        return false, "Baseline items can never be deposited into the Central Stash."
+    end
+
+    local stored = CopyTable(item)
+    stored.loadoutOverride = nil
+    stored.loadoutOwnerKey = nil
+    stored.acquiredRunId = nil
+    if not self:DepositCentralStashItem(stored) then
+        return false, "Could not return that item to the Central Stash."
+    end
+
+    loadout[slotKey] = nil
+    db.characters[characterKey] = character
+    return true
+end
+
+function GA:GetLoadoutSlotDefinitions()
+    return EQUIPMENT_SLOTS
+end
+
 function GA:GetCurrentCharacterKey()
     local realm = GetRealmName and GetRealmName() or "Unknown Realm"
     local name = UnitName("player") or "Unknown"
@@ -557,6 +811,7 @@ function GA:InitializeCharacterRoster()
     character.maxHealth = UnitHealthMax("player") or character.maxHealth or 0
     character.updatedAt = time and time() or 0
     character.equipment = self:SnapshotCurrentEquipment()
+    character.arcadeLoadout = character.arcadeLoadout or {}
 
     db.characters[key] = character
     db.lastCharacterKey = key
@@ -585,6 +840,7 @@ function GA:SyncCurrentCharacterRoster(weapon, source)
     character.maxHealth = UnitHealthMax("player") or 0
     character.updatedAt = time and time() or 0
     character.equipment = self:SnapshotCurrentEquipment()
+    character.arcadeLoadout = character.arcadeLoadout or {}
 
     source = source or {}
 

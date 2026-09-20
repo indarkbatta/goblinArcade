@@ -137,7 +137,10 @@ local function ResolveCharacterWeapon(self, character)
         return nil
     end
 
-    local mainHand = character.equipment and character.equipment.mainhand
+    local equipment = self.GetEffectiveCharacterEquipment
+        and self:GetEffectiveCharacterEquipment(character)
+        or character.equipment
+    local mainHand = equipment and equipment.mainhand
     if mainHand and self.EnsureArcadeItemConversion then
         self:EnsureArcadeItemConversion(mainHand)
         if mainHand.arcadeWeapon then
@@ -2370,7 +2373,7 @@ function GA:CreateDungeonRunPage(parent)
     selectedSource:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
     self.DungeonSelectedCharacterSource = selectedSource
 
-    local loadoutTitle = CreateText(selectedPanel, "GameFontNormalSmall", "CACHED LOADOUT")
+    local loadoutTitle = CreateText(selectedPanel, "GameFontNormalSmall", "RUN LOADOUT  -  BASELINE + STASH")
     loadoutTitle:SetPoint("TOPLEFT", 16, -146)
     loadoutTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
@@ -2446,7 +2449,7 @@ function GA:CreateDungeonRunPage(parent)
     self.DungeonCentralStashOverlay = stashOverlay
 
     local stashModal = CreateFrame("Frame", nil, stashOverlay, "BackdropTemplate")
-    stashModal:SetSize(700, 520)
+    stashModal:SetSize(920, 560)
     stashModal:SetPoint("CENTER")
     ApplyBackdrop(stashModal, { 0.040, 0.034, 0.027, 1 }, COLORS.goldDim)
 
@@ -2465,17 +2468,17 @@ function GA:CreateDungeonRunPage(parent)
         "Account-wide extracted loot. Only items carried out of a successful run are stored here."
     )
     stashHint:SetPoint("TOPLEFT", stashTitle, "BOTTOMLEFT", 0, -8)
-    stashHint:SetWidth(640)
+    stashHint:SetWidth(860)
     stashHint:SetJustifyH("LEFT")
     stashHint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
     self.DungeonCentralStashSlots = {}
-    local stashColumns = 6
+    local stashColumns = 5
     local stashRows = 5
     local stashSlotSize = 58
     local stashGap = 10
     local stashGridWidth = stashColumns * stashSlotSize + (stashColumns - 1) * stashGap
-    local stashStartX = math.floor((700 - stashGridWidth) / 2)
+    local stashStartX = 28
 
     for i = 1, stashColumns * stashRows do
         local col = (i - 1) % stashColumns
@@ -2535,30 +2538,123 @@ function GA:CreateDungeonRunPage(parent)
             if item.extractedFromCharacter then
                 GameTooltip:AddLine("Extracted by " .. item.extractedFromCharacter, 0.65, 0.65, 0.65)
             end
+            if item.category == "CONSUMABLE" or item.itemType == "Consumable" then
+                GameTooltip:AddLine("Consumables are not part of the pre-run gear loadout yet.", 0.65, 0.65, 0.65, true)
+            else
+                GameTooltip:AddLine("Click to equip on the selected character.", 0.30, 1.00, 0.38, true)
+            end
             GameTooltip:Show()
         end)
         slot:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        slot:SetScript("OnClick", function(button)
+            if button.gaStashIndex then
+                GA:EquipSelectedCentralStashItem(button.gaStashIndex)
+            end
+        end)
         self.DungeonCentralStashSlots[i] = slot
     end
 
     local stashPrev = CreateFlatButton(stashModal, "<  PREV", 100, 30)
-    stashPrev:SetPoint("BOTTOMLEFT", 24, 18)
+    stashPrev:SetPoint("BOTTOMLEFT", 28, 18)
     stashPrev:SetScript("OnClick", function() GA:ChangeCentralStashPage(-1) end)
     self.DungeonCentralStashPrev = stashPrev
 
     local stashPage = CreateText(stashModal, "GameFontNormalSmall", "PAGE 1 / 1")
-    stashPage:SetPoint("BOTTOM", 0, 27)
+    stashPage:SetPoint("BOTTOMLEFT", 160, 27)
     stashPage:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
     self.DungeonCentralStashPageText = stashPage
 
     local stashNext = CreateFlatButton(stashModal, "NEXT  >", 100, 30)
-    stashNext:SetPoint("BOTTOMRIGHT", -144, 18)
+    stashNext:SetPoint("BOTTOMLEFT", 280, 18)
     stashNext:SetScript("OnClick", function() GA:ChangeCentralStashPage(1) end)
     self.DungeonCentralStashNext = stashNext
 
     local stashClose = CreateFlatButton(stashModal, "CLOSE", 100, 30)
     stashClose:SetPoint("BOTTOMRIGHT", -24, 18)
     stashClose:SetScript("OnClick", function() GA:CloseCentralStash() end)
+
+    local loadoutTitle = CreateText(stashModal, "GameFontNormalSmall", "SELECTED CHARACTER LOADOUT")
+    loadoutTitle:SetPoint("TOPLEFT", 410, -92)
+    loadoutTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    local loadoutName = CreateText(stashModal, "GameFontNormal", "")
+    loadoutName:SetPoint("TOPLEFT", 410, -114)
+    loadoutName:SetWidth(460)
+    loadoutName:SetJustifyH("LEFT")
+    loadoutName:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+    self.DungeonCentralLoadoutName = loadoutName
+
+    local loadoutHint = CreateText(
+        stashModal,
+        "GameFontHighlightSmall",
+        "Click stash gear to equip it. Click an extracted loadout item to return it. Baseline gear is locked and can never enter the stash."
+    )
+    loadoutHint:SetPoint("TOPLEFT", 410, -138)
+    loadoutHint:SetWidth(460)
+    loadoutHint:SetJustifyH("LEFT")
+    loadoutHint:SetWordWrap(true)
+    loadoutHint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    self.DungeonCentralLoadoutSlots = {}
+    local loadoutDefs = self.GetLoadoutSlotDefinitions and self:GetLoadoutSlotDefinitions() or {}
+    for index, definition in ipairs(loadoutDefs) do
+        local col = (index - 1) % 4
+        local row = math.floor((index - 1) / 4)
+        local button = CreateFrame("Button", nil, stashModal, "BackdropTemplate")
+        button:SetSize(92, 68)
+        button:SetPoint("TOPLEFT", 410 + col * 112, -190 - row * 78)
+        ApplyBackdrop(button, { 0.025, 0.022, 0.018, 1 }, COLORS.goldDim)
+        button.slotKey = definition.key
+        button.slotLabel = definition.label
+
+        local icon = button:CreateTexture(nil, "ARTWORK")
+        icon:SetSize(42, 42)
+        icon:SetPoint("LEFT", 6, 0)
+        icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+        icon:SetAlpha(0.14)
+        button.icon = icon
+
+        local label = CreateText(button, "GameFontDisableSmall", definition.label or definition.key)
+        label:SetPoint("LEFT", icon, "RIGHT", 6, 0)
+        label:SetPoint("RIGHT", -4, 0)
+        label:SetJustifyH("LEFT")
+        label:SetWordWrap(true)
+        label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+        button.label = label
+
+        button:SetScript("OnClick", function(selfButton)
+            if selfButton.gaLoadoutOverride then
+                GA:ReturnSelectedLoadoutItem(selfButton.slotKey)
+            end
+        end)
+        button:SetScript("OnEnter", function(selfButton)
+            local item = selfButton.gaItem
+            GameTooltip:SetOwner(selfButton, "ANCHOR_LEFT")
+            GameTooltip:SetText(selfButton.slotLabel or selfButton.slotKey, 1, 0.82, 0.2)
+            if item then
+                GameTooltip:AddLine(item.name or "Item", 0.92, 0.89, 0.82)
+                if selfButton.gaLoadoutOverride then
+                    GameTooltip:AddLine("EXTRACTED LOADOUT ITEM", 0.25, 1.00, 0.35)
+                    GameTooltip:AddLine("Click to return this item to the Central Stash.", 0.82, 0.79, 0.72, true)
+                else
+                    GameTooltip:AddLine("BASELINE - LOCKED", 1.00, 0.45, 0.20)
+                    GameTooltip:AddLine("Starter / WoW baseline gear cannot be deposited into the Central Stash.", 0.82, 0.79, 0.72, true)
+                end
+            else
+                GameTooltip:AddLine("Empty slot.", 0.65, 0.65, 0.65)
+            end
+            GameTooltip:Show()
+        end)
+        button:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        self.DungeonCentralLoadoutSlots[#self.DungeonCentralLoadoutSlots + 1] = button
+    end
+
+    local loadoutStatus = CreateText(stashModal, "GameFontDisableSmall", "")
+    loadoutStatus:SetPoint("BOTTOMLEFT", 410, 24)
+    loadoutStatus:SetWidth(360)
+    loadoutStatus:SetJustifyH("LEFT")
+    loadoutStatus:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    self.DungeonCentralLoadoutStatus = loadoutStatus
 
     local generatorOverlay = CreateFrame("Frame", nil, setup, "BackdropTemplate")
     generatorOverlay:SetAllPoints(setup)
@@ -2991,8 +3087,10 @@ function GA:RefreshCentralStash()
     local firstIndex = ((self.DungeonCentralStashPage - 1) * slotsPerPage) + 1
 
     for slotIndex, button in ipairs(self.DungeonCentralStashSlots or {}) do
-        local item = stash[firstIndex + slotIndex - 1]
+        local absoluteIndex = firstIndex + slotIndex - 1
+        local item = stash[absoluteIndex]
         button.gaStashItem = item
+        button.gaStashIndex = item and absoluteIndex or nil
         if item then
             button.icon:SetTexture(item.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
             button.icon:SetAlpha(1)
@@ -3016,12 +3114,98 @@ function GA:RefreshCentralStash()
     end
     if self.DungeonCentralStashPrev then self.DungeonCentralStashPrev:SetEnabled(self.DungeonCentralStashPage > 1) end
     if self.DungeonCentralStashNext then self.DungeonCentralStashNext:SetEnabled(self.DungeonCentralStashPage < pageCount) end
+
+    local selected = self.GetSelectedDungeonCharacter and self:GetSelectedDungeonCharacter()
+    if self.DungeonCentralLoadoutName then
+        self.DungeonCentralLoadoutName:SetText(
+            selected and string.format("%s  -  %s", selected.name or "Unknown", selected.className or "Adventurer")
+            or "No character selected"
+        )
+    end
+
+    local loadout = selected and selected.arcadeLoadout or {}
+    local baseline = selected and selected.equipment or {}
+    for _, button in ipairs(self.DungeonCentralLoadoutSlots or {}) do
+        local override = loadout and loadout[button.slotKey]
+        local baseItem = baseline and baseline[button.slotKey]
+        local item = override or baseItem
+        button.gaItem = item
+        button.gaLoadoutOverride = override ~= nil
+
+        if item then
+            button.icon:SetTexture(item.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+            button.icon:SetAlpha(override and 1 or 0.30)
+            button.label:SetText(button.slotLabel or button.slotKey)
+            button.label:SetTextColor(
+                override and COLORS.text[1] or COLORS.muted[1],
+                override and COLORS.text[2] or COLORS.muted[2],
+                override and COLORS.text[3] or COLORS.muted[3]
+            )
+            button:SetBackdropBorderColor(
+                override and COLORS.gold[1] or COLORS.goldDim[1],
+                override and COLORS.gold[2] or COLORS.goldDim[2],
+                override and COLORS.gold[3] or COLORS.goldDim[3],
+                1
+            )
+        else
+            button.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+            button.icon:SetAlpha(0.12)
+            button.label:SetText(button.slotLabel or button.slotKey)
+            button.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+            button:SetBackdropBorderColor(COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 1)
+        end
+    end
+end
+
+function GA:EquipSelectedCentralStashItem(stashIndex)
+    local selected = self.GetSelectedDungeonCharacter and self:GetSelectedDungeonCharacter()
+    if not selected or not self.EquipCentralStashItem then return false end
+
+    local ok, result = self:EquipCentralStashItem(selected.key, stashIndex)
+    if self.DungeonCentralLoadoutStatus then
+        self.DungeonCentralLoadoutStatus:SetText(
+            ok
+                and ("Equipped extracted item to " .. tostring(result or "loadout") .. ".")
+                or tostring(result or "Could not equip that item.")
+        )
+        self.DungeonCentralLoadoutStatus:SetTextColor(
+            ok and COLORS.green[1] or COLORS.red[1],
+            ok and COLORS.green[2] or COLORS.red[2],
+            ok and COLORS.green[3] or COLORS.red[3]
+        )
+    end
+    self:RefreshCentralStash()
+    self:RefreshDungeonCharacterSelection()
+    return ok
+end
+
+function GA:ReturnSelectedLoadoutItem(slotKey)
+    local selected = self.GetSelectedDungeonCharacter and self:GetSelectedDungeonCharacter()
+    if not selected or not self.ReturnCharacterLoadoutItemToStash then return false end
+
+    local ok, result = self:ReturnCharacterLoadoutItemToStash(selected.key, slotKey)
+    if self.DungeonCentralLoadoutStatus then
+        self.DungeonCentralLoadoutStatus:SetText(
+            ok
+                and ((tostring(slotKey or "Item")) .. " returned to Central Stash.")
+                or tostring(result or "Could not return that item.")
+        )
+        self.DungeonCentralLoadoutStatus:SetTextColor(
+            ok and COLORS.green[1] or COLORS.red[1],
+            ok and COLORS.green[2] or COLORS.red[2],
+            ok and COLORS.green[3] or COLORS.red[3]
+        )
+    end
+    self:RefreshCentralStash()
+    self:RefreshDungeonCharacterSelection()
+    return ok
 end
 
 function GA:OpenCentralStash()
     if not self.DungeonCentralStashOverlay then return end
     self:CloseCharacterGeneratorModal()
     self.DungeonCentralStashPage = 1
+    if self.DungeonCentralLoadoutStatus then self.DungeonCentralLoadoutStatus:SetText("") end
     self:RefreshCentralStash()
     self.DungeonCentralStashOverlay:Show()
 end
@@ -3374,6 +3558,10 @@ function GA:RefreshDungeonCharacterSelection()
 
     local selectedClassId = string.lower(tostring(selected.classId or selected.classFile or selected.className or ""))
     local classReady = self:IsStudioClassPlayable(selectedClassId)
+    local effectiveEquipment = self.GetEffectiveCharacterEquipment
+        and self:GetEffectiveCharacterEquipment(selected)
+        or selected.equipment
+    local effectiveMainHand = effectiveEquipment and effectiveEquipment.mainhand
     local weapon = ResolveCharacterWeapon(self, selected)
     if selected.dead and selected.hardcore then
         self.DungeonSelectedWeaponName:SetText("This Hardcore hero is dead")
@@ -3390,7 +3578,12 @@ function GA:RefreshDungeonCharacterSelection()
         self.DungeonSetupBeginButton.label:SetText("CLASS NOT READY")
         self.DungeonSetupBeginButton.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
     elseif weapon then
-        self.DungeonSelectedWeaponName:SetText(selected.weaponName or weapon.sourceName or "Cached main hand")
+        self.DungeonSelectedWeaponName:SetText(
+            (effectiveMainHand and effectiveMainHand.name)
+            or selected.weaponName
+            or weapon.sourceName
+            or "Cached main hand"
+        )
         self.DungeonSelectedWeaponStats:SetText(string.format(
             "%s  -  Damage %d-%d  -  %s  -  Range %d",
             weapon.style or "Weapon",
@@ -6139,6 +6332,9 @@ function GA:BeginDungeonRun()
         return
     end
 
+    local effectiveEquipment = selected and self.GetEffectiveCharacterEquipment
+        and self:GetEffectiveCharacterEquipment(selected)
+        or (selected and selected.equipment or {})
     local selectedWeapon = ResolveCharacterWeapon(self, selected)
     if not selected or not selectedWeapon then
         if self.DungeonRunStateText then
@@ -6174,7 +6370,7 @@ function GA:BeginDungeonRun()
 
     local gearPressure = self.EnemyGenerator:CalculateGearPressure(
         level,
-        selected.equipment or {}
+        effectiveEquipment or {}
     )
 
     local dungeonSeed = math.random(1, 2147483646)
@@ -6270,7 +6466,7 @@ function GA:BeginDungeonRun()
         playerHealth = maxHealth,
         playerMaxHealth = maxHealth,
         baseMaxHealth = maxHealth,
-        equipment = CopyTable(selected.equipment or {}),
+        equipment = CopyTable(effectiveEquipment or {}),
         backpack = {},
         openedChests = {},
         openDoors = {},
@@ -6308,8 +6504,8 @@ function GA:BeginDungeonRun()
             hardcore = selected.hardcore == true,
             dead = selected.dead == true,
             maxHealth = maxHealth,
-            mainHandLink = selected.weaponLink,
-            weaponIcon = selected.weaponIcon,
+            mainHandLink = effectiveEquipment and effectiveEquipment.mainhand and effectiveEquipment.mainhand.link or selected.weaponLink,
+            weaponIcon = effectiveEquipment and effectiveEquipment.mainhand and effectiveEquipment.mainhand.icon or selected.weaponIcon,
             weapon = selectedWeapon,
         },
     }

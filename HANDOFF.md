@@ -3,9 +3,44 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.46.0**  
+Current addon version: **0.47.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.47.0 — persistent stash loadouts with baseline anti-exploit rules
+
+- Addon **0.47.0** adds persistent pre-run equipment loadouts backed by the account-wide Central Stash.
+- Character equipment is now modeled as two layers:
+  - **baseline gear** = WoW-synced gear or Arcade starter gear;
+  - **Arcade loadout overrides** = extracted items withdrawn from the Central Stash.
+- Baseline gear is permanently marked `baselineLocked = true`, `stashEligible = false`, `ownershipSource = "baseline"`.
+- Existing saved characters are migrated on DB access so old starter / WoW equipment receives the same baseline lock.
+- Central Stash deposits now reject any item that is not explicitly `stashEligible = true` or is `baselineLocked`.
+- Successfully extracted items are marked `stashEligible = true`, so only legitimate extracted ownership can circulate between stash and loadouts.
+- Existing 0.46 extracted stash items are migrated to the new ownership marker from their `extractedAt` metadata.
+- Each character gets a persistent `arcadeLoadout` table.
+- Equipping from the Central Stash:
+  - physically removes that item from the account-wide stash;
+  - stores it in the selected character's `arcadeLoadout`;
+  - replaces only the override layer, never the baseline item;
+  - returns an existing extracted override to the stash before replacing it.
+- Removing an extracted loadout override returns it to the Central Stash and reveals the untouched baseline item below it.
+- Baseline items have no action that can return them to the stash.
+- Deleting an Arcade-generated hero returns all legitimate extracted loadout overrides to the Central Stash before deleting the character; starter items are not returned.
+- Effective run equipment is baseline + stash overrides. Enemy gear-pressure calculation and main-hand selection now use that effective equipment.
+- Loadout items enter a run with no current `acquiredRunId`, so they cannot be re-extracted and duplicated at the end of the same run.
+- In-run loot keeps the current run id and is still the only gear eligible for new extraction.
+- Two-handed main-hand overrides suppress the off-hand in effective equipment. Equipping a two-handed loadout weapon returns any extracted off-hand override to stash; an off-hand cannot be equipped while the effective main hand is two-handed.
+- Central Stash UI now doubles as the pre-run loadout manager:
+  - left side = extracted stash inventory;
+  - right side = all 16 equipment slots for the selected character;
+  - dim slots = baseline / locked items;
+  - bright slots = extracted loadout overrides;
+  - click stash gear to equip it;
+  - click an extracted override to return it to the stash.
+- Consumables remain stash-visible but are not part of the pre-run equipment loadout yet.
+- Studio data remains **1.6.1 / schema 7** with **100 items**, **366 Loot Entries**, one Shop on Floor 6, and Warrior `HP / Level = 3`.
+- Next major step: decide whether stash consumables get dedicated pre-run supply slots, then run the full Warrior Floor 1-9 economy / difficulty balance pass.
 
 ## 0.46.0 — looter extraction loop and Central Stash
 
@@ -2024,7 +2059,7 @@ Deterministic scaling, bounded density, multi-enemy support, three active archet
 
 Recommended order:
 
-**Current priority after 0.46.0:** add pre-run loadout management from the Central Stash, then do the full Warrior Floor 1-9 balance pass before adding more item quantity or starting Rogue.
+**Current priority after 0.47.0:** decide the pre-run consumable/supply rule, then perform the full Warrior Floor 1-9 balance pass before adding more item quantity or starting Rogue.
 
 1. **Studio data migration**
    - configure the two Vercel publish secrets once
