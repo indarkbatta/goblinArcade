@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 7,
-  "studioVersion": "1.6.2",
+  "schemaVersion": 8,
+  "studioVersion": "1.7.0",
   "classes": [
     {
       "id": "warrior",
@@ -638,7 +638,10 @@
       "sprite": "Media/Monsters/kobold",
       "description": "Baseline dungeon enemy.",
       "dangerRating": 2,
-      "lootTableId": "common_enemy_drops"
+      "lootTableId": "common_enemy_drops",
+      "skillIds": [
+        "kobold_desperate_slash"
+      ]
     },
     {
       "id": "spider",
@@ -651,7 +654,11 @@
       "sprite": "Media/Monsters/spider",
       "description": "Fragile, fast pursuit enemy.",
       "dangerRating": 2,
-      "lootTableId": "common_enemy_drops"
+      "lootTableId": "common_enemy_drops",
+      "skillIds": [
+        "spider_venom_bite",
+        "spider_web"
+      ]
     },
     {
       "id": "skeleton",
@@ -664,7 +671,10 @@
       "sprite": "Media/Monsters/skeleton",
       "description": "Durable slow enemy.",
       "dangerRating": 3,
-      "lootTableId": "common_enemy_drops"
+      "lootTableId": "common_enemy_drops",
+      "skillIds": [
+        "skeleton_heavy_swing"
+      ]
     },
     {
       "id": "brute",
@@ -677,7 +687,10 @@
       "sprite": "",
       "description": "Generator-ready heavy enemy.",
       "dangerRating": 4,
-      "lootTableId": "common_enemy_drops"
+      "lootTableId": "common_enemy_drops",
+      "skillIds": [
+        "brute_crushing_blow"
+      ]
     }
   ],
   "ranks": [
@@ -8567,6 +8580,98 @@
       "icon": "INV_Chest_Chain_16",
       "lootTableId": "boss_cache_loot",
       "description": "Reward cache spawned when the Floor 9 boss is defeated."
+    }
+  ],
+  "monsterSkills": [
+    {
+      "id": "kobold_desperate_slash",
+      "name": "Desperate Slash",
+      "icon": "Ability_Rogue_Ambush",
+      "effect": "DAMAGE",
+      "target": "PLAYER",
+      "damageMultiplier": 1.25,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "durationTurns": 0,
+      "cooldownTurns": 4,
+      "range": 1,
+      "priority": 24,
+      "condition": "SELF_HP_BELOW",
+      "conditionValue": 40,
+      "telegraphTurns": 0,
+      "description": "When badly wounded, the kobold lashes out with a stronger melee strike."
+    },
+    {
+      "id": "spider_venom_bite",
+      "name": "Venom Bite",
+      "icon": "Ability_Poisons",
+      "effect": "DAMAGE_DOT",
+      "target": "PLAYER",
+      "damageMultiplier": 0.85,
+      "effectValue": 1,
+      "secondaryValue": 0,
+      "durationTurns": 2,
+      "cooldownTurns": 4,
+      "range": 1,
+      "priority": 28,
+      "condition": "ADJACENT",
+      "conditionValue": 0,
+      "telegraphTurns": 0,
+      "description": "A lighter bite that leaves a short venom damage-over-time effect."
+    },
+    {
+      "id": "spider_web",
+      "name": "Web",
+      "icon": "Ability_Ensnare",
+      "effect": "ROOT",
+      "target": "PLAYER",
+      "damageMultiplier": 0,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "durationTurns": 1,
+      "cooldownTurns": 5,
+      "range": 3,
+      "priority": 18,
+      "condition": "RANGE_MIN",
+      "conditionValue": 2,
+      "telegraphTurns": 0,
+      "description": "Roots the player for one turn when the spider has a little distance."
+    },
+    {
+      "id": "skeleton_heavy_swing",
+      "name": "Heavy Swing",
+      "icon": "Ability_Warrior_SavageBlow",
+      "effect": "DAMAGE",
+      "target": "PLAYER",
+      "damageMultiplier": 1.5,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "durationTurns": 0,
+      "cooldownTurns": 4,
+      "range": 1,
+      "priority": 32,
+      "condition": "ADJACENT",
+      "conditionValue": 0,
+      "telegraphTurns": 1,
+      "description": "A telegraphed heavy melee attack. The wind-up is visible before it lands."
+    },
+    {
+      "id": "brute_crushing_blow",
+      "name": "Crushing Blow",
+      "icon": "Ability_Warrior_PunishingBlow",
+      "effect": "DAMAGE",
+      "target": "PLAYER",
+      "damageMultiplier": 1.7,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "durationTurns": 0,
+      "cooldownTurns": 3,
+      "range": 1,
+      "priority": 34,
+      "condition": "ADJACENT",
+      "conditionValue": 0,
+      "telegraphTurns": 1,
+      "description": "A slow, telegraphed blow intended for heavy enemies and future bosses."
     }
   ]
 }
