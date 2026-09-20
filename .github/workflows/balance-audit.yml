@@ -1,0 +1,28 @@
+name: GoblinArcade Balance Audit
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "studio-data.json"
+      - "GoblinArcade/Core.lua"
+      - "GoblinArcade/EnemyGenerator.lua"
+      - "GoblinArcade/FloorGenerator.lua"
+      - "GoblinArcade/ItemDatabase.lua"
+      - "GoblinArcade/DungeonRun.lua"
+      - "tools/balance_audit.py"
+      - ".github/workflows/balance-audit.yml"
+
+jobs:
+  balance-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run headless balance audit
+        shell: bash
+        run: |
+          python3 tools/balance_audit.py --runs 6000 --seed 5401 | tee balance-audit.md
+          cat balance-audit.md >> "$GITHUB_STEP_SUMMARY"

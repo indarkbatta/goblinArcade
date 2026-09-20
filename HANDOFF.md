@@ -7,6 +7,17 @@ Current addon version: **0.54.1**
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
+## Automated balance QA
+
+- Manual balance playthroughs are no longer required from the user as the primary tuning loop.
+- `tools/balance_audit.py` runs deterministic Monte Carlo balance checks directly from `studio-data.json` and mirrors the live enemy, XP, Copper, loot, equipment and potion formulas.
+- The audit reports both:
+  - **SEQUENTIAL**: optimistic clean one-on-one combat;
+  - **PRESSURE**: a bounded multi-aggro sensitivity test so balance is not tuned only around sterile duels.
+- The audit compares 1H+shield and 2H Warrior profiles, floor-by-floor damage, attacks-per-kill, potion use, temporary levels, Floor 6 shop Copper and affordability.
+- GitHub workflow `.github/workflows/balance-audit.yml` reruns the audit automatically when relevant runtime/Studio balance files change, and can also be triggered manually.
+- The audit is a headless balance/logic model, not a replacement for WoW rendering/API integration; visual regressions still require screenshot/static UI inspection when relevant.
+
 ## 0.54.1 — viewport spacing and manual stair travel
 
 - The dungeon body now extends slightly farther downward so the 7×7 viewport no longer sits on top of the lower gold separator/border.
