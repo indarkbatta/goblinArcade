@@ -3,9 +3,31 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.53.0**  
+Current addon version: **0.54.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.54.0 — cleaner combat HUD and in-world enemy HP bars
+
+- Addon **0.54.0** removes presentation-only enemy intent text from the combat UI.
+- Enemy AI still keeps its internal intent state for behavior, stagger/fear/movement logic, but WATCHING / ALERTED / MOVING / ATTACKING / STAGGERED are no longer printed to the player.
+- The right-side adjacent-enemy card now shows:
+  - enemy name + level;
+  - numeric HP;
+  - Danger Rating only.
+- Every currently visible living enemy now has a compact red HP bar directly above its sprite on the dungeon grid.
+- Enemy HP bars:
+  - render only while the enemy itself is visible through Fog of War;
+  - update from the live `hp / maxHp` values every grid render;
+  - disappear automatically when the enemy leaves vision, moves off-camera or dies.
+- Routine `PLAYER TURN` / `ENEMY TURN` status text has been removed from the run HUD.
+  - after an ordinary enemy phase the state line is blank;
+  - meaningful one-shot messages such as level-up, blocked movement, sealed boss exit and errors remain;
+  - `KOBOLDBOYS DEFEATED`, `DOOR OPENED`, `POTION USED`, etc. no longer carry turn-prefix noise.
+- The active-run bottom button is now labeled **OPTIONS** instead of **RUN MENU**.
+- The run-control modal title is also **OPTIONS**.
+- Run lifecycle behavior is unchanged: Abandon Run, Save & Switch and Killswitch still work exactly as before.
+- Studio data is unchanged from 1.6.2: **100 items / 366 Loot Entries**, Warrior `HP / Level = 3`, single Floor 6 Shop.
 
 ## 0.53.0 — first full Warrior Floor 1-9 balance pass
 
@@ -1422,7 +1444,8 @@ When combat starts:
 
 - enemy card appears at the top
 - RUN stats shift below it
-- the card shows a live intent line: WATCHING / ALERTED / MOVING / ATTACKING / STAGGERED
+- the card shows enemy name/level, numeric HP and Danger Rating
+- intent labels are intentionally hidden from the player
 
 Relic slots were explicitly removed and should **not** be reintroduced unless requested.
 
@@ -1850,7 +1873,7 @@ Recent gameplay foundation:
 - enemy tile backgrounds are no longer tinted red; only the enemy tile border is red
 - FloorGenerator v3 now creates bounded Normal / Veteran / Elite rank compositions without increasing enemy count
 - the target card prefixes Veteran / Elite ranks so stronger enemies are identifiable
-- enemy intent presentation is active on the right-side target card: WATCHING / ALERTED / MOVING / ATTACKING / STAGGERED
+- enemy intent remains internal AI state only; the right-side target card no longer exposes intent labels
 - intent state is updated explicitly once per enemy phase; terrain rendering does not mutate enemy state
 - ordinary killing blows now still trigger the enemy phase for other surviving enemies, closing the free-kill turn exploit
 - DungeonGenerator v1 now generates a new connected room-and-corridor layout for every floor

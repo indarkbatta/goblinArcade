@@ -1275,19 +1275,6 @@ local function GetEnemyDisplayName(enemy)
     return name
 end
 
-local ENEMY_INTENT_LABELS = {
-    IDLE = "WATCHING",
-    ALERTED = "ALERTED",
-    MOVING = "MOVING",
-    ATTACKING = "ATTACKING",
-    STAGGERED = "STAGGERED",
-}
-
-local function GetEnemyIntentLabel(enemy)
-    local intent = enemy and enemy.intent or "IDLE"
-    return ENEMY_INTENT_LABELS[intent] or tostring(intent)
-end
-
 local function GenerateFloorSetup(floorGenerator, enemyGenerator, playerLevel, floorNumber, gearPressure, floorMap)
     local walkableTiles = CountWalkableTiles()
     local densityProfile = floorGenerator:RollDensityProfile()
@@ -1415,6 +1402,21 @@ local function CreateGrid(parent)
             enemyIcon:SetTexCoord(0, 1, 0, 1)
             enemyIcon:Hide()
 
+            local enemyHealthBackdrop = CreateFrame("Frame", nil, spriteLayer, "BackdropTemplate")
+            enemyHealthBackdrop:SetSize(74, 8)
+            enemyHealthBackdrop:SetPoint("TOP", cell, "TOP", 0, -4)
+            enemyHealthBackdrop:SetFrameLevel(spriteLayer:GetFrameLevel() + 8)
+            ApplyBackdrop(enemyHealthBackdrop, { 0.015, 0.012, 0.010, 0.95 }, { 0.12, 0.09, 0.07, 1 })
+            enemyHealthBackdrop:Hide()
+
+            local enemyHealthBar = CreateFrame("StatusBar", nil, enemyHealthBackdrop)
+            enemyHealthBar:SetPoint("TOPLEFT", 1, -1)
+            enemyHealthBar:SetPoint("BOTTOMRIGHT", -1, 1)
+            enemyHealthBar:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
+            enemyHealthBar:SetStatusBarColor(COLORS.red[1], COLORS.red[2], COLORS.red[3], 1)
+            enemyHealthBar:SetMinMaxValues(0, 1)
+            enemyHealthBar:SetValue(1)
+
             local marker = CreateText(cell, "GameFontNormalHuge", "")
             marker:SetPoint("CENTER")
 
@@ -1422,6 +1424,8 @@ local function CreateGrid(parent)
                 frame = cell,
                 marker = marker,
                 enemyIcon = enemyIcon,
+                enemyHealthBackdrop = enemyHealthBackdrop,
+                enemyHealthBar = enemyHealthBar,
                 worldX = col,
                 worldY = row,
             }
@@ -1748,12 +1752,12 @@ function GA:CreateDungeonRunPage(parent)
     enemyHealth:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
     self.DungeonEnemyHealth = enemyHealth
 
-    local enemyIntent = CreateText(enemyCard, "GameFontDisableSmall", "")
-    enemyIntent:SetPoint("TOPLEFT", enemyHealth, "BOTTOMLEFT", 0, -4)
-    enemyIntent:SetPoint("RIGHT", enemyCard, "RIGHT", -8, 0)
-    enemyIntent:SetJustifyH("LEFT")
-    enemyIntent:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
-    self.DungeonEnemyIntent = enemyIntent
+    local enemyDanger = CreateText(enemyCard, "GameFontDisableSmall", "")
+    enemyDanger:SetPoint("TOPLEFT", enemyHealth, "BOTTOMLEFT", 0, -4)
+    enemyDanger:SetPoint("RIGHT", enemyCard, "RIGHT", -8, 0)
+    enemyDanger:SetJustifyH("LEFT")
+    enemyDanger:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    self.DungeonEnemyDanger = enemyDanger
 
     local runTitle = CreateText(right, "GameFontNormalSmall", "RUN")
     runTitle:SetPoint("TOPLEFT", 12, -126)
@@ -2104,7 +2108,7 @@ function GA:CreateDungeonRunPage(parent)
     runControl:Hide()
     self.DungeonRunControlFrame = runControl
 
-    local runControlTitle = CreateText(runControl, "GameFontNormalLarge", "RUN CONTROL")
+    local runControlTitle = CreateText(runControl, "GameFontNormalLarge", "OPTIONS")
     runControlTitle:SetPoint("TOPLEFT", 20, -18)
     runControlTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
@@ -4446,21 +4450,15 @@ function GA:RefreshEnemyCombatCard()
                 string.format("%d / %d HP", enemy.hp or 0, enemy.maxHp or 0)
             )
 
-            if self.DungeonEnemyIntent then
-                local intent = enemy.intent or "IDLE"
-                self.DungeonEnemyIntent:SetText(string.format(
-                    "DANGER %d  %s",
-                    enemy.dangerRating or 1,
-                    GetEnemyIntentLabel(enemy)
-                ))
-
-                if intent == "ATTACKING" then
-                    self.DungeonEnemyIntent:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
-                elseif intent == "STAGGERED" or intent == "ALERTED" then
-                    self.DungeonEnemyIntent:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
-                else
-                    self.DungeonEnemyIntent:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
-                end
+            if self.DungeonEnemyDanger then
+                self.DungeonEnemyDanger:SetText(
+                    string.format("DANGER %d", enemy.dangerRating or 1)
+                )
+                self.DungeonEnemyDanger:SetTextColor(
+                    COLORS.muted[1],
+                    COLORS.muted[2],
+                    COLORS.muted[3]
+                )
             end
 
             if self.DungeonEnemyPortrait then
@@ -5181,7 +5179,7 @@ function GA:UseRunPotion()
     end
 
     if self.DungeonRunStateText then
-        self.DungeonRunStateText:SetText("POTION USED - ENEMY TURN")
+        self.DungeonRunStateText:SetText("POTION USED")
         self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
     end
 
@@ -6464,7 +6462,7 @@ function GA:PlayerAttackEnemy(targetEnemy, attackOptions)
             self.DungeonRunStateText:SetText(string.format("LEVEL UP!  %d -> %d", previousRunLevel, currentRunLevel))
             self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
         else
-            self.DungeonRunStateText:SetText("PLAYER TURN - " .. string.upper(GetEnemyDisplayName(enemy)) .. " DEFEATED")
+            self.DungeonRunStateText:SetText(string.upper(GetEnemyDisplayName(enemy)) .. " DEFEATED")
             self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
         end
     end
@@ -6711,6 +6709,9 @@ function GA:RenderDungeonGrid()
                 if entry.enemyIcon then
                     entry.enemyIcon:Hide()
                 end
+                if entry.enemyHealthBackdrop then
+                    entry.enemyHealthBackdrop:Hide()
+                end
 
                 if not explored then
                     -- Unseen: almost completely black. The player has no map
@@ -6824,6 +6825,14 @@ function GA:RenderDungeonGrid()
                     end
 
                     enemyCell.enemyIcon:Show()
+
+                    if enemyCell.enemyHealthBackdrop and enemyCell.enemyHealthBar then
+                        local maxHp = math.max(1, tonumber(enemy.maxHp) or 1)
+                        local currentHp = math.max(0, math.min(maxHp, tonumber(enemy.hp) or maxHp))
+                        enemyCell.enemyHealthBar:SetMinMaxValues(0, maxHp)
+                        enemyCell.enemyHealthBar:SetValue(currentHp)
+                        enemyCell.enemyHealthBackdrop:Show()
+                    end
                 end
             end
         end
@@ -7109,7 +7118,7 @@ function GA:BeginDungeonRun()
 
     if self.DungeonBeginButton then
         self.DungeonBeginButton:SetEnabled(true)
-        self.DungeonBeginButton.label:SetText("RUN MENU")
+        self.DungeonBeginButton.label:SetText("OPTIONS")
         self.DungeonBeginButton.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
     end
 
@@ -7123,7 +7132,7 @@ function GA:BeginDungeonRun()
     end
 
     if self.DungeonRunStateText then
-        self.DungeonRunStateText:SetText("PLAYER TURN - WASD / ARROWS")
+        self.DungeonRunStateText:SetText("WASD / ARROWS")
         self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
     end
 
@@ -7356,7 +7365,7 @@ function GA:ResumeDungeonRun(characterKey)
     end
     if self.DungeonBeginButton then
         self.DungeonBeginButton:SetEnabled(true)
-        self.DungeonBeginButton.label:SetText("RUN MENU")
+        self.DungeonBeginButton.label:SetText("OPTIONS")
         self.DungeonBeginButton.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
     end
     if self.DungeonRunPage and self.DungeonRunPage.SetPropagateKeyboardInput then
@@ -7556,7 +7565,7 @@ function GA:ApplyDungeonFloor(floorNumber, entryDirection)
 
     if self.DungeonRunStateText then
         self.DungeonRunStateText:SetText(
-            string.format("FLOOR %d - PLAYER TURN", floorNumber)
+            string.format("FLOOR %d", floorNumber)
         )
         self.DungeonRunStateText:SetTextColor(
             COLORS.green[1],
@@ -8054,27 +8063,14 @@ function GA:RunEnemyTurn()
     self:RenderDungeonGrid()
 
     if self.DungeonRunStateText and run.active then
-        local adjacent = GetAdjacentEnemy(run)
-
         if run.justLeveledUp then
             self.DungeonRunStateText:SetText(
                 string.format("LEVEL UP!  %d -> %d", run.justLeveledUp.from or run.runLevel, run.justLeveledUp.to or run.runLevel)
             )
             self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
             run.justLeveledUp = nil
-        elseif adjacent then
-            self.DungeonRunStateText:SetText(
-                string.format(
-                    "PLAYER TURN - %s %d/%d HP",
-                    string.upper(GetEnemyDisplayName(adjacent)),
-                    adjacent.hp or 0,
-                    adjacent.maxHp or 0
-                )
-            )
-            self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
         else
-            self.DungeonRunStateText:SetText("PLAYER TURN")
-            self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+            self.DungeonRunStateText:SetText("")
         end
     end
 end
@@ -8477,7 +8473,7 @@ function GA:MoveDungeonPlayer(dx, dy)
         run.turns = run.turns + 1
 
         if self.DungeonRunStateText then
-            self.DungeonRunStateText:SetText("PLAYER TURN - DOOR OPENED")
+            self.DungeonRunStateText:SetText("DOOR OPENED")
             self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
         end
 
