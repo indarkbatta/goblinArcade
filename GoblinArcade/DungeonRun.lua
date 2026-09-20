@@ -1558,7 +1558,7 @@ function GA:CreateDungeonRunPage(parent)
 
     local body = CreateFrame("Frame", nil, page)
     body:SetPoint("TOPLEFT", 18, -58)
-    body:SetPoint("BOTTOMRIGHT", -18, 100)
+    body:SetPoint("BOTTOMRIGHT", -18, 84)
 
     local left = CreateFrame("Frame", nil, body, "BackdropTemplate")
     left:SetPoint("TOPLEFT")
@@ -1798,8 +1798,8 @@ function GA:CreateDungeonRunPage(parent)
         button:SetScript("OnEnter", function(selfButton)
             selfButton:SetBackdropBorderColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 1)
             GameTooltip:SetOwner(selfButton, "ANCHOR_LEFT")
-            GameTooltip:SetText(labelText, 1, 0.82, 0.2)
-            GameTooltip:AddLine(tooltipText, 0.9, 0.9, 0.9, true)
+            GameTooltip:SetText(selfButton.gaTooltipTitle or labelText, 1, 0.82, 0.2)
+            GameTooltip:AddLine(selfButton.gaTooltipText or tooltipText, 0.9, 0.9, 0.9, true)
             GameTooltip:Show()
         end)
         button:SetScript("OnLeave", function(selfButton)
@@ -1836,6 +1836,20 @@ function GA:CreateDungeonRunPage(parent)
         end
     )
     self.DungeonSpellbookButton = self.DungeonQuickSpellbookButton
+
+    self.DungeonFloorAccessButton = CreateQuickAccessButton(
+        right,
+        55,
+        "Interface\\Icons\\Achievement_Dungeon_ClassicDungeonMaster",
+        "STAIRS",
+        "Use the stairs on the current tile.",
+        function()
+            GA:UseDungeonFloorAccess()
+        end
+    )
+    self.DungeonFloorAccessButton:ClearAllPoints()
+    self.DungeonFloorAccessButton:SetPoint("TOP", right, "TOP", 0, -384)
+    self.DungeonFloorAccessButton:Hide()
 
     local miniMapLabel = CreateText(right, "GameFontNormalSmall", "MAP")
     miniMapLabel:SetPoint("BOTTOMLEFT", 12, 224)
@@ -6676,6 +6690,81 @@ function GA:RefreshDungeonMiniMap()
     end
 end
 
+
+local function GetDungeonFloorAccess(run)
+    if not run or not run.active then
+        return nil, nil
+    end
+
+    local floorNumber = run.floor or 1
+    local startX, startY = GetDungeonStart()
+    if floorNumber > 1
+        and run.playerX == startX
+        and run.playerY == startY then
+        return "up", floorNumber - 1
+    end
+
+    local exitX, exitY = GetDungeonExit()
+    if run.playerX == exitX
+        and run.playerY == exitY
+        and not IsDungeonExitLocked(run) then
+        if floorNumber >= 9 then
+            return "complete", nil
+        end
+
+        return "down", floorNumber + 1
+    end
+
+    return nil, nil
+end
+
+function GA:RefreshDungeonFloorAccess()
+    local button = self.DungeonFloorAccessButton
+    if not button then
+        return
+    end
+
+    local direction, targetFloor = GetDungeonFloorAccess(self.RunState)
+    button.gaFloorDirection = direction
+    button.gaFloorTarget = targetFloor
+
+    if not direction then
+        button:Hide()
+        return
+    end
+
+    if direction == "up" then
+        button.label:SetText("ASCEND")
+        button.gaTooltipTitle = "ASCEND"
+        button.gaTooltipText = string.format("Return to Floor %d.", targetFloor)
+    elseif direction == "complete" then
+        button.label:SetText("EXIT")
+        button.gaTooltipTitle = "EXIT DUNGEON"
+        button.gaTooltipText = "Leave the final floor and complete this dungeon run."
+    else
+        button.label:SetText("DESCEND")
+        button.gaTooltipTitle = "DESCEND"
+        button.gaTooltipText = string.format("Descend to Floor %d.", targetFloor)
+    end
+
+    button:Show()
+end
+
+function GA:UseDungeonFloorAccess()
+    local direction = GetDungeonFloorAccess(self.RunState)
+
+    if direction == "up" then
+        self:ReturnDungeonFloor()
+        return true
+    elseif direction == "down" or direction == "complete" then
+        self:AdvanceDungeonFloor()
+        return true
+    end
+
+    self:RefreshDungeonFloorAccess()
+    return false
+end
+
 function GA:RenderDungeonGrid()
     if not self.DungeonGrid or not self.DungeonGrid.cells then
         return
@@ -6859,6 +6948,7 @@ function GA:RenderDungeonGrid()
     self:RefreshActionButtons()
     self:RefreshEnemyCombatCard()
     self:RefreshDungeonMiniMap()
+    self:RefreshDungeonFloorAccess()
 
     if self.CharacterSheetFrame and self.CharacterSheetFrame:IsShown() then
         self:RefreshCharacterSheet()
@@ -8520,17 +8610,6 @@ function GA:MoveDungeonPlayer(dx, dy)
     self:RefreshRunCounters()
     self:RenderDungeonGrid()
     self:TryLootChest(nextX, nextY)
-
-    local startX, startY = GetDungeonStart()
-    if (run.floor or 1) > 1 and nextX == startX and nextY == startY then
-        self:ReturnDungeonFloor()
-        return
-    end
-
-    if nextX == exitX and nextY == exitY then
-        self:AdvanceDungeonFloor()
-        return
-    end
 
     local marker = GetDungeonMarkers()[CellKey(nextX, nextY)]
     local shrineState = marker

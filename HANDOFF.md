@@ -3,9 +3,22 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.54.0**  
+Current addon version: **0.54.1**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.54.1 — viewport spacing and manual stair travel
+
+- The dungeon body now extends slightly farther downward so the 7×7 viewport no longer sits on top of the lower gold separator/border.
+- Floor transitions are no longer triggered automatically by stepping onto the start/exit stair tile.
+- Standing on a valid stair tile now reveals a third **Quick Access** icon:
+  - **ASCEND** on the entrance stairs of Floors 2–9;
+  - **DESCEND** on the exit stairs of Floors 1–8;
+  - **EXIT** on the final Floor 9 exit after the boss seal is cleared.
+- The stair button uses a WoW dungeon icon and a dynamic tooltip showing the target floor.
+- Moving onto a stair tile remains a normal movement turn; using the Quick Access stair button itself does not add a second turn.
+- Floor 9's boss-gated exit remains sealed until the Boss-rank enemy is defeated.
+- Existing bidirectional floor-state persistence is unchanged: returning to a visited floor restores its exact saved exploration, enemies, room rewards and objects.
 
 ## 0.54.0 — cleaner combat HUD and in-world enemy HP bars
 
