@@ -194,6 +194,7 @@ class Audit:
         self.progression = next(x for x in self.data["progression"] if x["id"] == "run_xp")
         self.warrior = next(x for x in self.data["classes"] if x["id"] == "warrior")
         self.xp_curve = [int(x.strip()) for x in str(self.progression["xpCurve"]).split(",") if x.strip()]
+        self._loot_cache: dict[tuple[str, int], list[dict[str, Any]]] = {}
 
     def xp_needed(self, levels_gained: int) -> int:
         if levels_gained < len(self.xp_curve):
@@ -266,13 +267,19 @@ class Audit:
         return [self.create_enemy(a, ranks[i], player_level, floor) for i, a in enumerate(archetypes)]
 
     def loot_entries(self, table_id: str, floor: int) -> list[dict[str, Any]]:
-        return [
+        key = (table_id, floor)
+        cached = self._loot_cache.get(key)
+        if cached is not None:
+            return cached
+        result = [
             e for e in self.loot
             if e.get("tableId") == table_id
             and floor >= int(e.get("minFloor", 1))
             and floor <= int(e.get("maxFloor", 999))
             and e.get("itemId") in self.items
         ]
+        self._loot_cache[key] = result
+        return result
 
     def build_item(self, entry: dict[str, Any]) -> Item:
         x = self.items[entry["itemId"]]
