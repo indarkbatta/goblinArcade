@@ -3,9 +3,20 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.27.1**  
+Current addon version: **0.28.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.28.0 — class run-level stat growth
+
+- Classes now expose editable `HP / Level` and `Resource / Level` values in GoblinArcade Studio.
+- `Base Resource Max` remains the class's starting run resource cap; `Resource / Level` adds to that cap for every temporary run level gained.
+- `HP / Level` increases both run max HP and current HP by that amount on each temporary level-up; this is an incremental gain, not a full heal.
+- Class growth settings are snapshotted at BEGIN RUN, matching the existing run-progression model.
+- Run state now carries `resourceType`, `baseResourceMax`, `resourceMax`, and `resource` so ability execution can consume the same resource system when it is wired.
+- Defaults are deliberately 0 HP / level and 0 Resource / level until balancing is set in Studio.
+- Level-up combat log reports class stat growth alongside newly unlocked abilities.
+- Studio local draft namespace bumped to v6.
 
 ## 0.27.1 — XP curve / level-up feedback polish
 
@@ -60,7 +71,7 @@ Deployment is automatic through GitHub Actions.
 
 ### GoblinArcade Studio / Vercel
 
-Studio v0.4.1 keeps a **static-first** architecture for Vercel cost efficiency:
+Studio v0.5.0 keeps a **static-first** architecture for Vercel cost efficiency:
 
 - no npm build is required;
 - no database is used;
@@ -112,7 +123,7 @@ Important addon files:
   - Studio schema/data foundation loaded by the addon
   - contains 29 Warrior spellbook abilities with minimum trainer unlock levels and Arms/Fury/Protection category; pure threat/aggro skills Taunt, Mocking Blow and Challenging Shout are intentionally excluded because the current GoblinArcade dungeon is solo
   - Warrior source baseline: WoW Forever beta client build 1.60.1.69893 spellbook data, checked 2026-09-20
-  - enemies, ranks, room settings, shrine values and run-XP progression are runtime-driven; Warrior ability execution and loot remain to be migrated
+  - classes (including run-level HP/resource growth), enemies, ranks, room settings, shrine values and run-XP progression are runtime-driven; Warrior ability execution and loot remain to be migrated
   - enemy archetypes now carry Danger Rating (1-10); current defaults: Spider 2, Kobold 2, Skeleton 3, Brute 4
   - rank XP multipliers: Normal 1.00, Veteran 1.35, Elite 2.00, Boss 5.00
   - kill XP = Danger Rating × 8 × Rank XP Multiplier by default
@@ -1563,7 +1574,7 @@ Before changing layout conventions, remember the user's current preferences:
 - GoblinArcade Studio stays static-first; the only backend is the on-demand publish request, so avoid database/always-on Vercel spend;
 - Warrior ability names and minimum unlock levels should track the current Forever spellbook rather than invented class skills;
 - a dungeon run starts at the real WoW level, then can gain temporary run levels up to 60; temporary levels and XP reset next run;
-- run level-up does NOT change, heal, or otherwise recalculate player max HP; player HP remains governed by the snapshotted character plus converted gear;
+- run level-up may increase max/current HP and resource cap according to the selected class's Studio-driven HP / Level and Resource / Level values; gear bonuses remain separate and continue to recalculate from the run's equipment;
 - newly generated floors scale enemies from the current temporary run level; already generated floors retain their existing encounter state;
 - omit WoW abilities whose core mechanic has no meaningful solo-roguelike translation; currently Taunt, Mocking Blow and Challenging Shout are excluded;
 - do not modify or deploy the unrelated liminal-space Vercel project while working on GoblinArcade;

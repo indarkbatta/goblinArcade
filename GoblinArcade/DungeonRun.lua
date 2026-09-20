@@ -2262,6 +2262,9 @@ function GA:GrantRunExperience(amount)
     end
 
     local leveledUp = run.runLevel > initialLevel
+    if leveledUp then
+        self:UpdateRunHealth()
+    end
     if leveledUp and self.DungeonRunStateText then
         self.DungeonRunStateText:SetText(string.format("LEVEL UP!  %d -> %d", initialLevel, run.runLevel))
         self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])

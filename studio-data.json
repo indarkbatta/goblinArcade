@@ -1,13 +1,15 @@
 {
   "schemaVersion": 1,
-  "studioVersion": "0.4.1",
+  "studioVersion": "0.5.0",
   "classes": [
     {
       "id": "warrior",
       "name": "Warrior",
       "resource": "RAGE",
       "resourceMax": 3,
-      "description": "Front-line martial class. Rage is intentionally small and readable."
+      "description": "Front-line martial class. Run-level HP and resource growth are configured per class in Studio.",
+      "hpPerLevel": 0,
+      "resourcePerLevel": 0
     }
   ],
   "abilities": [
