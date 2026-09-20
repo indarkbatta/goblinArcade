@@ -3,9 +3,23 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.59.0**  
+Current addon version: **0.59.1**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.59.1 — dungeon event hardening
+
+- Fixed Event Rules cadence so `extraEveryFloors = 5` starts the second event on **Floor 5**, not Floor 6.
+- Event placement now hard-protects **START / EXIT / SHOP / BOSS** rooms in the first framework even if an event is accidentally related to one of those roles. `floorMap` also records explicit `eventPlacements` metadata.
+- Added explicit per-floor `eventStates` with resolved state, selected option ID, result metadata and pending loot reward state. Floor capture/restore, backtracking and suspended runs preserve it; older saved runs lazily reconstruct event state from their existing markers.
+- Event option execution now goes through the generic `GA:ResolveDungeonEventOption(optionId)` resolver.
+- `DAMAGE_PERCENT` and `HP_FOR_SCORE` are now genuine risks and may kill the hero through the normal `FailDungeonRun` path. The old 1-HP clamp/free-score edge case is removed.
+- `DAMAGE_BONUS` now has its own run-wide `eventDamageBonus` state and stacks with shrine damage bonuses without sharing the shrine cap.
+- `LOOT_TABLE` choices pin the exact rolled reward when the backpack is full. The event stays unresolved and retries the same item after space is made instead of rerolling or silently losing it.
+- An opened Event is now a committed decision point: **ESC and the Options menu cannot dismiss it**. Authors who want a safe exit provide a Studio `NONE` option such as **Turn Away**.
+- Server-side Studio publishing and the event-data audit now also reject HTTP event icons and negative Event Option sort order values.
+- Added a Lua 5.1 generator runtime audit covering Floors 1-9 event cadence, placement metadata, one-event-per-room behavior and protected structural room roles.
+- Studio stays at **1.8.0 / schema 9**. The existing balance simulator still does not model event-choice rewards; baseline enemy HP/damage/XP, loot and shop balance formulas are unchanged.
 
 ## 0.59.0 — data-driven dungeon event system
 

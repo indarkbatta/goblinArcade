@@ -13,6 +13,7 @@ on:
       - "api/publish.js"
       - "tools/balance_audit.py"
       - "tools/event_audit.py"
+      - "tools/event_runtime_audit.lua"
       - ".github/workflows/balance-audit.yml"
 
 jobs:
@@ -30,6 +31,8 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y lua5.1
           find GoblinArcade -type f -name '*.lua' -print0 | xargs -0 -n1 luac5.1 -p
+          luac5.1 -p tools/event_runtime_audit.lua
+          lua5.1 tools/event_runtime_audit.lua
 
   studio-syntax:
     name: Studio syntax

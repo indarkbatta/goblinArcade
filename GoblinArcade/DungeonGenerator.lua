@@ -3,7 +3,7 @@ local _, GA = ...
 GA.DungeonGenerator = GA.DungeonGenerator or {}
 local DG = GA.DungeonGenerator
 
-DG.VERSION = 12
+DG.VERSION = 13
 
 local MODULUS = 2147483647
 local MULTIPLIER = 48271
@@ -532,7 +532,9 @@ local function GetEventTargetCount(floor)
     local maximum = math.max(base, math.floor(tonumber(rule.maxPerFloor) or base))
     local extra = 0
     if every > 0 then
-        extra = math.floor((math.max(1, floor) - 1) / every)
+        -- "Every N floors" starts the first extra event on Floor N:
+        -- N=5 => Floors 1-4 use the base count, Floor 5+ gets +1.
+        extra = math.floor(math.max(1, floor) / every)
     end
     return math.min(maximum, base + extra)
 end
@@ -563,6 +565,16 @@ local function EventAllowsRoomRole(event, role)
     return false
 end
 
+-- Structural rooms are protected by the first event framework. A future
+-- Studio placement policy can expose them explicitly without letting an
+-- accidental relation overwrite stairs, exits, shops or boss landmarks.
+local EVENT_BLOCKED_ROOM_ROLES = {
+    START = true,
+    EXIT = true,
+    SHOP = true,
+    BOSS = true,
+}
+
 local function GetRoomEventTiles(room, markers)
     local result = {}
     if not room then return result end
@@ -587,7 +599,9 @@ end
 local function BuildEventPlacementCandidates(event, rooms, markers, usedRooms)
     local candidates = {}
     for _, room in ipairs(rooms or {}) do
-        if not usedRooms[room.index] and EventAllowsRoomRole(event, room.role) then
+        if not usedRooms[room.index]
+            and not EVENT_BLOCKED_ROOM_ROLES[tostring(room.role or "")]
+            and EventAllowsRoomRole(event, room.role) then
             local tiles = GetRoomEventTiles(room, markers)
             for _, tile in ipairs(tiles) do
                 tile.roomIndex = room.index
@@ -638,6 +652,7 @@ end
 
 local function AddDungeonEvents(markers, rooms, floor, rng)
     local eventKeys = {}
+    local eventPlacements = {}
     local available = GetEligibleStudioEvents(floor)
     local usedRooms = {}
     local targetCount = GetEventTargetCount(floor)
@@ -662,6 +677,14 @@ local function AddDungeonEvents(markers, rooms, floor, rng)
             roomIndex = tile.roomIndex,
         }
         eventKeys[#eventKeys + 1] = tile.key
+        eventPlacements[#eventPlacements + 1] = {
+            key = tile.key,
+            x = tile.x,
+            y = tile.y,
+            eventId = event.id,
+            roomIndex = tile.roomIndex,
+            roomRole = tile.roomRole,
+        }
         usedRooms[tile.roomIndex] = true
 
         -- Event definitions are unique per floor. Authors can create multiple
@@ -674,7 +697,7 @@ local function AddDungeonEvents(markers, rooms, floor, rng)
         end
     end
 
-    return eventKeys
+    return eventKeys, eventPlacements
 end
 
 local function AddTreasureChests(markers, chestKeys, room, maximumChests, markerText)
@@ -909,7 +932,7 @@ function DG:GenerateFloor(width, height, floorNumber, runSeed)
     AddRoomRoleMarker(markers, roleData.eliteRoom, GetStudioRoomMarker("ELITE", "!"), "red", "elite")
     AddRoomRoleMarker(markers, roleData.bossRoom, GetStudioRoomMarker("BOSS", "B"), "red", "boss")
 
-    local eventKeys = AddDungeonEvents(markers, rooms, floor, rng)
+    local eventKeys, eventPlacements = AddDungeonEvents(markers, rooms, floor, rng)
 
     return {
         generatorVersion = self.VERSION,
@@ -928,6 +951,7 @@ function DG:GenerateFloor(width, height, floorNumber, runSeed)
         markers = markers,
         chestKeys = chestKeys,
         eventKeys = eventKeys,
+        eventPlacements = eventPlacements,
         eventCount = #eventKeys,
         doors = doors,
         doorCount = CountKeys(doors),

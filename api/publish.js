@@ -46,6 +46,8 @@ function assertStudioData(data) {
 
   const optionCount = new Map();
   for (const event of data.events) {
+    const icon = String(event.icon || "").trim();
+    if (/^https?:\/\//i.test(icon)) throw new Error("Event " + event.id + " icon cannot be a web URL.");
     const minFloor = Number(event.minFloor);
     const maxFloor = Number(event.maxFloor);
     if (!Number.isFinite(minFloor) || minFloor < 1 || !Number.isFinite(maxFloor) || maxFloor < minFloor) {
@@ -61,6 +63,10 @@ function assertStudioData(data) {
   for (const option of data.eventOptions) {
     const eventId = String(option.eventId || "");
     if (!eventIds.has(eventId)) throw new Error("Event Option " + option.id + " references unknown event: " + eventId);
+    const sortOrder = Number(option.sortOrder);
+    if (!Number.isFinite(sortOrder) || sortOrder < 0) {
+      throw new Error("Event Option " + option.id + " has an invalid Sort Order.");
+    }
     optionCount.set(eventId, (optionCount.get(eventId) || 0) + 1);
     const effect = String(option.effect || "NONE").toUpperCase();
     if (!validEventEffects.has(effect)) {

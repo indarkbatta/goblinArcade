@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,6 +25,8 @@ valid_effects = {
 option_counts = {event_id: 0 for event_id in event_ids}
 for event in events:
     eid = str(event["id"])
+    icon = str(event.get("icon", "")).strip()
+    assert not re.match(r"^https?://", icon, re.I), f"{eid}: event icon cannot be a web URL"
     min_floor = int(event.get("minFloor", 1))
     max_floor = int(event.get("maxFloor", 9))
     assert min_floor >= 1 and max_floor >= min_floor, f"{eid}: invalid floor range"
@@ -40,6 +43,8 @@ for option in data["eventOptions"]:
     option_ids.add(oid)
     event_id = str(option.get("eventId", ""))
     assert event_id in event_ids, f"{oid}: unknown event {event_id}"
+    sort_order = float(option.get("sortOrder", 0))
+    assert sort_order >= 0, f"{oid}: sortOrder must be non-negative"
     option_counts[event_id] += 1
     effect = str(option.get("effect", "NONE")).upper()
     assert effect in valid_effects, f"{oid}: unsupported effect {effect}"
