@@ -8136,7 +8136,7 @@ local function ChooseMonsterSkill(enemy, run, enemyPhase)
 
     for _, skillId in ipairs(enemy.skillIds) do
         local skill = GetMonsterSkillById(skillId)
-        if skill then
+        if skill and (run.floor or 1) >= math.max(1, math.floor(tonumber(skill.minFloor) or 1)) then
             local target = string.upper(tostring(skill.target or "PLAYER"))
             local range = math.max(0, math.floor(tonumber(skill.range) or 1))
             local inRange = target == "SELF" or distance <= range

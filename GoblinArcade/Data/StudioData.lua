@@ -8603,6 +8603,7 @@ GA.StudioData = {
             conditionValue = 40,
             telegraphTurns = 0,
             description = "When badly wounded, the kobold lashes out with a stronger melee strike.",
+            minFloor = 3,
         },
         {
             id = "spider_venom_bite",
@@ -8621,6 +8622,7 @@ GA.StudioData = {
             conditionValue = 0,
             telegraphTurns = 0,
             description = "A lighter bite that leaves a short venom damage-over-time effect.",
+            minFloor = 4,
         },
         {
             id = "spider_web",
@@ -8639,6 +8641,7 @@ GA.StudioData = {
             conditionValue = 2,
             telegraphTurns = 0,
             description = "Roots the player for one turn when the spider has a little distance.",
+            minFloor = 4,
         },
         {
             id = "skeleton_heavy_swing",
@@ -8657,6 +8660,7 @@ GA.StudioData = {
             conditionValue = 0,
             telegraphTurns = 1,
             description = "A telegraphed heavy melee attack. The wind-up is visible before it lands.",
+            minFloor = 5,
         },
         {
             id = "brute_crushing_blow",
@@ -8675,6 +8679,7 @@ GA.StudioData = {
             conditionValue = 0,
             telegraphTurns = 1,
             description = "A slow, telegraphed blow intended for heavy enemies and future bosses.",
+            minFloor = 5,
         },
     },
 }

@@ -616,6 +616,8 @@ class Audit:
             skill = self.monster_skills.get(skill_id)
             if not skill or skill_id in cooldowns:
                 continue
+            if getattr(self, "_active_floor", 1) < max(1, int(skill.get("minFloor", 1) or 1)):
+                continue
             condition = str(skill.get("condition", "ALWAYS")).upper()
             value = float(skill.get("conditionValue", 0) or 0)
             # Duel model starts in melee after contact. Ranged spacing skills
@@ -820,6 +822,7 @@ class Audit:
             boss_killed = False
 
             for enemy in enemies:
+                self._active_floor = floor
                 won, used_turns = self.fight(player, enemy, floor, pressure_scale)
                 attacks += used_turns
                 if not won:

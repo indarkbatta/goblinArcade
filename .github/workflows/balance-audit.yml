@@ -29,6 +29,27 @@ jobs:
           sudo apt-get install -y lua5.1
           find GoblinArcade -type f -name '*.lua' -print0 | xargs -0 -n1 luac5.1 -p
 
+  studio-syntax:
+    name: Studio syntax
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate Studio mirrors and JavaScript
+        shell: bash
+        run: |
+          cmp index.html studio/index.html
+          cmp index.html GoblinArcade/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path("index.html").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script(?:\\s[^>]*)?>(.*?)</script>", html, flags=re.S|re.I)
+          Path("/tmp/goblin-arcade-studio.js").write_text("\\n".join(scripts), encoding="utf-8")
+          PY
+          node --check /tmp/goblin-arcade-studio.js
+
   balance-audit:
     name: Balance - ${{ matrix.difficulty }}
     runs-on: ubuntu-latest
