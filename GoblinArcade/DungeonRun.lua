@@ -1768,7 +1768,11 @@ function GA:CreateDungeonRunPage(parent)
     begin:SetEnabled(false)
     begin.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
     begin:SetScript("OnClick", function()
-        GA:BeginDungeonRun()
+        if GA.RunState and GA.RunState.active then
+            GA:OpenRunControlMenu()
+        else
+            GA:BeginDungeonRun()
+        end
     end)
     self.DungeonBeginButton = begin
 
@@ -1983,6 +1987,107 @@ function GA:CreateDungeonRunPage(parent)
     local shopClose = CreateFlatButton(shopFrame, "CLOSE", 120, 30)
     shopClose:SetPoint("BOTTOMLEFT", 16, 16)
     shopClose:SetScript("OnClick", function() GA:CloseDungeonShop() end)
+
+    local runControl = CreateFrame("Frame", nil, center, "BackdropTemplate")
+    runControl:SetSize(580, 390)
+    runControl:SetPoint("CENTER", center, "CENTER", 0, 0)
+    runControl:SetFrameLevel(center:GetFrameLevel() + 58)
+    runControl:EnableMouse(true)
+    ApplyBackdrop(runControl, { 0.025, 0.021, 0.017, 0.995 }, COLORS.gold)
+    runControl:Hide()
+    self.DungeonRunControlFrame = runControl
+
+    local runControlTitle = CreateText(runControl, "GameFontNormalLarge", "RUN CONTROL")
+    runControlTitle:SetPoint("TOPLEFT", 20, -18)
+    runControlTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    local runControlHint = CreateText(
+        runControl,
+        "GameFontHighlightSmall",
+        "Choose what happens to the current run. Saving preserves the exact dungeon state for this character."
+    )
+    runControlHint:SetPoint("TOPLEFT", 20, -48)
+    runControlHint:SetWidth(540)
+    runControlHint:SetJustifyH("LEFT")
+    runControlHint:SetWordWrap(true)
+    runControlHint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local abandonButton = CreateFlatButton(runControl, "ABANDON RUN", 170, 44)
+    abandonButton:SetPoint("TOPLEFT", 20, -104)
+    abandonButton:SetScript("OnClick", function()
+        if GA.PendingRunControlAction == "abandon" then
+            GA:AbandonDungeonRun()
+        else
+            GA.PendingRunControlAction = "abandon"
+            GA:RefreshRunControlMenu()
+        end
+    end)
+    self.DungeonRunAbandonButton = abandonButton
+
+    local abandonDesc = CreateText(
+        runControl,
+        "GameFontDisableSmall",
+        "End the run as a failure. All loot acquired in this run is lost. The character survives."
+    )
+    abandonDesc:SetPoint("TOPLEFT", abandonButton, "TOPRIGHT", 16, -2)
+    abandonDesc:SetWidth(350)
+    abandonDesc:SetJustifyH("LEFT")
+    abandonDesc:SetWordWrap(true)
+    abandonDesc:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local suspendButton = CreateFlatButton(runControl, "SAVE & SWITCH", 170, 44)
+    suspendButton:SetPoint("TOPLEFT", 20, -174)
+    suspendButton:SetScript("OnClick", function()
+        GA:SuspendDungeonRun()
+    end)
+    self.DungeonRunSuspendButton = suspendButton
+
+    local suspendDesc = CreateText(
+        runControl,
+        "GameFontDisableSmall",
+        "Suspend this exact run and return to character selection. Resume it later with the same hero."
+    )
+    suspendDesc:SetPoint("TOPLEFT", suspendButton, "TOPRIGHT", 16, -2)
+    suspendDesc:SetWidth(350)
+    suspendDesc:SetJustifyH("LEFT")
+    suspendDesc:SetWordWrap(true)
+    suspendDesc:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local killButton = CreateFlatButton(runControl, "KILLSWITCH", 170, 44)
+    killButton:SetPoint("TOPLEFT", 20, -244)
+    killButton:SetScript("OnClick", function()
+        if GA.PendingRunControlAction == "kill" then
+            GA:KillSwitchDungeonRun()
+        else
+            GA.PendingRunControlAction = "kill"
+            GA:RefreshRunControlMenu()
+        end
+    end)
+    self.DungeonRunKillButton = killButton
+
+    local killDesc = CreateText(
+        runControl,
+        "GameFontDisableSmall",
+        "Kill the run character immediately. Run loot is lost. For a Hardcore Arcade hero, death is permanent."
+    )
+    killDesc:SetPoint("TOPLEFT", killButton, "TOPRIGHT", 16, -2)
+    killDesc:SetWidth(350)
+    killDesc:SetJustifyH("LEFT")
+    killDesc:SetWordWrap(true)
+    killDesc:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+
+    local runControlStatus = CreateText(runControl, "GameFontDisableSmall", "")
+    runControlStatus:SetPoint("BOTTOMLEFT", 20, 62)
+    runControlStatus:SetWidth(400)
+    runControlStatus:SetJustifyH("LEFT")
+    runControlStatus:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+    self.DungeonRunControlStatus = runControlStatus
+
+    local runControlCancel = CreateFlatButton(runControl, "CANCEL", 120, 32)
+    runControlCancel:SetPoint("BOTTOMRIGHT", -20, 18)
+    runControlCancel:SetScript("OnClick", function()
+        GA:CloseRunControlMenu()
+    end)
 
     local spellbook = CreateFrame("Frame", nil, center, "BackdropTemplate")
     spellbook:SetSize(558, 470)
@@ -2439,6 +2544,26 @@ function GA:CreateDungeonRunPage(parent)
     end)
     deleteHero:Hide()
     self.DungeonDeleteHeroButton = deleteHero
+
+    local abandonSaved = CreateFlatButton(selectedPanel, "ABANDON SAVED", 112, 34)
+    abandonSaved:SetPoint("BOTTOMLEFT", 16, 20)
+    abandonSaved:SetScript("OnClick", function()
+        local selected = GA:GetSelectedDungeonCharacter()
+        if not selected or not GA.HasSuspendedRun or not GA:HasSuspendedRun(selected.key) then
+            return
+        end
+
+        if GA.PendingAbandonSavedKey == selected.key then
+            GA:ClearSuspendedRun(selected.key)
+            GA.PendingAbandonSavedKey = nil
+            GA:RefreshDungeonCharacterSelection()
+        else
+            GA.PendingAbandonSavedKey = selected.key
+            GA:RefreshDungeonCharacterSelection()
+        end
+    end)
+    abandonSaved:Hide()
+    self.DungeonAbandonSavedRunButton = abandonSaved
 
     local stashOverlay = CreateFrame("Frame", nil, setup, "BackdropTemplate")
     stashOverlay:SetAllPoints(setup)
@@ -2982,6 +3107,13 @@ function GA:CreateDungeonRunPage(parent)
             pageFrame:SetPropagateKeyboardInput(false)
         end
 
+        if GA.DungeonRunControlFrame and GA.DungeonRunControlFrame:IsShown() then
+            if key == "ESCAPE" then
+                GA:CloseRunControlMenu()
+            end
+            return
+        end
+
         if GA.DungeonShopFrame and GA.DungeonShopFrame:IsShown() then
             if key == "ESCAPE" then
                 GA:CloseDungeonShop()
@@ -3031,9 +3163,7 @@ function GA:CreateDungeonRunPage(parent)
         end
 
         if key == "ESCAPE" then
-            if GA.MainFrame then
-                GA.MainFrame:Hide()
-            end
+            GA:OpenRunControlMenu()
             return
         end
 
@@ -3437,14 +3567,17 @@ function GA:RefreshDungeonCharacterSelection()
             local classReady = self:IsStudioClassPlayable(characterClassId)
             local hardcoreTag = character.hardcore and "  -  HC" or ""
             local deadTag = character.dead and "  -  DEAD" or ""
+            local savedRun = self.GetSuspendedRun and self:GetSuspendedRun(character.key)
+            local savedTag = savedRun and string.format("  -  SAVED F%d", tonumber(savedRun.floor) or 1) or ""
             row.metaText:SetText(string.format(
-                "Level %d %s %s%s%s%s%s",
+                "Level %d %s %s%s%s%s%s%s",
                 character.level or 0,
                 character.raceName or "",
                 character.className or "Adventurer",
                 character.key == currentKey and "  -  CURRENT" or "",
                 hardcoreTag,
                 deadTag,
+                savedTag,
                 classReady and "" or "  -  NOT READY"
             ))
             local rowAvailable = classReady and not character.dead
@@ -3540,8 +3673,9 @@ function GA:RefreshDungeonCharacterSelection()
     end
 
     local generated = selected.isArcadeGenerated or selected.sourceType == "arcade"
+    local hasSavedRun = self.HasSuspendedRun and self:HasSuspendedRun(selected.key)
     if self.DungeonDeleteHeroButton then
-        if generated then
+        if generated and not hasSavedRun then
             self.DungeonDeleteHeroButton:Show()
             local confirmDelete = self.PendingDeleteArcadeKey == selected.key
             self.DungeonDeleteHeroButton.label:SetText(confirmDelete and "CONFIRM DELETE" or "DELETE HERO")
@@ -3555,14 +3689,32 @@ function GA:RefreshDungeonCharacterSelection()
             self.PendingDeleteArcadeKey = nil
         end
     end
+    if self.DungeonAbandonSavedRunButton then
+        if hasSavedRun then
+            self.DungeonAbandonSavedRunButton:Show()
+            local confirmAbandon = self.PendingAbandonSavedKey == selected.key
+            self.DungeonAbandonSavedRunButton.label:SetText(confirmAbandon and "CONFIRM ABANDON" or "ABANDON SAVED")
+            self.DungeonAbandonSavedRunButton.label:SetTextColor(
+                confirmAbandon and COLORS.red[1] or COLORS.muted[1],
+                confirmAbandon and COLORS.red[2] or COLORS.muted[2],
+                confirmAbandon and COLORS.red[3] or COLORS.muted[3]
+            )
+        else
+            self.DungeonAbandonSavedRunButton:Hide()
+            self.PendingAbandonSavedKey = nil
+        end
+    end
 
     local selectedClassId = string.lower(tostring(selected.classId or selected.classFile or selected.className or ""))
     local classReady = self:IsStudioClassPlayable(selectedClassId)
-    local effectiveEquipment = self.GetEffectiveCharacterEquipment
-        and self:GetEffectiveCharacterEquipment(selected)
+    local savedRun = self.GetSuspendedRun and self:GetSuspendedRun(selected.key)
+    local effectiveEquipment = savedRun and savedRun.equipment
+        or (self.GetEffectiveCharacterEquipment and self:GetEffectiveCharacterEquipment(selected))
         or selected.equipment
     local effectiveMainHand = effectiveEquipment and effectiveEquipment.mainhand
-    local weapon = ResolveCharacterWeapon(self, selected)
+    local weapon = effectiveMainHand and effectiveMainHand.arcadeWeapon
+        and CopyTable(effectiveMainHand.arcadeWeapon)
+        or ResolveCharacterWeapon(self, selected)
     if selected.dead and selected.hardcore then
         self.DungeonSelectedWeaponName:SetText("This Hardcore hero is dead")
         self.DungeonSelectedWeaponStats:SetText("Permanent death: no further Dungeon Runs are allowed.")
@@ -3599,8 +3751,22 @@ function GA:RefreshDungeonCharacterSelection()
         end
 
         self.DungeonSetupBeginButton:SetEnabled(true)
-        self.DungeonSetupBeginButton.label:SetText("BEGIN RUN")
+        self.DungeonSetupBeginButton.label:SetText(
+            savedRun and string.format("RESUME FLOOR %d", tonumber(savedRun.floor) or 1) or "BEGIN RUN"
+        )
         self.DungeonSetupBeginButton.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+        if savedRun and self.DungeonSelectedNote then
+            self.DungeonSelectedNote:SetText(
+                string.format(
+                    "Saved run: Floor %d, %d/%d HP, Score %d. Loadout is locked until this run is resumed or abandoned.",
+                    tonumber(savedRun.floor) or 1,
+                    tonumber(savedRun.playerHealth) or 0,
+                    tonumber(savedRun.playerMaxHealth) or 0,
+                    tonumber(savedRun.score) or 0
+                )
+            )
+            self.DungeonSelectedNote:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+        end
     else
         self.DungeonSelectedWeaponName:SetText("No cached main-hand weapon")
         self.DungeonSelectedWeaponStats:SetText("Log into this character and equip a weapon to sync it.")
@@ -4780,6 +4946,7 @@ function GA:FailDungeonRun(reason)
 
     run.active = false
     run.failed = true
+    self:CloseRunControlMenu()
     self:CloseShrineChoice()
     self:CloseDungeonShop()
     self:CloseSpellbook()
@@ -6324,6 +6491,10 @@ function GA:BeginDungeonRun()
         selected = self:GetSelectedDungeonCharacter()
     end
 
+    if selected and self.HasSuspendedRun and self:HasSuspendedRun(selected.key) then
+        return self:ResumeDungeonRun(selected.key)
+    end
+
     if selected and selected.hardcore and selected.dead then
         if self.DungeonRunStateText then
             self.DungeonRunStateText:SetText("HARDCORE HERO IS DEAD")
@@ -6521,9 +6692,9 @@ function GA:BeginDungeonRun()
     self:RefreshRunWeaponFromEquipment()
 
     if self.DungeonBeginButton then
-        self.DungeonBeginButton:SetEnabled(false)
-        self.DungeonBeginButton.label:SetText("RUNNING")
-        self.DungeonBeginButton.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+        self.DungeonBeginButton:SetEnabled(true)
+        self.DungeonBeginButton.label:SetText("RUN MENU")
+        self.DungeonBeginButton.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
     end
 
     if self.DungeonFloorTitle then
@@ -6667,6 +6838,167 @@ local function SaveCurrentFloorState(run)
     run.floorStates[run.floor] = CaptureCurrentFloorState(run)
 end
 
+local function ReturnDirectlyToCharacterSelection(self)
+    self:CloseRunControlMenu()
+    self:CloseShrineChoice()
+    self:CloseDungeonShop()
+    self:CloseSpellbook()
+    if self.CharacterSheetFrame then self.CharacterSheetFrame:Hide() end
+    self:CancelCharacterItemDrag()
+
+    self.RunState = nil
+    SetActiveFloorMap(nil)
+    self.DungeonCameraX = nil
+    self.DungeonCameraY = nil
+
+    if self.DungeonRunPage and self.DungeonRunPage.SetPropagateKeyboardInput then
+        self.DungeonRunPage:SetPropagateKeyboardInput(true)
+    end
+
+    self:SetDungeonRunPortraitMode(false)
+    self:SetRunMode(false)
+    self:RefreshMainHandInfo(true)
+    self:SetDungeonSetupMode(true)
+    self:RefreshRunCounters()
+    self:RenderDungeonGrid()
+end
+
+function GA:SuspendDungeonRun()
+    local run = self.RunState
+    if not run or not run.active or not run.snapshot or not run.snapshot.characterKey then
+        return false
+    end
+
+    SaveCurrentFloorState(run)
+    self:SaveRunActionSlots()
+
+    local ok
+    local err
+    if self.StoreSuspendedRun then
+        ok, err = self:StoreSuspendedRun(run.snapshot.characterKey, run)
+    else
+        ok, err = false, "Suspended run storage is unavailable."
+    end
+
+    if not ok then
+        if self.DungeonRunControlStatus then
+            self.DungeonRunControlStatus:SetText(err or "Could not save this run.")
+        end
+        return false
+    end
+
+    run.active = false
+    ReturnDirectlyToCharacterSelection(self)
+    return true
+end
+
+function GA:ResumeDungeonRun(characterKey)
+    if self.RunState and self.RunState.active then
+        return false
+    end
+
+    local run = self.TakeSuspendedRun and self:TakeSuspendedRun(characterKey)
+    if not run or not run.snapshot or not run.floorMap then
+        return false
+    end
+
+    self.RunState = run
+    run.active = true
+    run.suspended = nil
+    SetActiveFloorMap(run.floorMap)
+    self.DungeonCameraX = nil
+    self.DungeonCameraY = nil
+
+    self:CloseRunControlMenu()
+    self:SetDungeonSetupMode(false)
+    self:SetRunMode(true)
+    self:SetDungeonRunPortraitMode(true)
+
+    if self.DungeonFloorTitle then
+        self.DungeonFloorTitle:SetText(string.format(
+            "FLOOR %d  -  %s  -  %d ROOMS  -  %d ENEMIES",
+            run.floor or 1,
+            run.floorMap.name or "DUNGEON",
+            run.floorMap.roomCount or 0,
+            run.enemyCount or #(run.enemies or {})
+        ))
+    end
+    if self.DungeonRunStateText then
+        self.DungeonRunStateText:SetText(string.format("FLOOR %d - RUN RESUMED", run.floor or 1))
+        self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+    end
+    if self.DungeonBeginButton then
+        self.DungeonBeginButton:SetEnabled(true)
+        self.DungeonBeginButton.label:SetText("RUN MENU")
+        self.DungeonBeginButton.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    end
+    if self.DungeonRunPage and self.DungeonRunPage.SetPropagateKeyboardInput then
+        self.DungeonRunPage:SetPropagateKeyboardInput(false)
+    end
+
+    self:UpdateRunHealth()
+    self:UpdateRunResource()
+    self:RecalculateRunGearStats()
+    self:RefreshRunWeaponFromEquipment()
+    self:RefreshRunCounters()
+    self:RefreshActionButtons()
+    self:ResetCombatLog()
+    self:AddCombatLog(
+        string.format(
+            "Saved run resumed on Floor %d with %d/%d HP.",
+            run.floor or 1,
+            run.playerHealth or 0,
+            run.playerMaxHealth or 0
+        ),
+        "system"
+    )
+    self:RenderDungeonGrid()
+    return true
+end
+
+function GA:AbandonDungeonRun()
+    local run = self.RunState
+    if not run or not run.active then return false end
+
+    local characterKey = run.snapshot and run.snapshot.characterKey
+    if self.ClearSuspendedRun and characterKey then
+        self:ClearSuspendedRun(characterKey)
+    end
+
+    run.active = false
+    run.failed = true
+    run.abandoned = true
+    ReturnDirectlyToCharacterSelection(self)
+    return true
+end
+
+function GA:KillSwitchDungeonRun()
+    local run = self.RunState
+    if not run or not run.active then return false end
+
+    local characterKey = run.snapshot and run.snapshot.characterKey
+    local hardcoreDeath = false
+    if run.snapshot and run.snapshot.hardcore and run.snapshot.isArcadeGenerated
+        and self.MarkArcadeCharacterDead then
+        hardcoreDeath = self:MarkArcadeCharacterDead(
+            characterKey,
+            "Killswitch activated.",
+            run.floor,
+            run.score
+        ) and true or false
+    elseif self.ClearSuspendedRun and characterKey then
+        self:ClearSuspendedRun(characterKey)
+    end
+
+    run.playerHealth = 0
+    run.active = false
+    run.failed = true
+    run.killswitch = true
+    run.hardcoreDeath = hardcoreDeath
+    ReturnDirectlyToCharacterSelection(self)
+    return true
+end
+
 local function ApplyStoredFloorState(run, floorNumber, stored, entryDirection)
     run.floor = floorNumber
     run.floorMap = CopyTable(stored.floorMap)
@@ -6702,6 +7034,7 @@ local function ApplyStoredFloorState(run, floorNumber, stored, entryDirection)
 end
 
 function GA:ApplyDungeonFloor(floorNumber, entryDirection)
+    self:CloseRunControlMenu()
     self:CloseShrineChoice()
     self:CloseDungeonShop()
     self:CloseSpellbook()
@@ -6882,6 +7215,7 @@ function GA:CompleteDungeonRun()
     end
     run.active = false
     run.completed = true
+    self:CloseRunControlMenu()
     self:CloseShrineChoice()
     self:CloseDungeonShop()
     self:CloseSpellbook()
@@ -7357,6 +7691,63 @@ function GA:TryLootChest(x, y)
     self:RefreshRunCounters()
     self:RenderDungeonGrid()
     return true
+end
+
+function GA:RefreshRunControlMenu()
+    local pending = self.PendingRunControlAction
+    if self.DungeonRunAbandonButton then
+        self.DungeonRunAbandonButton.label:SetText(
+            pending == "abandon" and "CONFIRM ABANDON" or "ABANDON RUN"
+        )
+        self.DungeonRunAbandonButton.label:SetTextColor(
+            pending == "abandon" and COLORS.red[1] or COLORS.text[1],
+            pending == "abandon" and COLORS.red[2] or COLORS.text[2],
+            pending == "abandon" and COLORS.red[3] or COLORS.text[3]
+        )
+    end
+    if self.DungeonRunKillButton then
+        self.DungeonRunKillButton.label:SetText(
+            pending == "kill" and "CONFIRM KILL" or "KILLSWITCH"
+        )
+        self.DungeonRunKillButton.label:SetTextColor(
+            pending == "kill" and COLORS.red[1] or COLORS.text[1],
+            pending == "kill" and COLORS.red[2] or COLORS.text[2],
+            pending == "kill" and COLORS.red[3] or COLORS.text[3]
+        )
+    end
+    if self.DungeonRunControlStatus then
+        if pending == "abandon" then
+            self.DungeonRunControlStatus:SetText("Click CONFIRM ABANDON to destroy this run and its unextracted loot.")
+        elseif pending == "kill" then
+            self.DungeonRunControlStatus:SetText("Click CONFIRM KILL to trigger character death now.")
+        else
+            self.DungeonRunControlStatus:SetText("")
+        end
+    end
+end
+
+function GA:OpenRunControlMenu()
+    local run = self.RunState
+    if not run or not run.active or not self.DungeonRunControlFrame then return false end
+
+    self:CloseRunControlMenu()
+    self:CloseShrineChoice()
+    self:CloseDungeonShop()
+    self:CloseSpellbook()
+    if self.CharacterSheetFrame then self.CharacterSheetFrame:Hide() end
+    self:CancelCharacterItemDrag()
+    self.PendingRunControlAction = nil
+    self:RefreshRunControlMenu()
+    self.DungeonRunControlFrame:Show()
+    return true
+end
+
+function GA:CloseRunControlMenu()
+    self.PendingRunControlAction = nil
+    if self.DungeonRunControlFrame then
+        self.DungeonRunControlFrame:Hide()
+    end
+    self:RefreshRunControlMenu()
 end
 
 function GA:CloseDungeonShop()

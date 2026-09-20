@@ -3,9 +3,38 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.47.0**  
+Current addon version: **0.48.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.48.0 — active-run exit controls, suspend/resume and Killswitch
+
+- Addon **0.48.0** adds a dedicated **RUN CONTROL** menu available from the active run's bottom button or by pressing **Escape**.
+- The active-run button now becomes **RUN MENU** instead of a disabled `RUNNING` button.
+- The Run Control menu exposes three distinct lifecycle actions:
+  1. **ABANDON RUN** — two-click confirmation; the run ends as a failure, all unextracted run loot is discarded, and the character survives.
+  2. **SAVE & SWITCH** — persists the exact run state for that character and returns directly to character selection with no extraction.
+  3. **KILLSWITCH** — two-click confirmation; sets run HP to 0, discards unextracted run loot and returns directly to character selection. Hardcore generated heroes are permanently killed through the existing HC death system; non-HC / WoW-synced heroes only lose the run.
+- Suspended runs are persisted account-wide in `GoblinArcadeDB.suspendedRuns`, keyed by character key.
+- Multiple characters can each hold one suspended run.
+- SAVE & SWITCH stores:
+  - current floor and exact generated floor map;
+  - player position, HP/resources, Run XP/temporary level, score and Copper;
+  - enemies and encounter state;
+  - opened chests, doors, exploration/FoW and room states;
+  - floor backtracking states;
+  - backpack, in-run equipment, potions, shop stock, cooldowns/buffs/reactives and action slots.
+- Resuming restores the saved run rather than generating a new dungeon. Character rows show **SAVED F#**, the selected hero shows saved Floor/HP/Score, and the start button becomes **RESUME FLOOR #**.
+- A selected saved run can also be discarded directly from character selection with **ABANDON SAVED** / **CONFIRM ABANDON**, without first resuming.
+- Suspended-run ownership is anti-dupe protected:
+  - a character with a suspended run cannot change its Central Stash loadout;
+  - extracted loadout items therefore cannot be returned to stash and equipped by another character while a copied suspended run still references them;
+  - a generated hero with a suspended run cannot be deleted until the run is resumed or abandoned.
+- Resuming consumes the saved-run record from `suspendedRuns`; saving again writes the latest exact state back.
+- Run-control actions return directly to the character selector rather than routing through the normal end-of-run summary.
+- Successful Floor 9 extraction and ordinary combat death behavior remain unchanged.
+- Studio remains **1.6.1 / schema 7**, with **100 items**, **366 Loot Entries**, one Shop on Floor 6, and Warrior `HP / Level = 3`.
+- Next major step remains deciding the pre-run consumable/supply rule, followed by a full Warrior Floor 1-9 balance pass.
 
 ## 0.47.0 — persistent stash loadouts with baseline anti-exploit rules
 
@@ -2059,7 +2088,7 @@ Deterministic scaling, bounded density, multi-enemy support, three active archet
 
 Recommended order:
 
-**Current priority after 0.47.0:** decide the pre-run consumable/supply rule, then perform the full Warrior Floor 1-9 balance pass before adding more item quantity or starting Rogue.
+**Current priority after 0.48.0:** decide the pre-run consumable/supply rule, then perform the full Warrior Floor 1-9 balance pass before adding more item quantity or starting Rogue.
 
 1. **Studio data migration**
    - configure the two Vercel publish secrets once

@@ -385,6 +385,9 @@ function GA:MarkArcadeCharacterDead(key, reason, floor, score)
     character.deathFloor = math.max(1, math.floor(tonumber(floor) or 1))
     character.deathScore = math.max(0, math.floor(tonumber(score) or 0))
     db.characters[key] = character
+    if db.suspendedRuns then
+        db.suspendedRuns[key] = nil
+    end
 
     if self.RefreshDungeonCharacterSelection then
         self:RefreshDungeonCharacterSelection()
@@ -402,6 +405,9 @@ function GA:DeleteArcadeCharacter(key)
     if self.RunState and self.RunState.active and self.RunState.snapshot
         and self.RunState.snapshot.characterKey == key then
         return false, "Cannot delete the hero while its run is active."
+    end
+    if db.suspendedRuns and db.suspendedRuns[key] then
+        return false, "Resume or abandon the saved run before deleting this hero."
     end
 
     for slotKey, item in pairs(character.arcadeLoadout or {}) do
@@ -468,6 +474,7 @@ GetDB = function()
     GoblinArcadeDB.version = GoblinArcadeDB.version or 1
     GoblinArcadeDB.characters = GoblinArcadeDB.characters or {}
     GoblinArcadeDB.centralStash = GoblinArcadeDB.centralStash or {}
+    GoblinArcadeDB.suspendedRuns = GoblinArcadeDB.suspendedRuns or {}
 
     for _, item in ipairs(GoblinArcadeDB.centralStash) do
         if item and item.extractedAt then
@@ -512,6 +519,51 @@ local function PrepareExtractedItem(item, run)
     stored.extractedFromCharacter = run and run.snapshot and run.snapshot.name or nil
     stored.extractedFromCharacterKey = run and run.snapshot and run.snapshot.characterKey or nil
     return stored
+end
+
+function GA:GetSuspendedRun(characterKey)
+    local db = GetDB()
+    local saved = characterKey and db.suspendedRuns[characterKey]
+    return saved and CopyTable(saved) or nil
+end
+
+function GA:HasSuspendedRun(characterKey)
+    local db = GetDB()
+    return characterKey ~= nil and db.suspendedRuns[characterKey] ~= nil
+end
+
+function GA:StoreSuspendedRun(characterKey, runState)
+    if not characterKey or not runState then
+        return false, "No character or run state to save."
+    end
+
+    local db = GetDB()
+    local stored = CopyTable(runState)
+    stored.active = true
+    stored.suspended = true
+    stored.suspendedAt = time and time() or 0
+    db.suspendedRuns[characterKey] = stored
+    return true
+end
+
+function GA:TakeSuspendedRun(characterKey)
+    local db = GetDB()
+    local stored = characterKey and db.suspendedRuns[characterKey]
+    if not stored then return nil end
+
+    db.suspendedRuns[characterKey] = nil
+    local resumed = CopyTable(stored)
+    resumed.active = true
+    resumed.suspended = nil
+    resumed.resumedAt = time and time() or 0
+    return resumed
+end
+
+function GA:ClearSuspendedRun(characterKey)
+    local db = GetDB()
+    if characterKey then
+        db.suspendedRuns[characterKey] = nil
+    end
 end
 
 function GA:GetCentralStash()
@@ -713,6 +765,9 @@ function GA:EquipCentralStashItem(characterKey, stashIndex)
     if character.dead and character.hardcore then
         return false, "A dead Hardcore hero cannot change loadout."
     end
+    if db.suspendedRuns[characterKey] then
+        return false, "Resume or abandon this character's saved run before changing its loadout."
+    end
     if item.baselineLocked == true or item.stashEligible ~= true then
         return false, "Baseline items cannot be moved into or out of the Central Stash."
     end
@@ -761,6 +816,10 @@ function GA:ReturnCharacterLoadoutItemToStash(characterKey, slotKey)
     local db = GetDB()
     local character = db.characters[characterKey]
     if not character then return false, "Character not found." end
+
+    if db.suspendedRuns[characterKey] then
+        return false, "Resume or abandon this character's saved run before changing its loadout."
+    end
 
     local loadout = self:GetCharacterArcadeLoadout(character)
     local item = loadout and loadout[slotKey]
@@ -909,6 +968,7 @@ end
 function GA:SelectDungeonCharacter(key)
     local db = GetDB()
     self.PendingDeleteArcadeKey = nil
+    self.PendingAbandonSavedKey = nil
     if key and db.characters[key] then
         self.SelectedCharacterKey = key
         db.selectedCharacterKey = key
