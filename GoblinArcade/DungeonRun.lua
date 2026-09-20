@@ -1939,7 +1939,9 @@ function GA:CreateDungeonRunPage(parent)
         row.nameText = nameText
         row.metaText = metaText
         row:SetScript("OnClick", function(button)
-            if button.characterKey then
+            if button.createCharacterSlot then
+                GA:OpenCharacterGeneratorModal()
+            elseif button.characterKey then
                 GA:SelectDungeonCharacter(button.characterKey)
             end
         end)
@@ -1948,7 +1950,8 @@ function GA:CreateDungeonRunPage(parent)
 
     rosterPanel:SetScript("OnMouseWheel", function(_, delta)
         local roster = GA:GetCharacterRoster()
-        local maxOffset = math.max(0, #roster - #GA.DungeonCharacterRows)
+        local virtualCount = #roster + 1
+        local maxOffset = math.max(0, virtualCount - #GA.DungeonCharacterRows)
         GA.DungeonRosterOffset = math.max(0, math.min(maxOffset, (GA.DungeonRosterOffset or 0) - delta))
         GA:RefreshDungeonCharacterSelection()
     end)
@@ -2038,23 +2041,44 @@ function GA:CreateDungeonRunPage(parent)
     end)
     self.DungeonSetupBeginButton = setupBegin
 
-    local generatorPanel = CreateFrame("Frame", nil, setup, "BackdropTemplate")
-    generatorPanel:SetPoint("TOPLEFT", selectedPanel, "TOPRIGHT", 14, 0)
-    generatorPanel:SetSize(368, 392)
-    ApplyBackdrop(generatorPanel, { 0.050, 0.043, 0.034, 1 }, COLORS.goldDim)
-    self.DungeonGeneratorPanel = generatorPanel
+    local generatorOverlay = CreateFrame("Frame", nil, setup, "BackdropTemplate")
+    generatorOverlay:SetAllPoints(setup)
+    generatorOverlay:SetFrameLevel(setup:GetFrameLevel() + 60)
+    generatorOverlay:EnableMouse(true)
+    ApplyBackdrop(generatorOverlay, { 0.005, 0.004, 0.003, 0.82 }, { 0, 0, 0, 0 })
+    generatorOverlay:Hide()
+    self.DungeonCharacterGeneratorOverlay = generatorOverlay
 
-    local generatorTitle = CreateText(generatorPanel, "GameFontNormalSmall", "ARCADE CHARACTER GENERATOR")
-    generatorTitle:SetPoint("TOPLEFT", 14, -14)
-    generatorTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    local generatorModal = CreateFrame("Frame", nil, generatorOverlay, "BackdropTemplate")
+    generatorModal:SetSize(760, 560)
+    generatorModal:SetPoint("CENTER", generatorOverlay, "CENTER", 0, 0)
+    generatorModal:SetFrameLevel(generatorOverlay:GetFrameLevel() + 1)
+    generatorModal:EnableMouse(true)
+    ApplyBackdrop(generatorModal, { 0.050, 0.043, 0.034, 1 }, COLORS.gold)
+    self.DungeonCharacterGeneratorModal = generatorModal
+    self.DungeonGeneratorPanel = generatorModal
 
-    local nameLabel = CreateText(generatorPanel, "GameFontDisableSmall", "NAME")
-    nameLabel:SetPoint("TOPLEFT", 14, -40)
-    nameLabel:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    local modalTitle = CreateText(generatorModal, "GameFontNormalHuge", "CREATE NEW CHARACTER")
+    modalTitle:SetPoint("TOPLEFT", 24, -20)
+    modalTitle:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
-    local nameFrame = CreateFrame("Frame", nil, generatorPanel, "BackdropTemplate")
-    nameFrame:SetSize(340, 30)
-    nameFrame:SetPoint("TOPLEFT", 14, -56)
+    local modalHint = CreateText(
+        generatorModal,
+        "GameFontHighlightSmall",
+        "Create a persistent GoblinArcade hero. Races are cosmetic for now; only READY classes are selectable."
+    )
+    modalHint:SetPoint("TOPLEFT", modalTitle, "BOTTOMLEFT", 0, -8)
+    modalHint:SetWidth(700)
+    modalHint:SetJustifyH("LEFT")
+    modalHint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local nameLabel = CreateText(generatorModal, "GameFontNormalSmall", "NAME")
+    nameLabel:SetPoint("TOPLEFT", 24, -82)
+    nameLabel:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    local nameFrame = CreateFrame("Frame", nil, generatorModal, "BackdropTemplate")
+    nameFrame:SetSize(340, 32)
+    nameFrame:SetPoint("TOPLEFT", 24, -102)
     ApplyBackdrop(nameFrame, { 0.025, 0.022, 0.018, 1 }, COLORS.goldDim)
 
     local nameInput = CreateFrame("EditBox", nil, nameFrame)
@@ -2062,43 +2086,43 @@ function GA:CreateDungeonRunPage(parent)
     nameInput:SetPoint("BOTTOMRIGHT", -8, 4)
     nameInput:SetAutoFocus(false)
     nameInput:SetFontObject("GameFontHighlight")
-    nameInput:SetTextInsets(0, 0, 0, 0)
     nameInput:SetMaxLetters(18)
     nameInput:SetScript("OnTextChanged", function()
         GA:RefreshCharacterGenerator()
     end)
     nameInput:SetScript("OnEscapePressed", function(box)
         box:ClearFocus()
+        GA:CloseCharacterGeneratorModal()
     end)
     nameInput:SetScript("OnEnterPressed", function(box)
         box:ClearFocus()
     end)
     self.DungeonGeneratorNameInput = nameInput
 
-    local raceLabel = CreateText(generatorPanel, "GameFontNormalSmall", "RACE")
-    raceLabel:SetPoint("TOPLEFT", 14, -96)
+    local raceLabel = CreateText(generatorModal, "GameFontNormalSmall", "RACE")
+    raceLabel:SetPoint("TOPLEFT", 24, -154)
     raceLabel:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
     self.DungeonGeneratorRaceButtons = {}
     for i = 1, 10 do
         local col = (i - 1) % 5
         local row = math.floor((i - 1) / 5)
-        local button = CreateFrame("Button", nil, generatorPanel, "BackdropTemplate")
-        button:SetSize(62, 52)
-        button:SetPoint("TOPLEFT", 14 + col * 68, -116 - row * 58)
+        local button = CreateFrame("Button", nil, generatorModal, "BackdropTemplate")
+        button:SetSize(132, 62)
+        button:SetPoint("TOPLEFT", 24 + col * 142, -176 - row * 70)
         ApplyBackdrop(button, { 0.040, 0.035, 0.028, 1 }, COLORS.goldDim)
 
         local icon = button:CreateTexture(nil, "ARTWORK")
-        icon:SetSize(30, 30)
-        icon:SetPoint("TOP", 0, -4)
+        icon:SetSize(38, 38)
+        icon:SetPoint("LEFT", 8, 0)
         icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
         icon:SetTexCoord(0.06, 0.94, 0.06, 0.94)
         button.icon = icon
 
         local label = CreateText(button, "GameFontDisableSmall", "")
-        label:SetPoint("BOTTOM", 0, 3)
-        label:SetWidth(58)
-        label:SetJustifyH("CENTER")
+        label:SetPoint("LEFT", icon, "RIGHT", 7, 0)
+        label:SetPoint("RIGHT", -6, 0)
+        label:SetJustifyH("LEFT")
         button.label = label
 
         button:SetScript("OnClick", function(selfButton)
@@ -2107,31 +2131,40 @@ function GA:CreateDungeonRunPage(parent)
                 GA:RefreshCharacterGenerator()
             end
         end)
+        button:SetScript("OnEnter", function(selfButton)
+            if selfButton.raceName then
+                GameTooltip:SetOwner(selfButton, "ANCHOR_TOP")
+                GameTooltip:SetText(selfButton.raceName, 1, 0.82, 0.2)
+                GameTooltip:AddLine("Cosmetic race choice. No racial bonus yet.", 0.9, 0.9, 0.9, true)
+                GameTooltip:Show()
+            end
+        end)
+        button:SetScript("OnLeave", function() GameTooltip:Hide() end)
         self.DungeonGeneratorRaceButtons[i] = button
     end
 
-    local classLabel = CreateText(generatorPanel, "GameFontNormalSmall", "CLASS")
-    classLabel:SetPoint("TOPLEFT", 14, -236)
+    local classLabel = CreateText(generatorModal, "GameFontNormalSmall", "CLASS")
+    classLabel:SetPoint("TOPLEFT", 24, -330)
     classLabel:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
     self.DungeonGeneratorClassButtons = {}
     for i = 1, 9 do
         local col = (i - 1) % 5
         local row = math.floor((i - 1) / 5)
-        local button = CreateFrame("Button", nil, generatorPanel, "BackdropTemplate")
-        button:SetSize(62, 52)
-        button:SetPoint("TOPLEFT", 14 + col * 68, -256 - row * 58)
+        local button = CreateFrame("Button", nil, generatorModal, "BackdropTemplate")
+        button:SetSize(132, 58)
+        button:SetPoint("TOPLEFT", 24 + col * 142, -352 - row * 66)
         ApplyBackdrop(button, { 0.040, 0.035, 0.028, 1 }, COLORS.goldDim)
 
         local icon = button:CreateTexture(nil, "ARTWORK")
-        icon:SetSize(30, 30)
-        icon:SetPoint("TOP", 0, -4)
+        icon:SetSize(36, 36)
+        icon:SetPoint("LEFT", 8, 0)
         button.icon = icon
 
         local label = CreateText(button, "GameFontDisableSmall", "")
-        label:SetPoint("BOTTOM", 0, 3)
-        label:SetWidth(58)
-        label:SetJustifyH("CENTER")
+        label:SetPoint("LEFT", icon, "RIGHT", 7, 0)
+        label:SetPoint("RIGHT", -6, 0)
+        label:SetJustifyH("LEFT")
         button.label = label
 
         button:SetScript("OnClick", function(selfButton)
@@ -2156,15 +2189,21 @@ function GA:CreateDungeonRunPage(parent)
         self.DungeonGeneratorClassButtons[i] = button
     end
 
-    local generatorStatus = CreateText(generatorPanel, "GameFontDisableSmall", "")
-    generatorStatus:SetPoint("BOTTOMLEFT", 14, 54)
-    generatorStatus:SetPoint("RIGHT", -14, 0)
+    local generatorStatus = CreateText(generatorModal, "GameFontDisableSmall", "")
+    generatorStatus:SetPoint("BOTTOMLEFT", 24, 24)
+    generatorStatus:SetWidth(360)
     generatorStatus:SetJustifyH("LEFT")
     generatorStatus:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
     self.DungeonGeneratorStatus = generatorStatus
 
-    local createHero = CreateFlatButton(generatorPanel, "CREATE HERO", 160, 34)
-    createHero:SetPoint("BOTTOMRIGHT", -14, 12)
+    local cancelHero = CreateFlatButton(generatorModal, "CANCEL", 130, 36)
+    cancelHero:SetPoint("BOTTOMRIGHT", -184, 18)
+    cancelHero:SetScript("OnClick", function()
+        GA:CloseCharacterGeneratorModal()
+    end)
+
+    local createHero = CreateFlatButton(generatorModal, "CREATE HERO", 160, 36)
+    createHero:SetPoint("BOTTOMRIGHT", -18, 18)
     createHero:SetScript("OnClick", function()
         local character, err = GA:CreateArcadeCharacter(
             GA.DungeonGeneratorNameInput and GA.DungeonGeneratorNameInput:GetText() or "",
@@ -2172,10 +2211,11 @@ function GA:CreateDungeonRunPage(parent)
             GA.CharacterGeneratorClassId
         )
         if character then
-            if GA.DungeonGeneratorStatus then
-                GA.DungeonGeneratorStatus:SetText("Created and selected: " .. (character.name or "Arcade Hero"))
-                GA.DungeonGeneratorStatus:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+            if GA.DungeonGeneratorNameInput then
+                GA.DungeonGeneratorNameInput:SetText("")
             end
+            GA:CloseCharacterGeneratorModal()
+            GA:RefreshDungeonCharacterSelection()
         elseif GA.DungeonGeneratorStatus then
             GA.DungeonGeneratorStatus:SetText(err or "Character creation failed.")
             GA.DungeonGeneratorStatus:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
@@ -2194,6 +2234,16 @@ function GA:CreateDungeonRunPage(parent)
 
     page:SetScript("OnKeyDown", function(pageFrame, key)
         local runActive = GA.RunState and GA.RunState.active
+
+        if not runActive and GA.DungeonCharacterGeneratorOverlay and GA.DungeonCharacterGeneratorOverlay:IsShown() then
+            if key == "ESCAPE" then
+                GA:CloseCharacterGeneratorModal()
+            end
+            if pageFrame.SetPropagateKeyboardInput then
+                pageFrame:SetPropagateKeyboardInput(false)
+            end
+            return
+        end
 
         if not runActive then
             if pageFrame.SetPropagateKeyboardInput then
@@ -2297,16 +2347,39 @@ function GA:SetDungeonSetupMode(active)
     end
 
     if active then
+        self:CloseCharacterGeneratorModal()
         self.DungeonSetupFrame:Show()
         self:SetRunMode(false)
         self:RefreshDungeonCharacterSelection()
     else
+        self:CloseCharacterGeneratorModal()
         self.DungeonSetupFrame:Hide()
     end
 end
 
+function GA:OpenCharacterGeneratorModal()
+    if not self.DungeonCharacterGeneratorOverlay then return end
+    self.CharacterGeneratorRaceId = nil
+    self.CharacterGeneratorClassId = nil
+    if self.DungeonGeneratorNameInput then
+        self.DungeonGeneratorNameInput:SetText("")
+        self.DungeonGeneratorNameInput:ClearFocus()
+    end
+    self:RefreshCharacterGenerator()
+    self.DungeonCharacterGeneratorOverlay:Show()
+end
+
+function GA:CloseCharacterGeneratorModal()
+    if self.DungeonGeneratorNameInput then
+        self.DungeonGeneratorNameInput:ClearFocus()
+    end
+    if self.DungeonCharacterGeneratorOverlay then
+        self.DungeonCharacterGeneratorOverlay:Hide()
+    end
+end
+
 function GA:RefreshCharacterGenerator()
-    if not self.DungeonGeneratorPanel then return end
+    if not self.DungeonCharacterGeneratorModal then return end
 
     local races = self.GetStudioRaces and self:GetStudioRaces() or {}
     local classes = self.GetStudioClasses and self:GetStudioClasses() or {}
@@ -2330,6 +2403,7 @@ function GA:RefreshCharacterGenerator()
         local race = races[i]
         if race then
             button.raceId = race.id
+            button.raceName = race.name or race.id
             button.label:SetText(string.upper(race.shortName or race.name or race.id or "RACE"))
             button.icon:SetTexture(
                 self:ResolveStudioIconTexture(race.icon, "Interface\\Icons\\INV_Misc_QuestionMark")
@@ -2347,6 +2421,7 @@ function GA:RefreshCharacterGenerator()
             )
         else
             button.raceId = nil
+            button.raceName = nil
             button:Hide()
         end
     end
@@ -2420,16 +2495,21 @@ function GA:RefreshDungeonCharacterSelection()
     end
 
     local offset = self.DungeonRosterOffset or 0
-    local maxOffset = math.max(0, #roster - #self.DungeonCharacterRows)
+    local virtualCount = #roster + 1
+    local maxOffset = math.max(0, virtualCount - #self.DungeonCharacterRows)
     if offset > maxOffset then
         offset = maxOffset
         self.DungeonRosterOffset = offset
     end
 
     for i, row in ipairs(self.DungeonCharacterRows or {}) do
-        local character = roster[offset + i]
+        local virtualIndex = offset + i
+        local character = roster[virtualIndex]
+        local isCreateSlot = virtualIndex == (#roster + 1)
+
         if character then
             row.characterKey = character.key
+            row.createCharacterSlot = false
             row:Show()
             SetCharacterVisual(row.icon, character)
             row.nameText:SetText(character.name or "Unknown")
@@ -2452,8 +2532,22 @@ function GA:RefreshDungeonCharacterSelection()
                 row:SetBackdropColor(0.060, 0.052, 0.042, 1)
                 row:SetBackdropBorderColor(COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 1)
             end
+        elseif isCreateSlot then
+            row.characterKey = nil
+            row.createCharacterSlot = true
+            row:Show()
+            row.icon:SetTexture("Interface\\Buttons\\UI-PlusButton-Up")
+            row.icon:SetTexCoord(0, 1, 0, 1)
+            row.icon:SetVertexColor(1, 1, 1)
+            row.nameText:SetText("+  CREATE NEW CHARACTER")
+            row.metaText:SetText("Create a persistent GoblinArcade hero")
+            row.nameText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+            row.metaText:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+            row:SetBackdropColor(0.048, 0.043, 0.035, 1)
+            row:SetBackdropBorderColor(COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 1)
         else
             row.characterKey = nil
+            row.createCharacterSlot = false
             row:Hide()
         end
     end

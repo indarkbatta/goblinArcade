@@ -3,9 +3,30 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.37.0**  
+Current addon version: **0.38.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.38.0 — modal character creation UX
+
+- The Arcade Character Generator no longer occupies a permanent third column on the Dungeon setup screen.
+- The **CHARACTERS** box now keeps six normal roster-sized slots.
+- The first virtual slot after the existing characters is a special **+ CREATE NEW CHARACTER** roster card:
+  - same size and visual language as a normal character entry;
+  - uses a plus icon;
+  - scrolls together with the roster;
+  - always lives at the logical end of the character list rather than as a separate footer button.
+- Clicking that create slot opens a true modal over the setup screen with a dimmed blocking backdrop.
+- The modal contains:
+  - character name input;
+  - all 10 race choices with WoW icons;
+  - all 9 class choices with class icons;
+  - READY/locked class behavior unchanged;
+  - CANCEL and CREATE HERO actions.
+- ESC closes the character-creation modal without leaving the Dungeon setup.
+- Successful creation closes the modal, refreshes the roster and selects the newly created Arcade hero.
+- The modal is automatically closed whenever Dungeon setup mode is entered or exited.
+- Existing class readiness, race data, persistence and generated-character rules from 0.37.0 remain unchanged.
 
 ## 0.37.0 — Arcade Character Generator + race data
 
@@ -1823,6 +1844,6 @@ Before changing layout conventions, remember the user's current preferences:
 - action-bar spell icons can be dragged between slots; occupied targets swap positions;
 - Spellbook/action-bar loadouts persist per character in GoblinArcadeDB;
 - Spellbook spells use WoW icons, with an optional Studio-driven icon override via texture shorthand/path/FileDataID;
-- the Dungeon setup includes a persistent Arcade Character Generator; class availability is controlled by Studio Classes -> Playable / Ready, while race records/icons live in the Studio Races section and have no gameplay bonus yet.
+- the Dungeon setup CHARACTER roster ends with a roster-sized + CREATE NEW CHARACTER slot that opens the modal Arcade Character Generator; class availability is controlled by Studio Classes -> Playable / Ready, while race records/icons live in the Studio Races section and have no gameplay bonus yet.
 
 Preserve those decisions unless the user explicitly asks to change them.
