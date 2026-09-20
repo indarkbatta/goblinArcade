@@ -11,7 +11,7 @@ GA.StudioData = {
             resource = "RAGE",
             resourceMax = 3,
             description = "Front-line martial class. Run-level HP and resource growth are configured per class in Studio.",
-            hpPerLevel = 0,
+            hpPerLevel = 3,
             resourcePerLevel = 0,
         },
     },
@@ -366,6 +366,18 @@ GA.StudioData = {
             xpMultiplier = 5,
         },
     },
+    progression = {
+        {
+            id = "run_xp",
+            name = "Run XP",
+            xpPerDanger = 8,
+            firstLevelXp = 100,
+            levelGrowth = 1.22,
+            maxRunLevel = 60,
+            description = "Temporary run levels. Kill XP = Danger Rating × XP per Danger × Rank XP Multiplier. The first run-level costs follow XP Curve; later costs grow from the last explicit value by Level Growth.",
+            xpCurve = "100,125,155,190,230,275,325,380",
+        },
+    },
     rooms = {
         {
             id = "START",
@@ -475,18 +487,6 @@ GA.StudioData = {
             value = 15,
             secondaryValue = 150,
             description = "Lose 15% max HP without dying; gain 150 score.",
-        },
-    },
-    progression = {
-        {
-            id = "run_xp",
-            name = "Run XP",
-            xpPerDanger = 8,
-            firstLevelXp = 100,
-            levelGrowth = 1.22,
-            maxRunLevel = 60,
-            description = "Temporary run levels. Kill XP = Danger Rating × XP per Danger × Rank XP Multiplier. The first run-level costs follow XP Curve; later costs grow from the last explicit value by Level Growth.",
-            xpCurve = "100,125,155,190,230,275,325,380",
         },
     },
 }
