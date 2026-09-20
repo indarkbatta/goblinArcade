@@ -3,9 +3,22 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.28.0**  
+Current addon version: **0.29.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.29.0 — Warrior Rage + Heroic Strike
+
+- Warrior Rage is now a real run resource.
+- The left run card displays current/max class resource (for Warrior: RAGE).
+- Successful basic ATTACK actions generate the class's Studio-driven `Basic Attack Resource Gain`; Warrior default is 1.
+- Heroic Strike is wired as the first executable Studio ability on action slot / hotkey 2.
+- Heroic Strike requires its normal level unlock, an adjacent enemy, and enough resource.
+- Ability `Resource Cost` and `Damage Multiplier` are editable in Studio; Heroic Strike defaults to 2 Rage and 1.5x weapon damage.
+- Resource is spent only after a valid melee target is confirmed; failed/locked/no-resource attempts do not consume a turn.
+- Basic attacks generate resource after a valid strike and respect the current resource cap.
+- Studio local draft namespace bumped to v7.
+- The user's published Warrior `HP / Level = 3` is preserved.
 
 ## 0.28.0 — class run-level stat growth
 
@@ -71,7 +84,7 @@ Deployment is automatic through GitHub Actions.
 
 ### GoblinArcade Studio / Vercel
 
-Studio v0.5.0 keeps a **static-first** architecture for Vercel cost efficiency:
+Studio v0.6.0 keeps a **static-first** architecture for Vercel cost efficiency:
 
 - no npm build is required;
 - no database is used;
@@ -1447,7 +1460,7 @@ Recommended order:
    - EnemyGenerator v5 reads enemy archetypes and ranks from GA.StudioData
    - DungeonGenerator v7 reads room door limits and map markers from GA.StudioData
    - Shrine effects and Shrine UI values read from GA.StudioData
-   - Warrior spellbook data is populated; next wire level-gated ability selection/execution into the run, then migrate loot tables
+   - Warrior spellbook data is populated; Heroic Strike is the first runtime-wired ability. Next expand the same engine to Rend / Charge / Thunder Clap, then migrate loot tables
 
 2. **Room-role gameplay polish**
    - test the stricter door rules, Shrine modal, Elite Cache and Floor 9 exit lock in-game
@@ -1458,7 +1471,7 @@ Recommended order:
 3. **Abilities**
    - Warrior first
    - basic attack + 4 actives + passive is the longer-term design
-   - current buttons 2/3 are placeholders
+   - button 2 now executes Heroic Strike; button 3 remains a placeholder
 
 4. **Potions**
    - finite run resource

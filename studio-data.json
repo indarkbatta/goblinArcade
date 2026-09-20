@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "studioVersion": "0.5.0",
+  "studioVersion": "0.6.0",
   "classes": [
     {
       "id": "warrior",
@@ -9,7 +9,8 @@
       "resourceMax": 3,
       "description": "Front-line martial class. Run-level HP and resource growth are configured per class in Studio.",
       "hpPerLevel": 3,
-      "resourcePerLevel": 0
+      "resourcePerLevel": 0,
+      "basicAttackResourceGain": 1
     }
   ],
   "abilities": [
@@ -20,7 +21,9 @@
       "learnLevel": 1,
       "category": "ARMS",
       "effect": "STANCE",
-      "description": "Balanced combat stance."
+      "description": "Balanced combat stance.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "heroic_strike",
@@ -29,7 +32,9 @@
       "learnLevel": 1,
       "category": "ARMS",
       "effect": "DAMAGE",
-      "description": "Empowered melee strike with extra threat."
+      "description": "Empowered melee strike. In GoblinArcade it spends Rage to deal increased weapon damage.",
+      "resourceCost": 2,
+      "damageMultiplier": 1.5
     },
     {
       "id": "battle_shout",
@@ -38,7 +43,9 @@
       "learnLevel": 1,
       "category": "FURY",
       "effect": "BUFF",
-      "description": "Raises melee attack power for the party."
+      "description": "Raises melee attack power for the party.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "charge",
@@ -47,7 +54,9 @@
       "learnLevel": 4,
       "category": "ARMS",
       "effect": "MOBILITY",
-      "description": "Rush to an enemy, gain Rage and briefly stun."
+      "description": "Rush to an enemy, gain Rage and briefly stun.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "rend",
@@ -56,7 +65,9 @@
       "learnLevel": 4,
       "category": "ARMS",
       "effect": "DOT",
-      "description": "Applies a bleeding damage-over-time effect."
+      "description": "Applies a bleeding damage-over-time effect.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "thunder_clap",
@@ -65,7 +76,9 @@
       "learnLevel": 6,
       "category": "ARMS",
       "effect": "AOE_DEBUFF",
-      "description": "Damages nearby enemies and slows their attacks."
+      "description": "Damages nearby enemies and slows their attacks.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "hamstring",
@@ -74,7 +87,9 @@
       "learnLevel": 8,
       "category": "ARMS",
       "effect": "SLOW",
-      "description": "Deals light damage and slows movement."
+      "description": "Deals light damage and slows movement.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "bloodrage",
@@ -83,7 +98,9 @@
       "learnLevel": 10,
       "category": "PROTECTION",
       "effect": "RESOURCE",
-      "description": "Trades health for an immediate and short Rage gain."
+      "description": "Trades health for an immediate and short Rage gain.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "defensive_stance",
@@ -92,7 +109,9 @@
       "learnLevel": 10,
       "category": "PROTECTION",
       "effect": "STANCE",
-      "description": "Defensive stance that reduces damage dealt and taken."
+      "description": "Defensive stance that reduces damage dealt and taken.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "sunder_armor",
@@ -101,7 +120,9 @@
       "learnLevel": 10,
       "category": "PROTECTION",
       "effect": "ARMOR_BREAK",
-      "description": "Stacking armor reduction with high threat."
+      "description": "Stacking armor reduction with high threat.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "overpower",
@@ -110,7 +131,9 @@
       "learnLevel": 12,
       "category": "ARMS",
       "effect": "REACTIVE_DAMAGE",
-      "description": "Reactive weapon attack available after a dodge."
+      "description": "Reactive weapon attack available after a dodge.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "shield_bash",
@@ -119,7 +142,9 @@
       "learnLevel": 12,
       "category": "PROTECTION",
       "effect": "INTERRUPT",
-      "description": "Shield attack that interrupts spellcasting."
+      "description": "Shield attack that interrupts spellcasting.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "demoralizing_shout",
@@ -128,7 +153,9 @@
       "learnLevel": 14,
       "category": "FURY",
       "effect": "DEBUFF",
-      "description": "Reduces nearby enemies' melee attack power."
+      "description": "Reduces nearby enemies' melee attack power.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "revenge",
@@ -137,7 +164,9 @@
       "learnLevel": 14,
       "category": "PROTECTION",
       "effect": "REACTIVE_DAMAGE",
-      "description": "Reactive counterattack after blocking, dodging or parrying."
+      "description": "Reactive counterattack after blocking, dodging or parrying.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "shield_block",
@@ -146,7 +175,9 @@
       "learnLevel": 16,
       "category": "PROTECTION",
       "effect": "DEFEND",
-      "description": "Greatly raises block chance for a limited number of attacks."
+      "description": "Greatly raises block chance for a limited number of attacks.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "disarm",
@@ -155,7 +186,9 @@
       "learnLevel": 18,
       "category": "PROTECTION",
       "effect": "DEBUFF",
-      "description": "Temporarily removes an enemy's weapon."
+      "description": "Temporarily removes an enemy's weapon.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "retaliation",
@@ -164,7 +197,9 @@
       "learnLevel": 20,
       "category": "ARMS",
       "effect": "COUNTER",
-      "description": "Counterattacks enemies that strike you in melee."
+      "description": "Counterattacks enemies that strike you in melee.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "victory_rush",
@@ -173,7 +208,9 @@
       "learnLevel": 20,
       "category": "ARMS",
       "effect": "HEAL_ATTACK",
-      "description": "Post-kill attack that also restores health."
+      "description": "Post-kill attack that also restores health.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "cleave",
@@ -182,7 +219,9 @@
       "learnLevel": 20,
       "category": "FURY",
       "effect": "CLEAVE",
-      "description": "Weapon attack that also hits a nearby second enemy."
+      "description": "Weapon attack that also hits a nearby second enemy.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "slam",
@@ -191,7 +230,9 @@
       "learnLevel": 20,
       "category": "FURY",
       "effect": "DAMAGE",
-      "description": "Heavy weapon strike."
+      "description": "Heavy weapon strike.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "intimidating_shout",
@@ -200,7 +241,9 @@
       "learnLevel": 22,
       "category": "FURY",
       "effect": "CONTROL",
-      "description": "Fears the target and nearby enemies."
+      "description": "Fears the target and nearby enemies.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "execute",
@@ -209,7 +252,9 @@
       "learnLevel": 24,
       "category": "FURY",
       "effect": "EXECUTE",
-      "description": "Finisher usable against low-health enemies."
+      "description": "Finisher usable against low-health enemies.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "shield_wall",
@@ -218,7 +263,9 @@
       "learnLevel": 28,
       "category": "PROTECTION",
       "effect": "DEFEND",
-      "description": "Major temporary damage reduction."
+      "description": "Major temporary damage reduction.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "berserker_stance",
@@ -227,7 +274,9 @@
       "learnLevel": 30,
       "category": "FURY",
       "effect": "STANCE",
-      "description": "Aggressive stance with more critical chance and more damage taken."
+      "description": "Aggressive stance with more critical chance and more damage taken.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "intercept",
@@ -236,7 +285,9 @@
       "learnLevel": 30,
       "category": "FURY",
       "effect": "MOBILITY",
-      "description": "Rushes an enemy, deals damage and stuns."
+      "description": "Rushes an enemy, deals damage and stuns.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "berserker_rage",
@@ -245,7 +296,9 @@
       "learnLevel": 32,
       "category": "FURY",
       "effect": "BUFF",
-      "description": "Breaks or prevents fear-like control and improves Rage gain from damage."
+      "description": "Breaks or prevents fear-like control and improves Rage gain from damage.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "whirlwind",
@@ -254,7 +307,9 @@
       "learnLevel": 36,
       "category": "FURY",
       "effect": "AOE",
-      "description": "Weapon attack against several nearby enemies."
+      "description": "Weapon attack against several nearby enemies.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "pummel",
@@ -263,7 +318,9 @@
       "learnLevel": 38,
       "category": "FURY",
       "effect": "INTERRUPT",
-      "description": "Melee interrupt with light damage."
+      "description": "Melee interrupt with light damage.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     },
     {
       "id": "recklessness",
@@ -272,7 +329,9 @@
       "learnLevel": 50,
       "category": "FURY",
       "effect": "BUFF",
-      "description": "Massively boosts critical chance while increasing damage taken."
+      "description": "Massively boosts critical chance while increasing damage taken.",
+      "resourceCost": 0,
+      "damageMultiplier": 1
     }
   ],
   "enemies": [

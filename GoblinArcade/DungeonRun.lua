@@ -760,6 +760,7 @@ local function GetClassRunGrowth(classId)
                 baseResourceMax = math.max(0, tonumber(class.resourceMax) or 0),
                 hpPerLevel = math.max(0, tonumber(class.hpPerLevel) or 0),
                 resourcePerLevel = math.max(0, tonumber(class.resourcePerLevel) or 0),
+                basicAttackResourceGain = math.max(0, tonumber(class.basicAttackResourceGain) or 0),
             }
         end
     end
@@ -769,7 +770,17 @@ local function GetClassRunGrowth(classId)
         baseResourceMax = 0,
         hpPerLevel = 0,
         resourcePerLevel = 0,
+        basicAttackResourceGain = 0,
     }
+end
+
+local function GetStudioAbilityById(abilityId)
+    for _, ability in ipairs(GA.StudioData and GA.StudioData.abilities or {}) do
+        if ability.id == abilityId then
+            return ability
+        end
+    end
+    return nil
 end
 
 local function BuildRoomRoleText(counts)
@@ -1119,6 +1130,9 @@ function GA:CreateDungeonRunPage(parent)
     self.DungeonHealth, self.DungeonHealthLabel = CreateStatRow(left, "HEALTH", "--", -38)
     self.DungeonPower, self.DungeonPowerLabel = CreateStatRow(left, "WEAPON", "--", -62)
     self.DungeonDodge, self.DungeonDodgeLabel = CreateStatRow(left, "DODGE", "--", -86)
+    self.DungeonResource, self.DungeonResourceLabel = CreateStatRow(left, "RESOURCE", "--", -110)
+    self.DungeonResource:Hide()
+    self.DungeonResourceLabel:Hide()
 
     local gearTitle = CreateText(left, "GameFontNormalSmall", "WOW GEAR INPUT")
     gearTitle:SetPoint("TOPLEFT", 12, -126)
@@ -1492,6 +1506,11 @@ function GA:CreateDungeonRunPage(parent)
             button:SetScript("OnClick", function()
                 GA:PlayerAttackEnemy()
             end)
+        elseif i == 2 then
+            self.DungeonHeroicStrikeButton = button
+            button:SetScript("OnClick", function()
+                GA:UseRunAbility("heroic_strike")
+            end)
         end
     end
 
@@ -1721,6 +1740,9 @@ function GA:CreateDungeonRunPage(parent)
         if key == "1" then
             GA:PlayerAttackEnemy()
             return
+        elseif key == "2" then
+            GA:UseRunAbility("heroic_strike")
+            return
         end
 
         local movement = {
@@ -1885,6 +1907,8 @@ function GA:SetDungeonRunPortraitMode(active)
         PositionStatRow(self.DungeonHealthLabel, self.DungeonHealth, -144)
         PositionStatRow(self.DungeonPowerLabel, self.DungeonPower, -168)
         PositionStatRow(self.DungeonDodgeLabel, self.DungeonDodge, -192)
+        PositionStatRow(self.DungeonResourceLabel, self.DungeonResource, -216)
+        self:UpdateRunResource()
     else
         if self.DungeonStatsTitle then
             self.DungeonStatsTitle:ClearAllPoints()
@@ -1893,6 +1917,8 @@ function GA:SetDungeonRunPortraitMode(active)
         PositionStatRow(self.DungeonHealthLabel, self.DungeonHealth, -38)
         PositionStatRow(self.DungeonPowerLabel, self.DungeonPower, -62)
         PositionStatRow(self.DungeonDodgeLabel, self.DungeonDodge, -86)
+        if self.DungeonResource then self.DungeonResource:Hide() end
+        if self.DungeonResourceLabel then self.DungeonResourceLabel:Hide() end
     end
 
     if self.DungeonRunPortraitFrame then
@@ -2193,6 +2219,44 @@ function GA:RefreshActionButtons()
             self.DungeonAttackButton.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
         end
     end
+
+    if self.DungeonHeroicStrikeButton then
+        local heroic = GetStudioAbilityById("heroic_strike")
+        local cost = math.max(0, tonumber(heroic and heroic.resourceCost) or 0)
+        local unlocked = run and run.unlockedAbilities and run.unlockedAbilities.heroic_strike
+        local enoughResource = run and (run.resource or 0) >= cost
+        local usable = canAttack and unlocked and enoughResource
+
+        self.DungeonHeroicStrikeButton.label:SetText("2  HEROIC STRIKE")
+        self.DungeonHeroicStrikeButton:SetEnabled(usable and true or false)
+        if usable then
+            self.DungeonHeroicStrikeButton.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+        else
+            self.DungeonHeroicStrikeButton.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+        end
+    end
+end
+
+function GA:UpdateRunResource()
+    local run = self.RunState
+    if not self.DungeonResource or not self.DungeonResourceLabel then
+        return
+    end
+
+    local resourceType = run and run.resourceType or "NONE"
+    local resourceMax = run and math.max(0, tonumber(run.resourceMax) or 0) or 0
+
+    if not run or not run.active or resourceType == "NONE" or resourceMax <= 0 then
+        self.DungeonResource:Hide()
+        self.DungeonResourceLabel:Hide()
+        return
+    end
+
+    run.resource = math.max(0, math.min(resourceMax, tonumber(run.resource) or 0))
+    self.DungeonResourceLabel:SetText(resourceType)
+    self.DungeonResource:SetText(string.format("%d / %d", run.resource, resourceMax))
+    self.DungeonResource:Show()
+    self.DungeonResourceLabel:Show()
 end
 
 function GA:UpdateRunHealth()
@@ -2284,6 +2348,7 @@ function GA:GrantRunExperience(amount)
         if resourceGain > 0 then
             run.resourceMax = math.max(0, (run.resourceMax or 0) + resourceGain)
         end
+        self:UpdateRunResource()
 
         self:AddCombatLog(string.format("LEVEL UP! %d -> %d", previousLevel, run.runLevel), "system")
         if hpGain > 0 or resourceGain > 0 then
@@ -2323,7 +2388,37 @@ function GA:GrantRunExperience(amount)
     return leveledUp, initialLevel, run.runLevel
 end
 
-function GA:PlayerAttackEnemy(targetEnemy)
+function GA:UseRunAbility(abilityId)
+    local run = self.RunState
+    if not run or not run.active then
+        return false
+    end
+
+    local ability = GetStudioAbilityById(abilityId)
+    if not ability then
+        self:AddCombatLog("Ability data not found: " .. tostring(abilityId), "warning")
+        return false
+    end
+
+    if not (run.unlockedAbilities and run.unlockedAbilities[abilityId]) then
+        if self.DungeonRunStateText then
+            self.DungeonRunStateText:SetText(
+                string.format("%s UNLOCKS AT LEVEL %d", string.upper(ability.name or abilityId), tonumber(ability.learnLevel) or 1)
+            )
+            self.DungeonRunStateText:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+        end
+        return false
+    end
+
+    if ability.effect ~= "DAMAGE" then
+        self:AddCombatLog((ability.name or abilityId) .. " is not wired to the combat engine yet.", "warning")
+        return false
+    end
+
+    return self:PlayerAttackEnemy(nil, { ability = ability })
+end
+
+function GA:PlayerAttackEnemy(targetEnemy, attackOptions)
     local run = self.RunState
     if not run or not run.active then
         return false
@@ -2339,10 +2434,26 @@ function GA:PlayerAttackEnemy(targetEnemy)
         return false
     end
 
+    attackOptions = type(attackOptions) == "table" and attackOptions or {}
+    local ability = attackOptions.ability
+    local resourceCost = math.max(0, tonumber(ability and ability.resourceCost) or 0)
+
+    if ability and (run.resource or 0) < resourceCost then
+        if self.DungeonRunStateText then
+            self.DungeonRunStateText:SetText(
+                string.format("NEED %d %s FOR %s", resourceCost, run.resourceType or "RESOURCE", string.upper(ability.name or ability.id or "ABILITY"))
+            )
+            self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+        end
+        return false
+    end
+
     local weapon = self:GetCurrentRunWeapon()
     local minimum = weapon and math.max(1, tonumber(weapon.damageMin) or 1) or 1
     local maximum = weapon and math.max(minimum, tonumber(weapon.damageMax) or minimum) or 2
     local damage = math.random(minimum, maximum)
+    local damageMultiplier = ability and math.max(0.01, tonumber(ability.damageMultiplier) or 1) or 1
+    damage = math.max(1, math.floor(damage * damageMultiplier + 0.5))
     local critChance = run.arcadeStats and run.arcadeStats.crit or 0
     local critical = critChance > 0
         and math.random(1, 1000) <= math.floor(critChance * 10)
@@ -2359,15 +2470,38 @@ function GA:PlayerAttackEnemy(targetEnemy)
     enemy.hp = math.max(0, (enemy.hp or enemy.maxHp or 1) - damage)
     run.turns = run.turns + 1
 
-    self:AddCombatLog(
-        string.format("%sYou hit the %s for %d damage. (%d/%d HP)",
-            critical and "CRITICAL! " or "",
-            string.lower(GetEnemyDisplayName(enemy)),
-            damage,
-            enemy.hp,
-            enemy.maxHp or enemy.hp),
-        "player"
-    )
+    if ability then
+        run.resource = math.max(0, (run.resource or 0) - resourceCost)
+    else
+        local resourceGain = math.max(0, tonumber(run.classGrowth and run.classGrowth.basicAttackResourceGain) or 0)
+        if resourceGain > 0 and (run.resourceMax or 0) > 0 then
+            run.resource = math.min(run.resourceMax, (run.resource or 0) + resourceGain)
+        end
+    end
+    self:UpdateRunResource()
+
+    if ability then
+        self:AddCombatLog(
+            string.format("%s%s hits the %s for %d damage. (%d/%d HP)",
+                critical and "CRITICAL! " or "",
+                ability.name or "Ability",
+                string.lower(GetEnemyDisplayName(enemy)),
+                damage,
+                enemy.hp,
+                enemy.maxHp or enemy.hp),
+            "player"
+        )
+    else
+        self:AddCombatLog(
+            string.format("%sYou hit the %s for %d damage. (%d/%d HP)",
+                critical and "CRITICAL! " or "",
+                string.lower(GetEnemyDisplayName(enemy)),
+                damage,
+                enemy.hp,
+                enemy.maxHp or enemy.hp),
+            "player"
+        )
+    end
 
     local staggered = false
     if enemy.hp > 0 and weapon and weapon.traitName == "STAGGER" then
@@ -2983,6 +3117,7 @@ function GA:BeginDungeonRun()
     end
 
     self:UpdateRunHealth()
+    self:UpdateRunResource()
     self:RefreshRunWeaponFromEquipment()
     self:RecalculateRunGearStats()
     self.DungeonArcadeDamage:SetText(string.format("Damage %d - %d", selectedWeapon.damageMin, selectedWeapon.damageMax))
@@ -3080,9 +3215,11 @@ function GA:BeginDungeonRun()
     )
     self:AddCombatLog(
         string.format(
-            "Class growth: +%d HP / level, +%d %s cap / level.",
+            "Class growth: +%d HP / level, +%d %s cap / level. Basic attack: +%d %s.",
             classGrowth.hpPerLevel or 0,
             classGrowth.resourcePerLevel or 0,
+            classGrowth.resourceType or "RESOURCE",
+            classGrowth.basicAttackResourceGain or 0,
             classGrowth.resourceType or "RESOURCE"
         ),
         "system"
