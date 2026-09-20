@@ -3,7 +3,7 @@ local _, GA = ...
 GA.EnemyGenerator = GA.EnemyGenerator or {}
 local EG = GA.EnemyGenerator
 
-EG.VERSION = 10
+EG.VERSION = 11
 
 local GEAR_SLOTS = {
     "head",
@@ -134,6 +134,7 @@ local function GetArchetypeDefinition(archetypeName)
         baseScore = tonumber(record.baseScore) or fallback.baseScore,
         dangerRating = math.max(1, math.min(10, tonumber(record.dangerRating) or fallback.dangerRating or 1)),
         lootTableId = record.lootTableId,
+        skillIds = record.skillIds or fallback.skillIds or {},
     }
 end
 
@@ -359,6 +360,10 @@ function EG:CreateEnemy(options)
         rankXpMultiplier = rank.xpMultiplier or 1,
         xpValue = xpValue,
         lootTableId = archetype.lootTableId,
+        skillIds = CopyTable and CopyTable(archetype.skillIds or {}) or (archetype.skillIds or {}),
+        skillCooldowns = {},
+        skillUseCounts = {},
+        pendingSkill = nil,
         alive = true,
         alerted = false,
         skipTurn = false,

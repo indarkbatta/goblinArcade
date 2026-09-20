@@ -1420,6 +1420,12 @@ local function CreateGrid(parent)
             enemyHealthBar:SetMinMaxValues(0, 1)
             enemyHealthBar:SetValue(1)
 
+            local enemySkillIcon = spriteLayer:CreateTexture(nil, "OVERLAY", nil, 4)
+            enemySkillIcon:SetSize(22, 22)
+            enemySkillIcon:SetPoint("TOPRIGHT", cell, "TOPRIGHT", -5, -14)
+            enemySkillIcon:SetTexCoord(0.06, 0.94, 0.06, 0.94)
+            enemySkillIcon:Hide()
+
             local marker = CreateText(cell, "GameFontNormalHuge", "")
             marker:SetPoint("CENTER")
 
@@ -1429,6 +1435,7 @@ local function CreateGrid(parent)
                 enemyIcon = enemyIcon,
                 enemyHealthBackdrop = enemyHealthBackdrop,
                 enemyHealthBar = enemyHealthBar,
+                enemySkillIcon = enemySkillIcon,
                 worldX = col,
                 worldY = row,
             }
@@ -6001,7 +6008,7 @@ function GA:AdvanceCombatEffects()
                 end
             end
 
-            for _, statusId in ipairs({ "hamstring", "weakened", "sunder", "disarmed", "feared" }) do
+            for _, statusId in ipairs({ "hamstring", "weakened", "sunder", "disarmed", "feared", "monsterDamageBuff" }) do
                 local status = enemy.statuses[statusId]
                 if status then
                     status.turns = (status.turns or 1) - 1
@@ -6925,6 +6932,9 @@ function GA:RenderDungeonGrid()
                 if entry.enemyHealthBackdrop then
                     entry.enemyHealthBackdrop:Hide()
                 end
+                if entry.enemySkillIcon then
+                    entry.enemySkillIcon:Hide()
+                end
 
                 if not explored then
                     -- Unseen: almost completely black. The player has no map
@@ -7045,6 +7055,23 @@ function GA:RenderDungeonGrid()
                         enemyCell.enemyHealthBar:SetMinMaxValues(0, maxHp)
                         enemyCell.enemyHealthBar:SetValue(currentHp)
                         enemyCell.enemyHealthBackdrop:Show()
+                    end
+
+                    if enemyCell.enemySkillIcon and enemy.pendingSkill and enemy.pendingSkill.skillId then
+                        local pendingSkill
+                        for _, skill in ipairs(GA.StudioData and GA.StudioData.monsterSkills or {}) do
+                            if skill.id == enemy.pendingSkill.skillId then
+                                pendingSkill = skill
+                                break
+                            end
+                        end
+                        if pendingSkill then
+                            local texture = GA.ResolveStudioIconTexture
+                                and GA:ResolveStudioIconTexture(pendingSkill.icon, "Interface\\Icons\\INV_Misc_QuestionMark")
+                                or "Interface\\Icons\\INV_Misc_QuestionMark"
+                            enemyCell.enemySkillIcon:SetTexture(texture)
+                            enemyCell.enemySkillIcon:Show()
+                        end
                     end
                 end
             end
@@ -7274,6 +7301,7 @@ function GA:BeginDungeonRun()
         cooldowns = {},
         buffs = {},
         reactive = {},
+        monsterStatuses = {},
         stance = "battle",
         actionBarKey = selected.key,
         actionSlots = actionSlots,
@@ -8044,10 +8072,443 @@ function GA:ReturnDungeonFloor()
     self:ApplyDungeonFloor(previousFloor, "up")
 end
 
+
+local function GetMonsterSkillById(skillId)
+    for _, skill in ipairs(GA.StudioData and GA.StudioData.monsterSkills or {}) do
+        if skill.id == skillId then
+            return skill
+        end
+    end
+    return nil
+end
+
+local function GetMonsterSkillDistance(enemy, run)
+    if not enemy or not run then return 999 end
+    return math.abs((enemy.x or 0) - (run.playerX or 0))
+        + math.abs((enemy.y or 0) - (run.playerY or 0))
+end
+
+local function TickMonsterSkillCooldowns(enemy)
+    enemy.skillCooldowns = enemy.skillCooldowns or {}
+    for skillId, turns in pairs(enemy.skillCooldowns) do
+        turns = math.max(0, (tonumber(turns) or 0) - 1)
+        if turns <= 0 then
+            enemy.skillCooldowns[skillId] = nil
+        else
+            enemy.skillCooldowns[skillId] = turns
+        end
+    end
+end
+
+local function MonsterSkillConditionMet(skill, enemy, run, distance, enemyPhase)
+    local condition = string.upper(tostring(skill.condition or "ALWAYS"))
+    local value = tonumber(skill.conditionValue) or 0
+
+    if condition == "ADJACENT" then
+        return distance <= 1
+    elseif condition == "RANGE_MIN" then
+        return distance >= math.max(1, math.floor(value))
+    elseif condition == "SELF_HP_BELOW" then
+        local maxHp = math.max(1, tonumber(enemy.maxHp) or 1)
+        return ((tonumber(enemy.hp) or maxHp) / maxHp) * 100 <= value
+    elseif condition == "TARGET_HP_BELOW" then
+        local maxHp = math.max(1, tonumber(run.playerMaxHealth) or 1)
+        return ((tonumber(run.playerHealth) or maxHp) / maxHp) * 100 <= value
+    elseif condition == "EVERY_N_TURNS" then
+        local interval = math.max(1, math.floor(value))
+        return (enemyPhase or 1) % interval == 0
+    elseif condition == "ONCE_PER_COMBAT" then
+        enemy.skillUseCounts = enemy.skillUseCounts or {}
+        return (enemy.skillUseCounts[skill.id] or 0) <= 0
+    end
+
+    return true
+end
+
+local function ChooseMonsterSkill(enemy, run, enemyPhase)
+    if not enemy or not run or not enemy.skillIds or #enemy.skillIds == 0 then
+        return nil
+    end
+
+    local distance = GetMonsterSkillDistance(enemy, run)
+    local candidates = {}
+    local totalWeight = 0
+
+    for _, skillId in ipairs(enemy.skillIds) do
+        local skill = GetMonsterSkillById(skillId)
+        if skill then
+            local target = string.upper(tostring(skill.target or "PLAYER"))
+            local range = math.max(0, math.floor(tonumber(skill.range) or 1))
+            local inRange = target == "SELF" or distance <= range
+            local cooldownReady = not (enemy.skillCooldowns and enemy.skillCooldowns[skill.id])
+            if inRange
+                and cooldownReady
+                and MonsterSkillConditionMet(skill, enemy, run, distance, enemyPhase) then
+                local weight = math.max(0, tonumber(skill.priority) or 0)
+                if weight > 0 then
+                    candidates[#candidates + 1] = { skill = skill, weight = weight }
+                    totalWeight = totalWeight + weight
+                end
+            end
+        end
+    end
+
+    if totalWeight <= 0 or #candidates == 0 then
+        return nil
+    end
+
+    local roll = math.random() * totalWeight
+    local cursor = 0
+    for _, candidate in ipairs(candidates) do
+        cursor = cursor + candidate.weight
+        if roll <= cursor then
+            return candidate.skill
+        end
+    end
+    return candidates[#candidates].skill
+end
+
+function GA:ApplyMonsterSkillDamage(enemy, rawDamage, skillName)
+    local run = self.RunState
+    if not run or not run.active or not enemy then
+        return false
+    end
+
+    local stats = run.arcadeStats or {}
+    local guardChance = math.max(0, tonumber(run.weaponGuardChance) or 0)
+    local parried = guardChance > 0
+        and math.random(1, 1000) <= math.floor(guardChance * 10)
+    local dodgeChance = stats.dodge or 0
+    local dodged = not parried and dodgeChance > 0
+        and math.random(1, 1000) <= math.floor(dodgeChance * 10)
+
+    if parried then
+        run.reactive = run.reactive or {}
+        run.reactive.revenge = { turns = 2 }
+        self:AddCombatLog(
+            "PARRY! You deflect " .. tostring(skillName or "the enemy ability") .. ". Revenge is ready.",
+            "player"
+        )
+        return true
+    elseif dodged then
+        run.reactive = run.reactive or {}
+        run.reactive.overpower = { turns = 2 }
+        run.reactive.revenge = { turns = 2 }
+        self:AddCombatLog(
+            "You dodge " .. tostring(skillName or "the enemy ability") .. ".",
+            "player"
+        )
+        return true
+    end
+
+    local multiplier = 1
+    local weakened = enemy.statuses and enemy.statuses.weakened
+    if weakened and (weakened.turns or 0) > 0 then
+        multiplier = multiplier
+            * (1 - math.max(0, math.min(90, tonumber(weakened.percent) or 0)) / 100)
+    end
+    local disarmed = enemy.statuses and enemy.statuses.disarmed
+    if disarmed and (disarmed.turns or 0) > 0 then
+        multiplier = multiplier
+            * (1 - math.max(0, math.min(90, tonumber(disarmed.percent) or 0)) / 100)
+    end
+    local monsterDamageBuff = enemy.statuses and enemy.statuses.monsterDamageBuff
+    if monsterDamageBuff and (monsterDamageBuff.turns or 0) > 0 then
+        multiplier = multiplier
+            * (1 + math.max(0, tonumber(monsterDamageBuff.percent) or 0) / 100)
+    end
+
+    if run.stance == "defensive" then
+        local defensive = GetStudioAbilityById("defensive_stance") or {}
+        multiplier = multiplier
+            * (1 - math.max(0, math.min(90, tonumber(defensive.effectValue) or 0)) / 100)
+    elseif run.stance == "berserker" then
+        local berserker = GetStudioAbilityById("berserker_stance") or {}
+        multiplier = multiplier
+            * (1 + math.max(0, tonumber(berserker.secondaryValue) or 0) / 100)
+    end
+
+    local shieldWall = run.buffs and run.buffs.shield_wall
+    if shieldWall and (shieldWall.turns or 0) > 0 then
+        multiplier = multiplier
+            * (1 - math.max(0, math.min(90, tonumber(shieldWall.reduction) or 0) / 100)
+    end
+    local recklessness = run.buffs and run.buffs.recklessness
+    if recklessness and (recklessness.turns or 0) > 0 then
+        multiplier = multiplier
+            * (1 + math.max(0, tonumber(recklessness.damageTaken) or 0) / 100)
+    end
+
+    rawDamage = math.max(1, math.floor((tonumber(rawDamage) or 1) * multiplier + 0.5))
+
+    local armor = stats.armor or 0
+    local lastStand = run.arcadeTraits and (run.arcadeTraits.LAST_STAND or 0) or 0
+    if lastStand > 0 and (run.playerMaxHealth or 0) > 0
+        and (run.playerHealth or 0) / run.playerMaxHealth <= 0.35 then
+        armor = armor * (1 + lastStand / 100)
+    end
+    local mitigation = math.min(0.55, armor / (armor + 100))
+    local damage = math.max(1, math.floor(rawDamage * (1 - mitigation) + 0.5))
+
+    local blockChance = stats.block or 0
+    local shieldBlock = run.buffs and run.buffs.shield_block
+    if shieldBlock and (shieldBlock.turns or 0) > 0 then
+        blockChance = math.min(100, blockChance + math.max(0, tonumber(shieldBlock.percent) or 0))
+    end
+    local blocked = blockChance > 0
+        and math.random(1, 1000) <= math.floor(blockChance * 10)
+    if blocked then
+        damage = math.max(1, math.floor(damage * 0.5 + 0.5))
+        run.reactive = run.reactive or {}
+        run.reactive.revenge = { turns = 2 }
+    end
+
+    run.playerHealth = math.max(0, (run.playerHealth or run.playerMaxHealth or 1) - damage)
+    self:AddCombatLog(
+        string.format(
+            "%s%s hits you for %d damage. (%d/%d HP)",
+            blocked and "BLOCK! " or "",
+            tostring(skillName or GetEnemyDisplayName(enemy)),
+            damage,
+            run.playerHealth,
+            run.playerMaxHealth or run.playerHealth
+        ),
+        "enemy"
+    )
+    self:UpdateRunHealth()
+
+    if run.playerHealth <= 0 then
+        self:FailDungeonRun(
+            tostring(skillName or GetEnemyDisplayName(enemy))
+            .. " killed "
+            .. (run.snapshot.name or "your hero")
+            .. "."
+        )
+        return false
+    end
+
+    return true
+end
+
+function GA:ResolveMonsterSkill(enemy, skill)
+    local run = self.RunState
+    if not run or not run.active or not enemy or not skill then
+        return false
+    end
+
+    local effect = string.upper(tostring(skill.effect or "DAMAGE"))
+    local skillName = skill.name or skill.id or "Monster Skill"
+    local duration = math.max(0, math.floor(tonumber(skill.durationTurns) or 0))
+    local effectValue = tonumber(skill.effectValue) or 0
+
+    enemy.skillCooldowns = enemy.skillCooldowns or {}
+    enemy.skillUseCounts = enemy.skillUseCounts or {}
+    enemy.skillUseCounts[skill.id] = (enemy.skillUseCounts[skill.id] or 0) + 1
+    local cooldown = math.max(0, math.floor(tonumber(skill.cooldownTurns) or 0))
+    if cooldown > 0 then
+        enemy.skillCooldowns[skill.id] = cooldown
+    end
+
+    if effect == "HEAL" then
+        local amount = math.max(1, math.floor((enemy.maxHp or 1) * math.max(0, effectValue) / 100 + 0.5))
+        local before = enemy.hp or enemy.maxHp or 1
+        enemy.hp = math.min(enemy.maxHp or before, before + amount)
+        self:AddCombatLog(
+            string.format("%s uses %s and heals %d HP.", GetEnemyDisplayName(enemy), skillName, enemy.hp - before),
+            "enemy"
+        )
+        return true
+    elseif effect == "ROOT" then
+        run.monsterStatuses = run.monsterStatuses or {}
+        run.monsterStatuses.root = {
+            turns = math.max(1, duration),
+            name = skillName,
+            source = enemy.uid,
+        }
+        self:AddCombatLog(
+            string.format("%s uses %s. You are rooted for %d turn(s).",
+                GetEnemyDisplayName(enemy), skillName, math.max(1, duration)),
+            "enemy"
+        )
+        return true
+    elseif effect == "SLOW" then
+        run.monsterStatuses = run.monsterStatuses or {}
+        run.monsterStatuses.slow = {
+            turns = math.max(1, duration),
+            percent = math.max(0, math.min(90, effectValue)),
+            name = skillName,
+            source = enemy.uid,
+        }
+        self:AddCombatLog(
+            string.format("%s uses %s. Movement slowed by %d%%.",
+                GetEnemyDisplayName(enemy), skillName, math.floor(math.max(0, effectValue))),
+            "enemy"
+        )
+        return true
+    elseif effect == "BUFF_DAMAGE" then
+        enemy.statuses = enemy.statuses or {}
+        enemy.statuses.monsterDamageBuff = {
+            turns = math.max(1, duration) + 1,
+            percent = math.max(0, effectValue),
+        }
+        self:AddCombatLog(
+            string.format("%s uses %s and gains +%d%% damage.",
+                GetEnemyDisplayName(enemy), skillName, math.floor(math.max(0, effectValue))),
+            "enemy"
+        )
+        return true
+    end
+
+    local baseDamage = math.random(
+        enemy.damageMin or 1,
+        enemy.damageMax or enemy.damageMin or 1
+    )
+    local rawDamage = math.max(
+        1,
+        math.floor(baseDamage * math.max(0, tonumber(skill.damageMultiplier) or 1) + 0.5)
+    )
+    local survived = self:ApplyMonsterSkillDamage(enemy, rawDamage, skillName)
+    if not survived or not run.active then
+        return true
+    end
+
+    if effect == "DAMAGE_DOT" then
+        run.monsterStatuses = run.monsterStatuses or {}
+        run.monsterStatuses.poison = {
+            turns = math.max(1, duration),
+            damage = math.max(1, math.floor(math.max(0, effectValue) + 0.5)),
+            name = skillName,
+            source = enemy.uid,
+        }
+        self:AddCombatLog(
+            string.format("%s leaves a %d-turn damage effect.", skillName, math.max(1, duration)),
+            "enemy"
+        )
+    end
+
+    return true
+end
+
+function GA:TryUseMonsterSkill(enemy, enemyPhase)
+    local run = self.RunState
+    if not run or not run.active or not enemy or enemy.alive == false then
+        return false
+    end
+
+    TickMonsterSkillCooldowns(enemy)
+
+    if enemy.pendingSkill and enemy.pendingSkill.skillId then
+        local pending = enemy.pendingSkill
+        local skill = GetMonsterSkillById(pending.skillId)
+        if not skill then
+            enemy.pendingSkill = nil
+            return false
+        end
+
+        pending.turns = math.max(0, (tonumber(pending.turns) or 1) - 1)
+        if pending.turns > 0 then
+            return true
+        end
+
+        enemy.pendingSkill = nil
+        local target = string.upper(tostring(skill.target or "PLAYER"))
+        local range = math.max(0, math.floor(tonumber(skill.range) or 1))
+        local distance = GetMonsterSkillDistance(enemy, run)
+        local validTarget = target == "SELF"
+            or (distance <= range and HasLineOfSight(enemy.x, enemy.y, run.playerX, run.playerY))
+
+        if not validTarget then
+            self:AddCombatLog(
+                string.format("%s's %s misses its opening.", GetEnemyDisplayName(enemy), skill.name or skill.id),
+                "enemy"
+            )
+            return true
+        end
+
+        return self:ResolveMonsterSkill(enemy, skill)
+    end
+
+    local skill = ChooseMonsterSkill(enemy, run, enemyPhase)
+    if not skill then
+        return false
+    end
+
+    local telegraphTurns = math.max(0, math.floor(tonumber(skill.telegraphTurns) or 0))
+    if telegraphTurns > 0 then
+        enemy.pendingSkill = {
+            skillId = skill.id,
+            turns = telegraphTurns,
+        }
+        self:AddCombatLog(
+            string.format("%s prepares %s.", GetEnemyDisplayName(enemy), skill.name or skill.id),
+            "enemy"
+        )
+        return true
+    end
+
+    return self:ResolveMonsterSkill(enemy, skill)
+end
+
+function GA:AdvanceMonsterPlayerStatuses()
+    local run = self.RunState
+    if not run or not run.active then
+        return false
+    end
+
+    local statuses = run.monsterStatuses
+    if not statuses then
+        return true
+    end
+
+    local poison = statuses.poison
+    if poison and (poison.turns or 0) > 0 then
+        local damage = math.max(1, math.floor(tonumber(poison.damage) or 1))
+        run.playerHealth = math.max(0, (run.playerHealth or run.playerMaxHealth or 1) - damage)
+        self:AddCombatLog(
+            string.format("%s deals %d lingering damage. (%d/%d HP)",
+                poison.name or "Venom",
+                damage,
+                run.playerHealth,
+                run.playerMaxHealth or run.playerHealth),
+            "enemy"
+        )
+        self:UpdateRunHealth()
+        poison.turns = poison.turns - 1
+        if poison.turns <= 0 then
+            statuses.poison = nil
+        end
+        if run.playerHealth <= 0 then
+            self:FailDungeonRun(
+                (poison.name or "A lingering monster effect")
+                .. " killed "
+                .. (run.snapshot.name or "your hero")
+                .. "."
+            )
+            return false
+        end
+    end
+
+    for _, statusId in ipairs({ "root", "slow" }) do
+        local status = statuses[statusId]
+        if status then
+            status.turns = (status.turns or 1) - 1
+            if status.turns <= 0 then
+                statuses[statusId] = nil
+            end
+        end
+    end
+
+    return true
+end
+
 function GA:RunEnemyTurn()
     local run = self.RunState
     if not run or not run.active or not run.enemies then
         self:RefreshActionButtons()
+        return
+    end
+
+    if not self:AdvanceMonsterPlayerStatuses() then
         return
     end
 
@@ -8097,7 +8558,14 @@ function GA:RunEnemyTurn()
                     end
                 end
 
-                if IsAdjacent(enemy.x, enemy.y, run.playerX, run.playerY) then
+                local usedMonsterSkill = false
+                if enemy.alerted and seesPlayer then
+                    usedMonsterSkill = self:TryUseMonsterSkill(enemy, enemyPhase)
+                end
+
+                if usedMonsterSkill then
+                    enemy.intent = "SKILL"
+                elseif IsAdjacent(enemy.x, enemy.y, run.playerX, run.playerY) then
                     enemy.intent = "ATTACKING"
                     run.activeEnemyId = run.activeEnemyId or enemy.uid
 
@@ -8140,6 +8608,12 @@ function GA:RunEnemyTurn()
                         if disarmed and (disarmed.turns or 0) > 0 then
                             enemyDamageMultiplier = enemyDamageMultiplier
                                 * (1 - math.max(0, math.min(90, tonumber(disarmed.percent) or 0)) / 100)
+                        end
+
+                        local monsterDamageBuff = enemy.statuses and enemy.statuses.monsterDamageBuff
+                        if monsterDamageBuff and (monsterDamageBuff.turns or 0) > 0 then
+                            enemyDamageMultiplier = enemyDamageMultiplier
+                                * (1 + math.max(0, tonumber(monsterDamageBuff.percent) or 0) / 100)
                         end
 
                         if run.stance == "defensive" then
@@ -8694,6 +9168,33 @@ function GA:MoveDungeonPlayer(dx, dy)
     local run = self.RunState
     if not run or not run.active then
         return
+    end
+
+    local root = run.monsterStatuses and run.monsterStatuses.root
+    if root and (root.turns or 0) > 0 then
+        run.turns = (run.turns or 0) + 1
+        self:AddCombatLog(
+            (root.name or "Web") .. " holds you in place.",
+            "enemy"
+        )
+        self:RefreshRunCounters()
+        self:RunEnemyTurn()
+        return
+    end
+
+    local slow = run.monsterStatuses and run.monsterStatuses.slow
+    if slow and (slow.turns or 0) > 0 then
+        local percent = math.max(0, math.min(90, tonumber(slow.percent) or 0))
+        if percent > 0 and math.random(1, 100) <= percent then
+            run.turns = (run.turns or 0) + 1
+            self:AddCombatLog(
+                (slow.name or "Slow") .. " prevents your movement.",
+                "enemy"
+            )
+            self:RefreshRunCounters()
+            self:RunEnemyTurn()
+            return
+        end
     end
 
     local nextX = run.playerX + dx

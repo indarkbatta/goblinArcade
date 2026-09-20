@@ -129,6 +129,7 @@ class Enemy:
     damage_min: int
     damage_max: int
     xp: int
+    skill_ids: list[str] = field(default_factory=list)
 
 @dataclass
 class Item:
@@ -206,6 +207,7 @@ class Audit:
         self.loot = self.data.get("loot", [])
         self.ranks = {x["id"]: x for x in self.data.get("ranks", [])}
         self.enemies = {x["id"]: x for x in self.data.get("enemies", [])}
+        self.monster_skills = {x["id"]: x for x in self.data.get("monsterSkills", [])}
         self.progression = next(x for x in self.data["progression"] if x["id"] == "run_xp")
         self.warrior = next(x for x in self.data["classes"] if x["id"] == "warrior")
         self.xp_curve = [int(x.strip()) for x in str(self.progression["xpCurve"]).split(",") if x.strip()]
@@ -267,6 +269,7 @@ class Audit:
             damage_min=damage_min,
             damage_max=damage_max,
             xp=xp,
+            skill_ids=list(a.get("skillIds", []) or []),
         )
 
     def floor_enemies(self, player_level: int, floor: int) -> list[Enemy]:
@@ -569,12 +572,121 @@ class Audit:
         player.potions_used += 1
         return True
 
+
+    def monster_skill_action(
+        self,
+        player: Player,
+        enemy: Enemy,
+        defensive: bool,
+        turn_index: int,
+        cooldowns: dict[str, int],
+        pending: dict[str, Any] | None,
+        poison: dict[str, int] | None,
+    ) -> tuple[int, dict[str, Any] | None, dict[str, int] | None, bool]:
+        for key in list(cooldowns):
+            cooldowns[key] -= 1
+            if cooldowns[key] <= 0:
+                del cooldowns[key]
+
+        if pending:
+            pending["turns"] -= 1
+            if pending["turns"] > 0:
+                return 0, pending, poison, True
+            skill = self.monster_skills.get(pending["skill_id"])
+            pending = None
+            if not skill:
+                return 0, None, poison, False
+            multiplier = max(0.0, float(skill.get("damageMultiplier", 1) or 0))
+            damage = self.incoming_hit(player, enemy, defensive)
+            damage = max(1, round_lua(damage * multiplier)) if multiplier > 0 else 0
+            if skill.get("effect") == "DAMAGE_DOT":
+                poison = {
+                    "turns": max(1, int(skill.get("durationTurns", 1) or 1)),
+                    "damage": max(1, round_lua(float(skill.get("effectValue", 1) or 1))),
+                }
+            cooldown = max(0, int(skill.get("cooldownTurns", 0) or 0))
+            if cooldown:
+                cooldowns[skill["id"]] = cooldown
+            return damage, pending, poison, True
+
+        candidates = []
+        total = 0.0
+        hp_pct = 100 * enemy.hp / max(1, enemy.max_hp)
+        for skill_id in enemy.skill_ids:
+            skill = self.monster_skills.get(skill_id)
+            if not skill or skill_id in cooldowns:
+                continue
+            condition = str(skill.get("condition", "ALWAYS")).upper()
+            value = float(skill.get("conditionValue", 0) or 0)
+            # Duel model starts in melee after contact. Ranged spacing skills
+            # such as Web are handled by the PRESSURE envelope rather than
+            # pretending exact pathfinding here.
+            valid = condition in ("ALWAYS", "ADJACENT")
+            if condition == "SELF_HP_BELOW":
+                valid = hp_pct <= value
+            elif condition == "TARGET_HP_BELOW":
+                valid = 100 * player.hp / max(1, player.max_hp) <= value
+            elif condition == "EVERY_N_TURNS":
+                valid = turn_index % max(1, int(value)) == 0
+            elif condition == "RANGE_MIN":
+                valid = False
+            if not valid:
+                continue
+            weight = max(0.0, float(skill.get("priority", 0) or 0))
+            if weight > 0:
+                candidates.append((skill, weight))
+                total += weight
+
+        if not candidates or total <= 0:
+            return 0, pending, poison, False
+
+        roll = self.rng.random() * total
+        cursor = 0.0
+        skill = candidates[-1][0]
+        for candidate, weight in candidates:
+            cursor += weight
+            if roll <= cursor:
+                skill = candidate
+                break
+
+        telegraph = max(0, int(skill.get("telegraphTurns", 0) or 0))
+        if telegraph:
+            return 0, {"skill_id": skill["id"], "turns": telegraph}, poison, True
+
+        effect = str(skill.get("effect", "DAMAGE")).upper()
+        cooldown = max(0, int(skill.get("cooldownTurns", 0) or 0))
+        if cooldown:
+            cooldowns[skill["id"]] = cooldown
+
+        if effect == "HEAL":
+            enemy.hp = min(
+                enemy.max_hp,
+                enemy.hp + max(1, round_lua(enemy.max_hp * float(skill.get("effectValue", 0) or 0) / 100)),
+            )
+            return 0, pending, poison, True
+        if effect in ("ROOT", "SLOW", "BUFF_DAMAGE"):
+            # Positional/control effects matter to the live grid. The duel
+            # audit does not invent pathing consequences for them.
+            return 0, pending, poison, True
+
+        multiplier = max(0.0, float(skill.get("damageMultiplier", 1) or 0))
+        damage = self.incoming_hit(player, enemy, defensive)
+        damage = max(1, round_lua(damage * multiplier)) if multiplier > 0 else 0
+        if effect == "DAMAGE_DOT":
+            poison = {
+                "turns": max(1, int(skill.get("durationTurns", 1) or 1)),
+                "damage": max(1, round_lua(float(skill.get("effectValue", 1) or 1))),
+            }
+        return damage, pending, poison, True
+
     def fight(self, player: Player, enemy: Enemy, floor: int, pressure_scale: float) -> tuple[bool, int]:
         turns = 0
         rage = 0
         defensive = player.profile == "shield" and player.level >= 10
+        skill_cooldowns: dict[str, int] = {}
+        pending_skill: dict[str, Any] | None = None
+        poison: dict[str, int] | None = None
 
-        # Competent low-level Warrior model: use Charge as an opener once it is learned.
         if player.level >= 4:
             enemy.hp = max(0, enemy.hp - self.player_hit(player, 1.0))
             turns += 1
@@ -583,39 +695,52 @@ class Audit:
                 return True, turns
 
         while enemy.hp > 0 and player.hp > 0 and turns < 100:
+            if poison and poison["turns"] > 0:
+                player.hp -= poison["damage"]
+                player.damage_taken += poison["damage"]
+                poison["turns"] -= 1
+                if poison["turns"] <= 0:
+                    poison = None
+                if player.hp <= 0:
+                    break
+
             if player.hp / player.max_hp <= 0.38 and player.potions:
                 self.use_potion(player)
                 turns += 1
-                damage = self.incoming_hit(player, enemy, defensive)
-                player.hp -= damage
-                player.damage_taken += damage
-                if player.hp <= 0:
-                    break
             else:
                 multiplier = 1.0
                 if rage >= 2:
-                    # Heroic Strike
                     multiplier = 1.5
                     rage -= 2
                 else:
-                    # Basic Attack
                     rage = min(3, rage + 1)
-
                 enemy.hp = max(0, enemy.hp - self.player_hit(player, multiplier))
                 turns += 1
                 if enemy.hp <= 0:
                     break
 
+            skill_damage, pending_skill, poison, used_skill = self.monster_skill_action(
+                player,
+                enemy,
+                defensive,
+                turns,
+                skill_cooldowns,
+                pending_skill,
+                poison,
+            )
+            if used_skill:
+                player.hp -= skill_damage
+                player.damage_taken += skill_damage
+            else:
                 damage = self.incoming_hit(player, enemy, defensive)
                 player.hp -= damage
                 player.damage_taken += damage
 
-            # Sensitivity test for simultaneous alerted enemies. This is not
-            # claimed to be exact pathfinding; it prevents the audit from
-            # treating every dungeon as a sterile duel corridor.
+            if player.hp <= 0:
+                break
+
             if (
                 pressure_scale > 0
-                and player.hp > 0
                 and enemy.hp > 0
                 and self.rng.random() < min(0.75, PRESSURE_EXTRA_HIT[floor] * pressure_scale)
             ):

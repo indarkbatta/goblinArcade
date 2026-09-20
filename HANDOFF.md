@@ -3,9 +3,50 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.56.0**  
+Current addon version: **0.57.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.57.0 — Monster Skill System + Studio editor
+
+- Added a new Studio **Monster Skills** section using the same data-driven philosophy as player abilities.
+- Monster Skill fields include:
+  - ID, name and WoW icon;
+  - effect type and target;
+  - damage multiplier / effect values;
+  - duration, cooldown and range;
+  - AI weight;
+  - use condition + condition value;
+  - optional telegraph turns.
+- Supported runtime effects in the first pass:
+  - **DAMAGE**
+  - **DAMAGE_DOT**
+  - **ROOT**
+  - **SLOW**
+  - **HEAL**
+  - **BUFF_DAMAGE**
+- Supported AI conditions:
+  - ALWAYS
+  - ADJACENT
+  - RANGE_MIN
+  - SELF_HP_BELOW
+  - TARGET_HP_BELOW
+  - EVERY_N_TURNS
+  - ONCE_PER_COMBAT
+- Enemy records now contain an **Abilities** relation list. Studio uses a dropdown + ADD flow and removable rows rather than a wall of checkboxes.
+- Initial authored skills:
+  - Kobold: **Desperate Slash**
+  - Spider: **Venom Bite**, **Web**
+  - Skeleton: **Heavy Swing**
+  - Brute: **Crushing Blow**
+- Telegraph skills consume their wind-up enemy action and show the skill's WoW icon on the monster tile. If the player moves out of range before resolution, the attack loses its opening.
+- Monster cooldowns, pending telegraphs and skill use counts are part of the enemy runtime state and therefore persist with floor backtracking/saved floor state.
+- Web-style root blocks movement for the configured duration but still allows non-movement player actions.
+- Monster DoTs are tracked separately from player ability effects and tick on subsequent player turns.
+- Difficulty scaling continues to apply underneath Monster Skills because damage skills scale from the enemy's already-difficulty-scaled damage profile.
+- Headless balance QA now reads `monsterSkills` and enemy skill assignments, and models direct/DoT/telegraphed combat pressure.
+- Studio schema = **8**, Studio version = **1.7.0**, local draft key = **v20**.
+- EnemyGenerator version = **11**.
 
 ## 0.56.0 — independent difficulty + Hardcore modes
 
