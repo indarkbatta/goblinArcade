@@ -815,6 +815,32 @@ local function GetStudioAbilityById(abilityId)
     return nil
 end
 
+local function GetAbilityIconTexture(ability)
+    if not ability then
+        return "Interface\\Icons\\INV_Misc_QuestionMark"
+    end
+
+    local configured = ability.icon
+    if configured ~= nil and tostring(configured) ~= "" then
+        local numeric = tonumber(configured)
+        if numeric then return numeric end
+        configured = tostring(configured)
+        if string.find(configured, "\\", 1, true) then return configured end
+        return "Interface\\Icons\\" .. configured
+    end
+
+    local spellName = ability.name
+    if spellName and C_Spell and C_Spell.GetSpellTexture then
+        local ok, texture = pcall(C_Spell.GetSpellTexture, spellName)
+        if ok and texture then return texture end
+    end
+    if spellName and type(GetSpellTexture) == "function" then
+        local ok, texture = pcall(GetSpellTexture, spellName)
+        if ok and texture then return texture end
+    end
+    return "Interface\\Icons\\INV_Misc_QuestionMark"
+end
+
 local function BuildRoomRoleText(counts)
     counts = counts or {}
 
@@ -1519,28 +1545,53 @@ function GA:CreateDungeonRunPage(parent)
     local spellbookHint = CreateText(
         spellbook,
         "GameFontHighlightSmall",
-        "Drag a learned ability onto action slots 2-5. Locked spells show their required Run Level."
+        "Drag learned spells onto action slots 2-9. Locked spells show their required Run Level."
     )
     spellbookHint:SetPoint("TOP", spellbookTitle, "BOTTOM", 0, -7)
     spellbookHint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
+    local SPELLS_PER_PAGE = 12
+    self.DungeonSpellbookPage = 1
     self.DungeonSpellbookButtons = {}
-    for i = 1, #RUN_ABILITY_IDS do
-        local col = (i - 1) % 3
-        local row = math.floor((i - 1) / 3)
-        local spellButton = CreateFlatButton(spellbook, "--", 166, 30)
-        spellButton:SetPoint("TOPLEFT", 16 + col * 174, -62 - row * 34)
-        spellButton.gaAbilityIndex = i
+
+    for i = 1, SPELLS_PER_PAGE do
+        local col = (i - 1) % 2
+        local row = math.floor((i - 1) / 2)
+
+        local spellButton = CreateFrame("Button", nil, spellbook, "BackdropTemplate")
+        spellButton:SetSize(250, 50)
+        spellButton:SetPoint("TOPLEFT", 18 + col * 272, -66 - row * 56)
+        ApplyBackdrop(spellButton, { 0.045, 0.039, 0.031, 1 }, COLORS.goldDim)
         spellButton:RegisterForDrag("LeftButton")
+
+        local icon = spellButton:CreateTexture(nil, "ARTWORK")
+        icon:SetSize(38, 38)
+        icon:SetPoint("LEFT", 6, 0)
+        icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+        icon:SetTexCoord(0.06, 0.94, 0.06, 0.94)
+        spellButton.icon = icon
+
+        local nameText = CreateText(spellButton, "GameFontNormalSmall", "")
+        nameText:SetPoint("TOPLEFT", icon, "TOPRIGHT", 8, -3)
+        nameText:SetPoint("RIGHT", -6, 0)
+        nameText:SetJustifyH("LEFT")
+        nameText:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+        spellButton.nameText = nameText
+
+        local metaText = CreateText(spellButton, "GameFontDisableSmall", "")
+        metaText:SetPoint("BOTTOMLEFT", icon, "BOTTOMRIGHT", 8, 3)
+        metaText:SetPoint("RIGHT", -6, 0)
+        metaText:SetJustifyH("LEFT")
+        metaText:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+        spellButton.metaText = metaText
+
         spellButton:SetScript("OnDragStart", function(button)
             if button.gaAbilityId and button.gaUnlocked then
                 GA:BeginSpellbookDrag(button.gaAbilityId)
             end
         end)
-        spellButton:SetScript("OnClick", function(button)
-            if button.gaAbilityId and button.gaUnlocked then
-                GA:BeginSpellbookDrag(button.gaAbilityId)
-            end
+        spellButton:SetScript("OnDragStop", function()
+            GA:FinishSpellbookDrag()
         end)
         spellButton:SetScript("OnEnter", function(button)
             GA:ShowSpellbookAbilityTooltip(button)
@@ -1551,11 +1602,50 @@ function GA:CreateDungeonRunPage(parent)
         self.DungeonSpellbookButtons[i] = spellButton
     end
 
-    local spellbookClose = CreateFlatButton(spellbook, "B / ESC  CLOSE", 160, 30)
-    spellbookClose:SetPoint("BOTTOM", 0, 12)
+    local prevPage = CreateFlatButton(spellbook, "<  PREV", 100, 28)
+    prevPage:SetPoint("BOTTOMLEFT", 18, 12)
+    prevPage:SetScript("OnClick", function()
+        GA:ChangeSpellbookPage(-1)
+    end)
+    self.DungeonSpellbookPrev = prevPage
+
+    local pageText = CreateText(spellbook, "GameFontNormalSmall", "PAGE 1 / 1")
+    pageText:SetPoint("BOTTOM", 0, 42)
+    pageText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    self.DungeonSpellbookPageText = pageText
+
+    local nextPage = CreateFlatButton(spellbook, "NEXT  >", 100, 28)
+    nextPage:SetPoint("BOTTOMRIGHT", -18, 12)
+    nextPage:SetScript("OnClick", function()
+        GA:ChangeSpellbookPage(1)
+    end)
+    self.DungeonSpellbookNext = nextPage
+
+    local spellbookClose = CreateFlatButton(spellbook, "B / ESC  CLOSE", 150, 28)
+    spellbookClose:SetPoint("BOTTOM", 0, 8)
     spellbookClose:SetScript("OnClick", function()
         GA:CloseSpellbook()
     end)
+
+    local dragFrame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+    dragFrame:SetSize(46, 46)
+    dragFrame:SetFrameStrata("TOOLTIP")
+    dragFrame:EnableMouse(false)
+    ApplyBackdrop(dragFrame, { 0.02, 0.02, 0.02, 0.9 }, COLORS.green)
+
+    local dragIcon = dragFrame:CreateTexture(nil, "ARTWORK")
+    dragIcon:SetPoint("TOPLEFT", 3, -3)
+    dragIcon:SetPoint("BOTTOMRIGHT", -3, 3)
+    dragIcon:SetTexCoord(0.06, 0.94, 0.06, 0.94)
+    dragFrame.icon = dragIcon
+    dragFrame:Hide()
+    dragFrame:SetScript("OnUpdate", function(frame)
+        local x, y = GetCursorPosition()
+        local scale = UIParent:GetEffectiveScale()
+        frame:ClearAllPoints()
+        frame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x / scale + 18, y / scale - 18)
+    end)
+    self.DungeonSpellDragFrame = dragFrame
 
     local legend = CreateText(center, "GameFontDisableSmall", "@ YOU    ENEMY SPRITE    * CLEARED    S SHRINE    $ CHEST    < / > STAIRS")
     legend:SetPoint("BOTTOM", 0, 9)
@@ -1564,41 +1654,87 @@ function GA:CreateDungeonRunPage(parent)
     local actionBar = CreateFrame("Frame", nil, page, "BackdropTemplate")
     actionBar:SetPoint("BOTTOMLEFT", 18, 16)
     actionBar:SetPoint("BOTTOMRIGHT", -18, 16)
-    actionBar:SetHeight(72)
-    ApplyBackdrop(actionBar, { 0.050, 0.043, 0.034, 1 }, COLORS.goldDim)
+    actionBar:SetHeight(86)
+    ApplyBackdrop(actionBar, { 0.035, 0.031, 0.026, 0.98 }, COLORS.goldDim)
 
-    local actionLabel = CreateText(actionBar, "GameFontNormalSmall", "ACTIONS")
-    actionLabel:SetPoint("BOTTOMLEFT", 12, 14)
+    local actionLabel = CreateText(actionBar, "GameFontNormalSmall", "ACTION BAR")
+    actionLabel:SetPoint("TOPLEFT", 12, -9)
     actionLabel:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
-    local spellbookButton = CreateFlatButton(actionBar, "B  SPELLBOOK", 108, 24)
-    spellbookButton:SetPoint("TOPLEFT", 72, -4)
+    local spellbookButton = CreateFlatButton(actionBar, "B  SPELLBOOK", 104, 24)
+    spellbookButton:SetPoint("TOPLEFT", actionLabel, "TOPRIGHT", 12, 4)
     spellbookButton:SetScript("OnClick", function()
         GA:ToggleSpellbook()
     end)
     self.DungeonSpellbookButton = spellbookButton
 
+    local function CreateActionIconButton(parent, hotkey, iconTexture)
+        local button = CreateFrame("Button", nil, parent, "BackdropTemplate")
+        button:SetSize(48, 48)
+        ApplyBackdrop(button, { 0.018, 0.016, 0.013, 1 }, COLORS.goldDim)
+        button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+
+        local icon = button:CreateTexture(nil, "ARTWORK")
+        icon:SetPoint("TOPLEFT", 3, -3)
+        icon:SetPoint("BOTTOMRIGHT", -3, 3)
+        icon:SetTexture(iconTexture or "Interface\\Icons\\INV_Misc_QuestionMark")
+        icon:SetTexCoord(0.06, 0.94, 0.06, 0.94)
+        button.icon = icon
+
+        local keyText = CreateText(button, "GameFontNormalSmall", hotkey)
+        keyText:SetPoint("TOPRIGHT", -4, -3)
+        keyText:SetTextColor(1, 1, 1)
+        button.hotkeyText = keyText
+
+        local cooldownText = CreateText(button, "GameFontNormal", "")
+        cooldownText:SetPoint("CENTER", 0, 0)
+        cooldownText:SetTextColor(1, 1, 1)
+        button.cooldownText = cooldownText
+
+        return button
+    end
+
     self.DungeonActionButtons = {}
     self.DungeonAbilitySlotButtons = {}
 
-    local attackButton = CreateFlatButton(actionBar, "1  ATTACK", 108, 32)
-    attackButton:SetPoint("BOTTOMLEFT", 12, 8)
+    local barButtonSize = 48
+    local barGap = 5
+    local totalButtons = 10
+    local totalWidth = (barButtonSize * totalButtons) + (barGap * (totalButtons - 1))
+    local startX = -math.floor(totalWidth / 2)
+
+    local attackButton = CreateActionIconButton(
+        actionBar,
+        "1",
+        "Interface\\Icons\\INV_Sword_04"
+    )
+    attackButton:SetPoint("BOTTOM", actionBar, "BOTTOM", startX + 24, 7)
     attackButton:SetEnabled(false)
-    attackButton.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
     attackButton:SetScript("OnClick", function()
         GA:PlayerAttackEnemy()
     end)
+    attackButton:SetScript("OnEnter", function(button)
+        GameTooltip:SetOwner(button, "ANCHOR_TOP")
+        GameTooltip:SetText("Basic Attack", 1, 0.82, 0.2)
+        GameTooltip:AddLine("Fixed basic melee attack. Generates class resource on a successful strike.", 0.9, 0.9, 0.9, true)
+        GameTooltip:Show()
+    end)
+    attackButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
     self.DungeonAttackButton = attackButton
     self.DungeonActionButtons[1] = attackButton
 
-    for slotIndex = 1, 4 do
+    for slotIndex = 1, 8 do
         local hotkey = tostring(slotIndex + 1)
-        local button = CreateFlatButton(actionBar, hotkey .. "  [EMPTY]", 132, 32)
-        button:SetPoint("BOTTOMLEFT", 128 + (slotIndex - 1) * 140, 8)
-        button:SetEnabled(false)
-        button.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+        local button = CreateActionIconButton(
+            actionBar,
+            hotkey,
+            "Interface\\Icons\\INV_Misc_QuestionMark"
+        )
+        local x = startX + ((slotIndex) * (barButtonSize + barGap)) + 24
+        button:SetPoint("BOTTOM", actionBar, "BOTTOM", x, 7)
+        button:SetEnabled(true)
         button.gaActionSlot = slotIndex
-        button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        button:RegisterForDrag("LeftButton")
         button:SetScript("OnClick", function(slotButton, mouseButton)
             if mouseButton == "RightButton" then
                 GA:ClearRunActionSlot(slotButton.gaActionSlot)
@@ -1628,16 +1764,27 @@ function GA:CreateDungeonRunPage(parent)
         self.DungeonActionButtons[slotIndex + 1] = button
     end
 
-    local potionButton = CreateFlatButton(actionBar, "6  POTION", 108, 32)
-    potionButton:SetPoint("BOTTOMRIGHT", -12, 8)
+    local potionButton = CreateActionIconButton(
+        actionBar,
+        "0",
+        "Interface\\Icons\\INV_Potion_54"
+    )
+    local potionX = startX + (9 * (barButtonSize + barGap)) + 24
+    potionButton:SetPoint("BOTTOM", actionBar, "BOTTOM", potionX, 7)
     potionButton:SetEnabled(false)
-    potionButton.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    potionButton:SetScript("OnEnter", function(button)
+        GameTooltip:SetOwner(button, "ANCHOR_TOP")
+        GameTooltip:SetText("Potion", 1, 0.82, 0.2)
+        GameTooltip:AddLine("Reserved for the finite run potion system.", 0.9, 0.9, 0.9, true)
+        GameTooltip:Show()
+    end)
+    potionButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
     self.DungeonPotionButton = potionButton
-    self.DungeonActionButtons[6] = potionButton
+    self.DungeonActionButtons[10] = potionButton
 
     local state = CreateText(actionBar, "GameFontDisableSmall", "READY - BEGIN A RUN")
-    state:SetPoint("TOPLEFT", 12, -8)
-    state:SetPoint("TOPRIGHT", -12, -8)
+    state:SetPoint("TOPRIGHT", -12, -10)
+    state:SetWidth(360)
     state:SetJustifyH("RIGHT")
     state:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
     self.DungeonRunStateText = state
@@ -1873,10 +2020,11 @@ function GA:CreateDungeonRunPage(parent)
         if key == "1" then
             GA:PlayerAttackEnemy()
             return
-        elseif key == "2" or key == "3" or key == "4" or key == "5" then
+        elseif key == "2" or key == "3" or key == "4" or key == "5"
+            or key == "6" or key == "7" or key == "8" or key == "9" then
             GA:UseRunActionSlot(tonumber(key) - 1)
             return
-        elseif key == "6" then
+        elseif key == "0" then
             if GA.DungeonRunStateText then
                 GA.DungeonRunStateText:SetText("POTION SLOT - NOT IMPLEMENTED YET")
                 GA.DungeonRunStateText:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
@@ -2364,25 +2512,48 @@ local DEFAULT_ACTION_SLOT_PRIORITY = {
 function GA:LoadSavedActionSlots(characterKey, unlockedAbilities)
     GoblinArcadeDB = GoblinArcadeDB or {}
     GoblinArcadeDB.actionBars = GoblinArcadeDB.actionBars or {}
+    GoblinArcadeDB.actionBarVersions = GoblinArcadeDB.actionBarVersions or {}
 
     local saved = characterKey and GoblinArcadeDB.actionBars[characterKey] or nil
+    local savedVersion = characterKey and GoblinArcadeDB.actionBarVersions[characterKey] or 1
     local slots = {}
+    local assigned = {}
 
     if saved then
-        for i = 1, 4 do
+        for i = 1, 8 do
             local abilityId = saved[i]
-            if abilityId and unlockedAbilities and unlockedAbilities[abilityId] then
+            if abilityId and GetStudioAbilityById(abilityId) then
                 slots[i] = abilityId
+                assigned[abilityId] = true
             end
         end
+
+        if savedVersion < 2 then
+            local nextSlot = 5
+            for _, abilityId in ipairs(DEFAULT_ACTION_SLOT_PRIORITY) do
+                if nextSlot > 8 then break end
+                if unlockedAbilities and unlockedAbilities[abilityId] and not assigned[abilityId] then
+                    while nextSlot <= 8 and slots[nextSlot] do
+                        nextSlot = nextSlot + 1
+                    end
+                    if nextSlot <= 8 then
+                        slots[nextSlot] = abilityId
+                        assigned[abilityId] = true
+                        nextSlot = nextSlot + 1
+                    end
+                end
+            end
+        end
+
         return slots
     end
 
     local nextSlot = 1
     for _, abilityId in ipairs(DEFAULT_ACTION_SLOT_PRIORITY) do
-        if nextSlot > 4 then break end
+        if nextSlot > 8 then break end
         if unlockedAbilities and unlockedAbilities[abilityId] then
             slots[nextSlot] = abilityId
+            assigned[abilityId] = true
             nextSlot = nextSlot + 1
         end
     end
@@ -2396,12 +2567,18 @@ function GA:SaveRunActionSlots()
 
     GoblinArcadeDB = GoblinArcadeDB or {}
     GoblinArcadeDB.actionBars = GoblinArcadeDB.actionBars or {}
+    GoblinArcadeDB.actionBarVersions = GoblinArcadeDB.actionBarVersions or {}
     GoblinArcadeDB.actionBars[run.actionBarKey] = {
         run.actionSlots and run.actionSlots[1] or nil,
         run.actionSlots and run.actionSlots[2] or nil,
         run.actionSlots and run.actionSlots[3] or nil,
         run.actionSlots and run.actionSlots[4] or nil,
+        run.actionSlots and run.actionSlots[5] or nil,
+        run.actionSlots and run.actionSlots[6] or nil,
+        run.actionSlots and run.actionSlots[7] or nil,
+        run.actionSlots and run.actionSlots[8] or nil,
     }
+    GoblinArcadeDB.actionBarVersions[run.actionBarKey] = 2
 end
 
 function GA:SetActionSlotDropHighlight(button, active)
@@ -2425,15 +2602,19 @@ function GA:BeginSpellbookDrag(abilityId)
     local ability = GetStudioAbilityById(abilityId)
     if not ability then return false end
 
-    self.DungeonSpellDrag = {
-        abilityId = abilityId,
-    }
+    self.DungeonSpellDrag = { abilityId = abilityId }
+
+    if self.DungeonSpellDragFrame then
+        self.DungeonSpellDragFrame.icon:SetTexture(GetAbilityIconTexture(ability))
+        self.DungeonSpellDragFrame:Show()
+    end
+
     self:RefreshActionSlotDropHighlights(true)
     self:RefreshActionButtons()
 
     if self.DungeonRunStateText then
         self.DungeonRunStateText:SetText(
-            "DROP " .. string.upper(ability.name or abilityId) .. " ON ACTION SLOT 2-5"
+            "DROP " .. string.upper(ability.name or abilityId) .. " ON ACTION SLOT 2-9"
         )
         self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
     end
@@ -2441,8 +2622,35 @@ function GA:BeginSpellbookDrag(abilityId)
     return true
 end
 
+function GA:FinishSpellbookDrag()
+    local drag = self.DungeonSpellDrag
+    if not drag or not drag.abilityId then
+        self:CancelSpellbookDrag()
+        return false
+    end
+
+    for slotIndex, button in ipairs(self.DungeonAbilitySlotButtons or {}) do
+        local over = false
+        if button.IsMouseOver then
+            over = button:IsMouseOver()
+        elseif MouseIsOver then
+            over = MouseIsOver(button)
+        end
+
+        if over then
+            return self:AssignRunActionSlot(slotIndex, drag.abilityId)
+        end
+    end
+
+    self:CancelSpellbookDrag()
+    return false
+end
+
 function GA:CancelSpellbookDrag()
     self.DungeonSpellDrag = nil
+    if self.DungeonSpellDragFrame then
+        self.DungeonSpellDragFrame:Hide()
+    end
     self:RefreshActionSlotDropHighlights(false)
     self:RefreshActionButtons()
 end
@@ -2452,7 +2660,7 @@ function GA:AssignRunActionSlot(slotIndex, abilityId)
     slotIndex = tonumber(slotIndex)
 
     if not run or not run.active
-        or not slotIndex or slotIndex < 1 or slotIndex > 4
+        or not slotIndex or slotIndex < 1 or slotIndex > 8
         or not run.unlockedAbilities or not run.unlockedAbilities[abilityId] then
         self:CancelSpellbookDrag()
         return false
@@ -2460,7 +2668,7 @@ function GA:AssignRunActionSlot(slotIndex, abilityId)
 
     run.actionSlots = run.actionSlots or {}
 
-    for i = 1, 4 do
+    for i = 1, 8 do
         if i ~= slotIndex and run.actionSlots[i] == abilityId then
             run.actionSlots[i] = nil
         end
@@ -2489,7 +2697,7 @@ end
 function GA:ClearRunActionSlot(slotIndex)
     local run = self.RunState
     slotIndex = tonumber(slotIndex)
-    if not run or not run.active or not slotIndex or slotIndex < 1 or slotIndex > 4 then
+    if not run or not run.active or not slotIndex or slotIndex < 1 or slotIndex > 8 then
         return false
     end
 
@@ -2536,7 +2744,7 @@ function GA:ShowSpellbookAbilityTooltip(button)
     GameTooltip:AddLine(ability.description or "", 0.9, 0.9, 0.9, true)
 
     if button.gaUnlocked then
-        GameTooltip:AddLine("Drag to action slots 2-5.", 0.35, 1, 0.35)
+        GameTooltip:AddLine("Drag to action slots 2-9.", 0.35, 1, 0.35)
     else
         GameTooltip:AddLine("Locked at current Run Level.", 1, 0.35, 0.35)
     end
@@ -2567,30 +2775,52 @@ function GA:RefreshSpellbook()
     local run = self.RunState
     if not self.DungeonSpellbookButtons then return end
 
+    local spellsPerPage = #self.DungeonSpellbookButtons
+    local pageCount = math.max(1, math.ceil(#RUN_ABILITY_IDS / spellsPerPage))
+    self.DungeonSpellbookPage = math.max(1, math.min(pageCount, self.DungeonSpellbookPage or 1))
+
     local assigned = {}
-    for slotIndex = 1, 4 do
+    for slotIndex = 1, 8 do
         local abilityId = run and run.actionSlots and run.actionSlots[slotIndex]
-        if abilityId then assigned[abilityId] = slotIndex + 1 end
+        if abilityId then
+            assigned[abilityId] = slotIndex + 1
+        end
     end
 
-    for i, button in ipairs(self.DungeonSpellbookButtons) do
-        local abilityId = RUN_ABILITY_IDS[i]
-        local ability = GetStudioAbilityById(abilityId)
-        local unlocked = run and run.active and run.unlockedAbilities and run.unlockedAbilities[abilityId]
+    local firstIndex = ((self.DungeonSpellbookPage - 1) * spellsPerPage) + 1
+    for buttonIndex, button in ipairs(self.DungeonSpellbookButtons) do
+        local abilityIndex = firstIndex + buttonIndex - 1
+        local abilityId = RUN_ABILITY_IDS[abilityIndex]
+        local ability = abilityId and GetStudioAbilityById(abilityId) or nil
+        local unlocked = abilityId
+            and run
+            and run.active
+            and run.unlockedAbilities
+            and run.unlockedAbilities[abilityId]
 
         button.gaAbilityId = abilityId
         button.gaUnlocked = unlocked and true or false
 
         if ability then
-            local prefix = unlocked and "" or ("LV" .. tostring(ability.learnLevel or 1) .. "  ")
-            local suffix = assigned[abilityId] and ("  [S" .. tostring(assigned[abilityId]) .. "]") or ""
-            button.label:SetText(prefix .. string.upper(ability.name or abilityId) .. suffix)
-            button:SetEnabled(unlocked and true or false)
-            button.label:SetTextColor(
-                unlocked and COLORS.gold[1] or COLORS.muted[1],
-                unlocked and COLORS.gold[2] or COLORS.muted[2],
-                unlocked and COLORS.gold[3] or COLORS.muted[3]
-            )
+            local assignedKey = assigned[abilityId]
+            button.nameText:SetText(string.upper(ability.name or abilityId))
+            if unlocked then
+                local meta = "LEARNED"
+                if assignedKey then
+                    meta = meta .. "  -  ACTION " .. tostring(assignedKey)
+                end
+                button.metaText:SetText(meta)
+                button.nameText:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+                button.metaText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+                button.icon:SetVertexColor(1, 1, 1)
+            else
+                button.metaText:SetText("LOCKED  -  LEVEL " .. tostring(ability.learnLevel or 1))
+                button.nameText:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+                button.metaText:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+                button.icon:SetVertexColor(0.32, 0.32, 0.32)
+            end
+            button.icon:SetTexture(GetAbilityIconTexture(ability))
+            button:Enable()
             button:Show()
         else
             button.gaAbilityId = nil
@@ -2598,6 +2828,31 @@ function GA:RefreshSpellbook()
             button:Hide()
         end
     end
+
+    if self.DungeonSpellbookPageText then
+        self.DungeonSpellbookPageText:SetText(
+            string.format("PAGE %d / %d", self.DungeonSpellbookPage, pageCount)
+        )
+    end
+    if self.DungeonSpellbookPrev then
+        self.DungeonSpellbookPrev:SetEnabled(self.DungeonSpellbookPage > 1)
+    end
+    if self.DungeonSpellbookNext then
+        self.DungeonSpellbookNext:SetEnabled(self.DungeonSpellbookPage < pageCount)
+    end
+end
+
+function GA:ChangeSpellbookPage(delta)
+    local spellsPerPage = #(self.DungeonSpellbookButtons or {})
+    if spellsPerPage <= 0 then return end
+
+    local pageCount = math.max(1, math.ceil(#RUN_ABILITY_IDS / spellsPerPage))
+    self.DungeonSpellbookPage = math.max(
+        1,
+        math.min(pageCount, (self.DungeonSpellbookPage or 1) + (tonumber(delta) or 0))
+    )
+    self:CancelSpellbookDrag()
+    self:RefreshSpellbook()
 end
 
 function GA:OpenSpellbook()
@@ -2636,11 +2891,14 @@ function GA:RefreshActionButtons()
 
     if self.DungeonAttackButton then
         self.DungeonAttackButton:SetEnabled(canAttack and true or false)
-        self.DungeonAttackButton.label:SetTextColor(
-            canAttack and COLORS.gold[1] or COLORS.muted[1],
-            canAttack and COLORS.gold[2] or COLORS.muted[2],
-            canAttack and COLORS.gold[3] or COLORS.muted[3]
-        )
+        if self.DungeonAttackButton.icon then
+            self.DungeonAttackButton.icon:SetVertexColor(
+                canAttack and 1 or 0.38,
+                canAttack and 1 or 0.38,
+                canAttack and 1 or 0.38
+            )
+        end
+        self:SetActionSlotDropHighlight(self.DungeonAttackButton, false)
     end
 
     if self.DungeonSpellbookButton then
@@ -2654,9 +2912,10 @@ function GA:RefreshActionButtons()
     end
 
     for slotIndex, button in ipairs(self.DungeonAbilitySlotButtons or {}) do
-        local hotkey = tostring(slotIndex + 1)
         local abilityId = run and run.actionSlots and run.actionSlots[slotIndex]
         local ability = abilityId and GetStudioAbilityById(abilityId) or nil
+
+        button:SetEnabled(run and run.active and true or false)
 
         if ability then
             local cost = math.max(0, tonumber(ability.resourceCost) or 0)
@@ -2664,21 +2923,30 @@ function GA:RefreshActionButtons()
             local enoughResource = (run.resource or 0) >= cost
             local unlocked = run.unlockedAbilities and run.unlockedAbilities[abilityId]
             local usable = run.active and unlocked and enoughResource and cooldown <= 0
-            local suffix = cooldown > 0 and (" (" .. tostring(cooldown) .. ")") or ""
 
             button.gaAbilityId = abilityId
-            button.label:SetText(hotkey .. "  " .. string.upper(ability.name or abilityId) .. suffix)
-            button:SetEnabled(run.active and true or false)
-            button.label:SetTextColor(
-                usable and COLORS.gold[1] or COLORS.muted[1],
-                usable and COLORS.gold[2] or COLORS.muted[2],
-                usable and COLORS.gold[3] or COLORS.muted[3]
-            )
+            if button.icon then
+                button.icon:SetTexture(GetAbilityIconTexture(ability))
+                button.icon:SetVertexColor(
+                    usable and 1 or 0.38,
+                    usable and 1 or 0.38,
+                    usable and 1 or 0.38
+                )
+            end
+            if button.cooldownText then
+                button.cooldownText:SetText(cooldown > 0 and tostring(cooldown) or "")
+            end
+            self:SetActionSlotDropHighlight(button, self.DungeonSpellDrag ~= nil)
         else
             button.gaAbilityId = nil
-            button.label:SetText(hotkey .. "  [EMPTY]")
-            button:SetEnabled(run and run.active and true or false)
-            button.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+            if button.icon then
+                button.icon:SetColorTexture(0.035, 0.035, 0.035, 1)
+                button.icon:SetVertexColor(1, 1, 1)
+            end
+            if button.cooldownText then
+                button.cooldownText:SetText("")
+            end
+            self:SetActionSlotDropHighlight(button, self.DungeonSpellDrag ~= nil)
         end
     end
 

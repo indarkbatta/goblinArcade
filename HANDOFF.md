@@ -3,9 +3,40 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.33.0**  
+Current addon version: **0.34.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.34.0 — WoW-style action bar + paged icon Spellbook
+
+- The run action bar is now a horizontal WoW-style icon bar instead of wide text buttons.
+- Layout:
+  - `1` fixed Basic Attack;
+  - `2-9` eight configurable spell slots;
+  - `0` reserved Potion;
+  - `B` opens the Spellbook.
+- Action slots are square 48x48 icon buttons with hotkey labels and cooldown turn counters.
+- Ability icons dim when the spell is currently unusable because of Rage/cooldown/unlock state.
+- Spellbook entries are now icon-based cards with spell name and learned/locked metadata.
+- Spellbook is paginated at 12 spells per page (2 columns x 6 rows); the current 29 Warrior spells span three pages.
+- PREV/NEXT page controls and page counter are built in.
+- Dragging from the Spellbook is now true drag-and-drop:
+  - the selected spell icon follows the mouse cursor;
+  - all valid action slots 2-9 highlight;
+  - releasing over a slot assigns the spell;
+  - releasing elsewhere cancels without changing the bar.
+- Locked spells remain visible in the Spellbook with their required Run Level but cannot be dragged.
+- Right-click still clears an action slot.
+- Existing four-slot per-character loadouts migrate to the eight-slot format without changing slots 2-5; newly added positions are filled only during the one-time migration.
+- Per-character action-bar format version is stored in `GoblinArcadeDB.actionBarVersions`.
+- Ability records now support a Studio-driven `icon` field.
+- Studio **WoW Icon** accepts:
+  - a WoW texture shorthand such as `Ability_Warrior_Charge`;
+  - a full `Interface\\Icons\\...` path;
+  - a numeric FileDataID.
+- Blank icon values automatically resolve the live WoW spell texture from the spell name.
+- Web URLs are rejected for ability icons.
+- Existing combat mechanics and the published Warrior `HP / Level = 3` remain unchanged.
 
 ## 0.33.0 — Spellbook + configurable action bar
 
@@ -209,7 +240,7 @@ Deployment is automatic through GitHub Actions.
 
 ### GoblinArcade Studio / Vercel
 
-Studio v0.9.0 keeps a **static-first** architecture for Vercel cost efficiency:
+Studio v1.0.0 keeps a **static-first** architecture for Vercel cost efficiency:
 
 - no npm build is required;
 - no database is used;
@@ -1595,8 +1626,8 @@ Recommended order:
 
 3. **Abilities / combat validation**
    - all 29 retained Warrior abilities are runtime-wired
-   - B opens the Spellbook; learned abilities drag onto configurable slots 2-5
-   - slot 1 is fixed Basic Attack; slot 6 is reserved for Potion
+   - B opens the paged, icon-based Spellbook; learned abilities use true drag-and-drop onto configurable slots 2-9
+   - slot 1 is fixed Basic Attack; slot 0 is reserved for Potion
    - per-character action-bar loadouts persist in SavedVariables
    - next: in-game validation and balance pass, then finite potion handling
 
@@ -1719,7 +1750,8 @@ Before changing layout conventions, remember the user's current preferences:
 - omit WoW abilities whose core mechanic has no meaningful solo-roguelike translation; currently Taunt, Mocking Blow and Challenging Shout are excluded;
 - do not modify or deploy the unrelated liminal-space Vercel project while working on GoblinArcade;
 - drag targets must visually highlight;
-- the run combat bar uses fixed Basic Attack on 1, configurable spell slots on 2-5, Potion on 6, and B for the Spellbook;
-- Spellbook/action-bar loadouts persist per character in GoblinArcadeDB.
+- the run combat bar uses fixed Basic Attack on 1, eight configurable WoW-style icon spell slots on 2-9, Potion on 0, and B for the paged Spellbook;
+- Spellbook/action-bar loadouts persist per character in GoblinArcadeDB;
+- Spellbook spells use WoW icons, with an optional Studio-driven icon override via texture shorthand/path/FileDataID.
 
 Preserve those decisions unless the user explicitly asks to change them.

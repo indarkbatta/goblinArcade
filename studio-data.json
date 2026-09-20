@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "studioVersion": "0.9.0",
+  "studioVersion": "1.0.0",
   "classes": [
     {
       "id": "warrior",
@@ -29,7 +29,8 @@
       "range": 0,
       "effectValue": 0,
       "secondaryValue": 0,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "heroic_strike",
@@ -46,7 +47,8 @@
       "range": 1,
       "effectValue": 0,
       "secondaryValue": 0,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "battle_shout",
@@ -63,7 +65,8 @@
       "range": 0,
       "effectValue": 15,
       "secondaryValue": 0,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "charge",
@@ -80,7 +83,8 @@
       "range": 4,
       "effectValue": 0,
       "secondaryValue": 0,
-      "resourceGain": 2
+      "resourceGain": 2,
+      "icon": ""
     },
     {
       "id": "rend",
@@ -97,7 +101,8 @@
       "range": 1,
       "effectValue": 0,
       "secondaryValue": 0,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "thunder_clap",
@@ -114,7 +119,8 @@
       "range": 1,
       "effectValue": 20,
       "secondaryValue": 0,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "hamstring",
@@ -131,7 +137,8 @@
       "range": 1,
       "effectValue": 50,
       "secondaryValue": 0,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "bloodrage",
@@ -148,7 +155,8 @@
       "range": 0,
       "effectValue": 10,
       "secondaryValue": 0,
-      "resourceGain": 2
+      "resourceGain": 2,
+      "icon": ""
     },
     {
       "id": "defensive_stance",
@@ -165,7 +173,8 @@
       "range": 0,
       "effectValue": 20,
       "secondaryValue": 10,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "sunder_armor",
@@ -182,7 +191,8 @@
       "range": 1,
       "effectValue": 10,
       "secondaryValue": 3,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "overpower",
@@ -199,7 +209,8 @@
       "range": 1,
       "effectValue": 0,
       "secondaryValue": 0,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "shield_bash",
@@ -216,7 +227,8 @@
       "range": 1,
       "effectValue": 0,
       "secondaryValue": 0,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "demoralizing_shout",
@@ -233,7 +245,8 @@
       "range": 1,
       "effectValue": 20,
       "secondaryValue": 0,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "revenge",
@@ -250,7 +263,8 @@
       "range": 1,
       "effectValue": 0,
       "secondaryValue": 0,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "shield_block",
@@ -267,7 +281,8 @@
       "range": 0,
       "effectValue": 50,
       "secondaryValue": 0,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "disarm",
@@ -284,7 +299,8 @@
       "range": 1,
       "effectValue": 50,
       "secondaryValue": 0,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "retaliation",
@@ -301,7 +317,8 @@
       "range": 0,
       "effectValue": 0,
       "secondaryValue": 0,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "victory_rush",
@@ -318,7 +335,8 @@
       "range": 1,
       "effectValue": 20,
       "secondaryValue": 0,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "cleave",
@@ -335,7 +353,8 @@
       "range": 1,
       "effectValue": 0,
       "secondaryValue": 1,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "slam",
@@ -352,7 +371,8 @@
       "range": 1,
       "effectValue": 0,
       "secondaryValue": 0,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "intimidating_shout",
@@ -369,7 +389,8 @@
       "range": 1,
       "effectValue": 0,
       "secondaryValue": 0,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "execute",
@@ -386,7 +407,8 @@
       "range": 1,
       "effectValue": 20,
       "secondaryValue": 0,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "shield_wall",
@@ -403,7 +425,8 @@
       "range": 0,
       "effectValue": 60,
       "secondaryValue": 0,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "berserker_stance",
@@ -420,7 +443,8 @@
       "range": 0,
       "effectValue": 10,
       "secondaryValue": 15,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "intercept",
@@ -437,7 +461,8 @@
       "range": 4,
       "effectValue": 0,
       "secondaryValue": 0,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "berserker_rage",
@@ -454,7 +479,8 @@
       "range": 0,
       "effectValue": 1,
       "secondaryValue": 0,
-      "resourceGain": 1
+      "resourceGain": 1,
+      "icon": ""
     },
     {
       "id": "whirlwind",
@@ -471,7 +497,8 @@
       "range": 1,
       "effectValue": 0,
       "secondaryValue": 0,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "pummel",
@@ -488,7 +515,8 @@
       "range": 1,
       "effectValue": 0,
       "secondaryValue": 0,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     },
     {
       "id": "recklessness",
@@ -505,7 +533,8 @@
       "range": 0,
       "effectValue": 50,
       "secondaryValue": 25,
-      "resourceGain": 0
+      "resourceGain": 0,
+      "icon": ""
     }
   ],
   "enemies": [
