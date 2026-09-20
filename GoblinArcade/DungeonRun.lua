@@ -751,6 +751,27 @@ local function GetClassAbilityIdSet(classId, level)
     return result
 end
 
+local function GetClassRunGrowth(classId)
+    local normalizedClass = string.lower(tostring(classId or ""))
+    for _, class in ipairs(GA.StudioData and GA.StudioData.classes or {}) do
+        if string.lower(tostring(class.id or "")) == normalizedClass then
+            return {
+                resourceType = string.upper(tostring(class.resource or "NONE")),
+                baseResourceMax = math.max(0, tonumber(class.resourceMax) or 0),
+                hpPerLevel = math.max(0, tonumber(class.hpPerLevel) or 0),
+                resourcePerLevel = math.max(0, tonumber(class.resourcePerLevel) or 0),
+            }
+        end
+    end
+
+    return {
+        resourceType = "NONE",
+        baseResourceMax = 0,
+        hpPerLevel = 0,
+        resourcePerLevel = 0,
+    }
+end
+
 local function BuildRoomRoleText(counts)
     counts = counts or {}
 
@@ -2250,7 +2271,35 @@ function GA:GrantRunExperience(amount)
         end
         run.unlockedAbilities = nextAbilities
 
+        local growth = run.classGrowth or GetClassRunGrowth(run.classId)
+        local hpGain = math.max(0, tonumber(growth.hpPerLevel) or 0)
+        local resourceGain = math.max(0, tonumber(growth.resourcePerLevel) or 0)
+
+        if hpGain > 0 then
+            run.baseMaxHealth = math.max(1, (run.baseMaxHealth or run.playerMaxHealth or 1) + hpGain)
+            run.playerMaxHealth = math.max(1, (run.playerMaxHealth or 1) + hpGain)
+            run.playerHealth = math.min(run.playerMaxHealth, math.max(0, (run.playerHealth or 0) + hpGain))
+        end
+
+        if resourceGain > 0 then
+            run.resourceMax = math.max(0, (run.resourceMax or 0) + resourceGain)
+        end
+
         self:AddCombatLog(string.format("LEVEL UP! %d -> %d", previousLevel, run.runLevel), "system")
+        if hpGain > 0 or resourceGain > 0 then
+            local growthParts = {}
+            if hpGain > 0 then
+                growthParts[#growthParts + 1] = string.format("+%d HP", hpGain)
+            end
+            if resourceGain > 0 then
+                growthParts[#growthParts + 1] = string.format(
+                    "+%d %s cap",
+                    resourceGain,
+                    growth.resourceType or "RESOURCE"
+                )
+            end
+            self:AddCombatLog("Class growth: " .. table.concat(growthParts, ", "), "player")
+        end
         if #unlockedNames > 0 then
             self:AddCombatLog("Unlocked: " .. table.concat(unlockedNames, ", "), "player")
         end
@@ -2813,6 +2862,7 @@ function GA:BeginDungeonRun()
     local className = selected.className or "Adventurer"
     local classId = string.lower(tostring(selected.classFile or className or ""))
     local progression = GetRunProgression()
+    local classGrowth = GetClassRunGrowth(classId)
     local maxHealth = self:ScaleCombatValue(selected.maxHealth or 0)
     local floor = 1
 
@@ -2879,6 +2929,11 @@ function GA:BeginDungeonRun()
         levelsGained = 0,
         progression = CopyTable(progression),
         classId = classId,
+        classGrowth = CopyTable(classGrowth),
+        resourceType = classGrowth.resourceType,
+        baseResourceMax = classGrowth.baseResourceMax,
+        resourceMax = classGrowth.baseResourceMax,
+        resource = 0,
         unlockedAbilities = GetClassAbilityIdSet(classId, level),
         playerX = startX,
         playerY = startY,
@@ -3021,6 +3076,15 @@ function GA:BeginDungeonRun()
     )
     self:AddCombatLog(
         string.format("Run progression: Level %d, %d XP to next level. Run levels reset after the run.", level, GetRunXpRequired(self.RunState)),
+        "system"
+    )
+    self:AddCombatLog(
+        string.format(
+            "Class growth: +%d HP / level, +%d %s cap / level.",
+            classGrowth.hpPerLevel or 0,
+            classGrowth.resourcePerLevel or 0,
+            classGrowth.resourceType or "RESOURCE"
+        ),
         "system"
     )
     if sampleEnemy then
