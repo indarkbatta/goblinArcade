@@ -21,8 +21,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run live balance audit
+      - name: Easy candidate
         shell: bash
         run: |
-          python3 tools/balance_audit.py --runs 4000 --seed 5500 | tee balance-audit.md
-          cat balance-audit.md >> "$GITHUB_STEP_SUMMARY"
+          echo "## EASY  HP 0.85 / DMG 0.85" | tee difficulty-audit.md
+          python3 tools/balance_audit.py --runs 2500 --seed 5601 --difficulty-hp 0.85 --difficulty-damage 0.85 | tee -a difficulty-audit.md
+
+      - name: Normal baseline
+        shell: bash
+        run: |
+          echo "## NORMAL  HP 1.00 / DMG 1.00" | tee -a difficulty-audit.md
+          python3 tools/balance_audit.py --runs 2500 --seed 5601 --difficulty-hp 1.00 --difficulty-damage 1.00 | tee -a difficulty-audit.md
+
+      - name: Hard candidate
+        shell: bash
+        run: |
+          echo "## HARD  HP 1.12 / DMG 1.10" | tee -a difficulty-audit.md
+          python3 tools/balance_audit.py --runs 2500 --seed 5601 --difficulty-hp 1.12 --difficulty-damage 1.10 | tee -a difficulty-audit.md
+
+      - name: Publish difficulty audit
+        shell: bash
+        run: cat difficulty-audit.md >> "$GITHUB_STEP_SUMMARY"

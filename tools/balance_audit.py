@@ -191,11 +191,15 @@ class Audit:
         enemy_hp_factor: float = 3.25,
         enemy_damage_fraction: float = 0.040,
         floor_hp_slope: float = 0.150,
+        difficulty_hp_multiplier: float = 1.0,
+        difficulty_damage_multiplier: float = 1.0,
     ):
         self.rng = random.Random(seed)
         self.enemy_hp_factor = enemy_hp_factor
         self.enemy_damage_fraction = enemy_damage_fraction
         self.floor_hp_slope = floor_hp_slope
+        self.difficulty_hp_multiplier = difficulty_hp_multiplier
+        self.difficulty_damage_multiplier = difficulty_damage_multiplier
         self.data = json.loads(DATA_PATH.read_text(encoding="utf-8"))
         self.items = {x["id"]: x for x in self.data.get("items", [])}
         self.loot_tables = {x["id"]: x for x in self.data.get("lootTables", [])}
@@ -233,6 +237,7 @@ class Audit:
             * float(r["hpMultiplier"])
             * level_pressure
             * floor_hp
+            * self.difficulty_hp_multiplier
         )
         scaled_average = (
             average_damage
@@ -240,6 +245,7 @@ class Audit:
             * float(r["damageMultiplier"])
             * level_pressure
             * floor_damage
+            * self.difficulty_damage_multiplier
         )
         damage_min = scale_combat(max(1, round_lua(scaled_average * 0.80)))
         damage_max = max(damage_min, scale_combat(max(1, round_lua(scaled_average * 1.20))))
@@ -832,6 +838,8 @@ def render_markdown(
     enemy_hp_factor: float,
     enemy_damage_fraction: float,
     floor_hp_slope: float,
+    difficulty_hp_multiplier: float,
+    difficulty_damage_multiplier: float,
 ) -> str:
     lines = [
         "# GoblinArcade headless balance audit",
@@ -841,6 +849,8 @@ def render_markdown(
         f"- Enemy base HP factor: {enemy_hp_factor:.2f}",
         f"- Enemy reference damage fraction: {enemy_damage_fraction:.3f}",
         f"- Floor HP slope: {floor_hp_slope:.3f} per floor",
+        f"- Difficulty HP multiplier: {difficulty_hp_multiplier:.2f}",
+        f"- Difficulty damage multiplier: {difficulty_damage_multiplier:.2f}",
         "- Model: fresh level-1 Arcade Warrior, live Studio loot/economy/progression, greedy compatible equipment.",
         "- PRESSURE / HEAVY_PRESSURE are bounded multi-aggro sensitivity tests, not pixel-perfect WoW pathfinding simulations.",
         "",
@@ -923,6 +933,8 @@ def main() -> int:
     parser.add_argument("--enemy-hp-factor", type=float, default=3.25)
     parser.add_argument("--enemy-damage-fraction", type=float, default=0.040)
     parser.add_argument("--floor-hp-slope", type=float, default=0.150)
+    parser.add_argument("--difficulty-hp", type=float, default=1.0)
+    parser.add_argument("--difficulty-damage", type=float, default=1.0)
     args = parser.parse_args()
 
     audit = Audit(
@@ -930,6 +942,8 @@ def main() -> int:
         args.enemy_hp_factor,
         args.enemy_damage_fraction,
         args.floor_hp_slope,
+        args.difficulty_hp,
+        args.difficulty_damage,
     )
     results = []
     for profile in ("shield", "2h"):
@@ -946,6 +960,8 @@ def main() -> int:
             args.enemy_hp_factor,
             args.enemy_damage_fraction,
             args.floor_hp_slope,
+            args.difficulty_hp,
+            args.difficulty_damage,
         )
     )
     return 0
