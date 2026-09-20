@@ -2041,6 +2041,28 @@ function GA:CreateDungeonRunPage(parent)
     end)
     self.DungeonSetupBeginButton = setupBegin
 
+    local deleteHero = CreateFlatButton(selectedPanel, "DELETE HERO", 112, 34)
+    deleteHero:SetPoint("BOTTOMLEFT", 16, 20)
+    deleteHero:SetScript("OnClick", function()
+        local selected = GA:GetSelectedDungeonCharacter()
+        if not selected or not (selected.isArcadeGenerated or selected.sourceType == "arcade") then
+            return
+        end
+
+        if GA.PendingDeleteArcadeKey == selected.key then
+            local ok, err = GA:DeleteArcadeCharacter(selected.key)
+            if not ok and GA.DungeonSelectedNote then
+                GA.DungeonSelectedNote:SetText(err or "Could not delete this hero.")
+                GA.DungeonSelectedNote:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+            end
+        else
+            GA.PendingDeleteArcadeKey = selected.key
+            GA:RefreshDungeonCharacterSelection()
+        end
+    end)
+    deleteHero:Hide()
+    self.DungeonDeleteHeroButton = deleteHero
+
     local generatorOverlay = CreateFrame("Frame", nil, setup, "BackdropTemplate")
     generatorOverlay:SetAllPoints(setup)
     generatorOverlay:SetFrameLevel(setup:GetFrameLevel() + 60)
@@ -2098,6 +2120,32 @@ function GA:CreateDungeonRunPage(parent)
         box:ClearFocus()
     end)
     self.DungeonGeneratorNameInput = nameInput
+
+    local modeLabel = CreateText(generatorModal, "GameFontNormalSmall", "MODE")
+    modeLabel:SetPoint("TOPLEFT", 390, -82)
+    modeLabel:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    local normalMode = CreateFlatButton(generatorModal, "NORMAL", 150, 32)
+    normalMode:SetPoint("TOPLEFT", 390, -102)
+    normalMode:SetScript("OnClick", function()
+        GA.CharacterGeneratorHardcore = false
+        GA:RefreshCharacterGenerator()
+    end)
+    self.DungeonGeneratorNormalButton = normalMode
+
+    local hardcoreMode = CreateFlatButton(generatorModal, "HARDCORE", 150, 32)
+    hardcoreMode:SetPoint("TOPLEFT", 550, -102)
+    hardcoreMode:SetScript("OnClick", function()
+        GA.CharacterGeneratorHardcore = true
+        GA:RefreshCharacterGenerator()
+    end)
+    self.DungeonGeneratorHardcoreButton = hardcoreMode
+
+    local modeHint = CreateText(generatorModal, "GameFontDisableSmall", "Hardcore death is permanent.")
+    modeHint:SetPoint("TOPLEFT", 390, -140)
+    modeHint:SetWidth(320)
+    modeHint:SetJustifyH("LEFT")
+    modeHint:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
 
     local raceLabel = CreateText(generatorModal, "GameFontNormalSmall", "RACE")
     raceLabel:SetPoint("TOPLEFT", 24, -154)
@@ -2208,7 +2256,8 @@ function GA:CreateDungeonRunPage(parent)
         local character, err = GA:CreateArcadeCharacter(
             GA.DungeonGeneratorNameInput and GA.DungeonGeneratorNameInput:GetText() or "",
             GA.CharacterGeneratorRaceId,
-            GA.CharacterGeneratorClassId
+            GA.CharacterGeneratorClassId,
+            GA.CharacterGeneratorHardcore == true
         )
         if character then
             if GA.DungeonGeneratorNameInput then
@@ -2361,6 +2410,7 @@ function GA:OpenCharacterGeneratorModal()
     if not self.DungeonCharacterGeneratorOverlay then return end
     self.CharacterGeneratorRaceId = nil
     self.CharacterGeneratorClassId = nil
+    self.CharacterGeneratorHardcore = false
     if self.DungeonGeneratorNameInput then
         self.DungeonGeneratorNameInput:SetText("")
         self.DungeonGeneratorNameInput:ClearFocus()
@@ -2457,6 +2507,36 @@ function GA:RefreshCharacterGenerator()
         end
     end
 
+    local hardcore = self.CharacterGeneratorHardcore == true
+    if self.DungeonGeneratorNormalButton then
+        self.DungeonGeneratorNormalButton:SetBackdropColor(
+            hardcore and 0.040 or 0.15,
+            hardcore and 0.035 or 0.105,
+            hardcore and 0.028 or 0.045,
+            1
+        )
+        self.DungeonGeneratorNormalButton:SetBackdropBorderColor(
+            hardcore and COLORS.goldDim[1] or COLORS.gold[1],
+            hardcore and COLORS.goldDim[2] or COLORS.gold[2],
+            hardcore and COLORS.goldDim[3] or COLORS.gold[3],
+            1
+        )
+    end
+    if self.DungeonGeneratorHardcoreButton then
+        self.DungeonGeneratorHardcoreButton:SetBackdropColor(
+            hardcore and 0.20 or 0.040,
+            hardcore and 0.045 or 0.035,
+            hardcore and 0.035 or 0.028,
+            1
+        )
+        self.DungeonGeneratorHardcoreButton:SetBackdropBorderColor(
+            hardcore and COLORS.red[1] or COLORS.goldDim[1],
+            hardcore and COLORS.red[2] or COLORS.goldDim[2],
+            hardcore and COLORS.red[3] or COLORS.goldDim[3],
+            1
+        )
+    end
+
     local name = self.DungeonGeneratorNameInput and self.DungeonGeneratorNameInput:GetText() or ""
     local canCreate = name:match("%S")
         and self.CharacterGeneratorRaceId
@@ -2473,7 +2553,16 @@ function GA:RefreshCharacterGenerator()
     end
 
     if self.DungeonGeneratorStatus then
-        self.DungeonGeneratorStatus:SetText("Races are cosmetic for now. Only READY classes are selectable.")
+        self.DungeonGeneratorStatus:SetText(
+            hardcore
+                and "HARDCORE: death in a run permanently kills this hero."
+                or "NORMAL: failed runs do not permanently kill this hero."
+        )
+        self.DungeonGeneratorStatus:SetTextColor(
+            hardcore and COLORS.red[1] or COLORS.muted[1],
+            hardcore and COLORS.red[2] or COLORS.muted[2],
+            hardcore and COLORS.red[3] or COLORS.muted[3]
+        )
         self.DungeonGeneratorStatus:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
     end
 end
@@ -2515,17 +2604,29 @@ function GA:RefreshDungeonCharacterSelection()
             row.nameText:SetText(character.name or "Unknown")
             local characterClassId = string.lower(tostring(character.classId or character.classFile or character.className or ""))
             local classReady = self:IsStudioClassPlayable(characterClassId)
+            local hardcoreTag = character.hardcore and "  -  HC" or ""
+            local deadTag = character.dead and "  -  DEAD" or ""
             row.metaText:SetText(string.format(
-                "Level %d %s %s%s%s",
+                "Level %d %s %s%s%s%s%s",
                 character.level or 0,
                 character.raceName or "",
                 character.className or "Adventurer",
                 character.key == currentKey and "  -  CURRENT" or "",
+                hardcoreTag,
+                deadTag,
                 classReady and "" or "  -  NOT READY"
             ))
-            row.icon:SetVertexColor(classReady and 1 or 0.35, classReady and 1 or 0.35, classReady and 1 or 0.35)
+            local rowAvailable = classReady and not character.dead
+            row.icon:SetVertexColor(
+                rowAvailable and 1 or 0.25,
+                rowAvailable and 1 or 0.25,
+                rowAvailable and 1 or 0.25
+            )
 
-            if selected and character.key == selected.key then
+            if character.dead and character.hardcore then
+                row:SetBackdropColor(0.16, 0.025, 0.020, 1)
+                row:SetBackdropBorderColor(COLORS.red[1], COLORS.red[2], COLORS.red[3], 1)
+            elseif selected and character.key == selected.key then
                 row:SetBackdropColor(0.15, 0.105, 0.045, 1)
                 row:SetBackdropBorderColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 1)
             else
@@ -2559,33 +2660,82 @@ function GA:RefreshDungeonCharacterSelection()
     SetCharacterVisual(self.DungeonSelectedCharacterIcon, selected)
     self.DungeonSelectedCharacterName:SetText(selected.name or "Unknown")
     self.DungeonSelectedCharacterMeta:SetText(string.format(
-        "Level %d %s %s  -  %s",
+        "Level %d %s %s  -  %s%s%s",
         selected.level or 0,
         selected.raceName or "",
         selected.className or "Adventurer",
-        selected.realm or "Unknown Realm"
+        selected.realm or "Unknown Realm",
+        selected.hardcore and "  -  HARDCORE" or "",
+        selected.dead and "  -  DEAD" or ""
     ))
     if selected.isArcadeGenerated or selected.sourceType == "arcade" then
-        self.DungeonSelectedCharacterSource:SetText("ARCADE HERO - GENERATED TEMPLATE")
-        if self.DungeonSelectedNote then
-            self.DungeonSelectedNote:SetText("Generated heroes start at level 1 with a basic starter weapon. Race is cosmetic for now.")
+        if selected.dead and selected.hardcore then
+            self.DungeonSelectedCharacterSource:SetText("HARDCORE HERO - DEAD")
+            if self.DungeonSelectedNote then
+                self.DungeonSelectedNote:SetText(
+                    string.format(
+                        "Died on Floor %d. %s",
+                        tonumber(selected.deathFloor) or 1,
+                        selected.deathReason or "This hero fell in the dungeon."
+                    )
+                )
+                self.DungeonSelectedNote:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+            end
+        else
+            self.DungeonSelectedCharacterSource:SetText(
+                selected.hardcore and "ARCADE HERO - HARDCORE" or "ARCADE HERO - NORMAL"
+            )
+            if self.DungeonSelectedNote then
+                self.DungeonSelectedNote:SetText(
+                    selected.hardcore
+                        and "Hardcore hero: death in a run is permanent."
+                        or "Generated hero: failed runs are not permanent."
+                )
+                self.DungeonSelectedNote:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+            end
         end
     elseif selected.key == currentKey then
         self.DungeonSelectedCharacterSource:SetText("CURRENT CHARACTER - LIVE DATA")
         if self.DungeonSelectedNote then
             self.DungeonSelectedNote:SetText("Current character data is read live from WoW.")
+            self.DungeonSelectedNote:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
         end
     else
         self.DungeonSelectedCharacterSource:SetText("ALT - LAST SYNCED DATA")
         if self.DungeonSelectedNote then
             self.DungeonSelectedNote:SetText("To refresh an alt's gear, log into that character once and open GoblinArcade.")
+            self.DungeonSelectedNote:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+        end
+    end
+
+    local generated = selected.isArcadeGenerated or selected.sourceType == "arcade"
+    if self.DungeonDeleteHeroButton then
+        if generated then
+            self.DungeonDeleteHeroButton:Show()
+            local confirmDelete = self.PendingDeleteArcadeKey == selected.key
+            self.DungeonDeleteHeroButton.label:SetText(confirmDelete and "CONFIRM DELETE" or "DELETE HERO")
+            self.DungeonDeleteHeroButton.label:SetTextColor(
+                confirmDelete and COLORS.red[1] or COLORS.muted[1],
+                confirmDelete and COLORS.red[2] or COLORS.muted[2],
+                confirmDelete and COLORS.red[3] or COLORS.muted[3]
+            )
+        else
+            self.DungeonDeleteHeroButton:Hide()
+            self.PendingDeleteArcadeKey = nil
         end
     end
 
     local selectedClassId = string.lower(tostring(selected.classId or selected.classFile or selected.className or ""))
     local classReady = self:IsStudioClassPlayable(selectedClassId)
     local weapon = ResolveCharacterWeapon(self, selected)
-    if not classReady then
+    if selected.dead and selected.hardcore then
+        self.DungeonSelectedWeaponName:SetText("This Hardcore hero is dead")
+        self.DungeonSelectedWeaponStats:SetText("Permanent death: no further Dungeon Runs are allowed.")
+        self.DungeonSelectedWeaponTrait:SetText("")
+        self.DungeonSetupBeginButton:SetEnabled(false)
+        self.DungeonSetupBeginButton.label:SetText("DEAD")
+        self.DungeonSetupBeginButton.label:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+    elseif not classReady then
         self.DungeonSelectedWeaponName:SetText((selected.className or "This class") .. " is not implemented yet")
         self.DungeonSelectedWeaponStats:SetText("Choose a READY class or create an Arcade hero.")
         self.DungeonSelectedWeaponTrait:SetText("")
@@ -3521,10 +3671,25 @@ function GA:FailDungeonRun(reason)
     self:CloseShrineChoice()
     self:CloseSpellbook()
 
-    self:AddCombatLog(reason or "The run is over.", "warning")
+    local deathReason = reason or "The run is over."
+    local hardcoreDeath = false
+    if run.snapshot and run.snapshot.hardcore and run.snapshot.isArcadeGenerated
+        and self.MarkArcadeCharacterDead then
+        hardcoreDeath = self:MarkArcadeCharacterDead(
+            run.snapshot.characterKey,
+            deathReason,
+            run.floor,
+            run.score
+        ) and true or false
+    end
+
+    self:AddCombatLog(deathReason, "warning")
+    if hardcoreDeath then
+        self:AddCombatLog("HARDCORE DEATH: this Arcade hero is permanently dead.", "warning")
+    end
 
     if self.DungeonRunStateText then
-        self.DungeonRunStateText:SetText("RUN ENDED")
+        self.DungeonRunStateText:SetText(hardcoreDeath and "HARDCORE HERO DIED" or "RUN ENDED")
         self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
     end
 
@@ -4950,6 +5115,14 @@ function GA:BeginDungeonRun()
         selected = self:GetSelectedDungeonCharacter()
     end
 
+    if selected and selected.hardcore and selected.dead then
+        if self.DungeonRunStateText then
+            self.DungeonRunStateText:SetText("HARDCORE HERO IS DEAD")
+            self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+        end
+        return
+    end
+
     local selectedWeapon = ResolveCharacterWeapon(self, selected)
     if not selected or not selectedWeapon then
         if self.DungeonRunStateText then
@@ -5091,6 +5264,8 @@ function GA:BeginDungeonRun()
             realm = selected.realm,
             sourceType = selected.sourceType,
             isArcadeGenerated = selected.isArcadeGenerated,
+            hardcore = selected.hardcore == true,
+            dead = selected.dead == true,
             maxHealth = maxHealth,
             mainHandLink = selected.weaponLink,
             weaponIcon = selected.weaponIcon,

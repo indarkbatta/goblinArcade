@@ -219,11 +219,12 @@ local function BuildArcadeStarterWeapon(classId)
     }
 end
 
-function GA:CreateArcadeCharacter(name, raceId, classId)
+function GA:CreateArcadeCharacter(name, raceId, classId, hardcore)
     local db = GetDB()
     name = Trim(name)
     raceId = string.lower(tostring(raceId or ""))
     classId = string.lower(tostring(classId or ""))
+    hardcore = hardcore == true
 
     if name == "" then
         return nil, "Enter a character name."
@@ -264,6 +265,8 @@ function GA:CreateArcadeCharacter(name, raceId, classId)
         key = key,
         sourceType = "arcade",
         isArcadeGenerated = true,
+        hardcore = hardcore,
+        dead = false,
         name = name,
         realm = "GoblinArcade",
         level = 1,
@@ -297,6 +300,77 @@ function GA:CreateArcadeCharacter(name, raceId, classId)
     end
 
     return character
+end
+
+function GA:IsArcadeCharacterDead(character)
+    return character
+        and (character.isArcadeGenerated or character.sourceType == "arcade")
+        and character.hardcore == true
+        and character.dead == true
+end
+
+function GA:MarkArcadeCharacterDead(key, reason, floor, score)
+    local db = GetDB()
+    local character = key and db.characters[key]
+    if not character
+        or not (character.isArcadeGenerated or character.sourceType == "arcade")
+        or character.hardcore ~= true
+        or character.dead == true then
+        return false
+    end
+
+    character.dead = true
+    character.deadAt = time and time() or 0
+    character.deathReason = tostring(reason or "Fell in the dungeon.")
+    character.deathFloor = math.max(1, math.floor(tonumber(floor) or 1))
+    character.deathScore = math.max(0, math.floor(tonumber(score) or 0))
+    db.characters[key] = character
+
+    if self.RefreshDungeonCharacterSelection then
+        self:RefreshDungeonCharacterSelection()
+    end
+    return true
+end
+
+function GA:DeleteArcadeCharacter(key)
+    local db = GetDB()
+    local character = key and db.characters[key]
+    if not character or not (character.isArcadeGenerated or character.sourceType == "arcade") then
+        return false, "Only generated Arcade heroes can be deleted."
+    end
+
+    if self.RunState and self.RunState.active and self.RunState.snapshot
+        and self.RunState.snapshot.characterKey == key then
+        return false, "Cannot delete the hero while its run is active."
+    end
+
+    db.characters[key] = nil
+    if db.actionBars then
+        db.actionBars[key] = nil
+    end
+    if db.actionBarVersions then
+        db.actionBarVersions[key] = nil
+    end
+
+    local currentKey = self:GetCurrentCharacterKey()
+    local nextKey = db.characters[currentKey] and currentKey or nil
+    if not nextKey then
+        for candidateKey, candidate in pairs(db.characters) do
+            if candidate and candidate.name then
+                nextKey = candidateKey
+                break
+            end
+        end
+    end
+
+    db.selectedCharacterKey = nextKey
+    self.SelectedCharacterKey = nextKey
+    self.PendingDeleteArcadeKey = nil
+
+    if self.RefreshDungeonCharacterSelection then
+        self:RefreshDungeonCharacterSelection()
+    end
+    return true
 end
 
 function GA:GetEquipmentSlotDefinitions()
@@ -443,6 +517,7 @@ end
 
 function GA:SelectDungeonCharacter(key)
     local db = GetDB()
+    self.PendingDeleteArcadeKey = nil
     if key and db.characters[key] then
         self.SelectedCharacterKey = key
         db.selectedCharacterKey = key

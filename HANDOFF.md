@@ -3,9 +3,32 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.38.0**  
+Current addon version: **0.39.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.39.0 — Hardcore Arcade heroes + generated-character deletion
+
+- Generated Arcade heroes can now be created in either **NORMAL** or **HARDCORE** mode.
+- The Create Character modal exposes explicit NORMAL / HARDCORE buttons; Hardcore shows a permanent-death warning.
+- Generated character records persist `hardcore` and `dead` state in `GoblinArcadeDB.characters`.
+- Hardcore death is real permadeath:
+  - when a generated Hardcore hero reaches 0 HP and the run fails, the roster record is marked `dead = true`;
+  - death timestamp, reason, floor and score are stored;
+  - the dead hero remains visible in the roster as a memorial;
+  - the roster card receives **HC - DEAD** metadata and a red visual state;
+  - selecting a dead HC hero shows its death information;
+  - BEGIN RUN is disabled and the runtime independently rejects any attempt to start another run with that hero.
+- Normal generated heroes remain reusable after failed runs.
+- Generated heroes now expose **DELETE HERO** on the Selected Hero panel.
+- Deletion is intentionally two-step:
+  - first click arms **CONFIRM DELETE**;
+  - second click permanently removes the generated hero;
+  - changing character clears the pending confirmation.
+- Only generated Arcade heroes can be deleted. Synced real WoW characters never show the delete control and cannot be deleted through GoblinArcade.
+- Deleting a generated hero also removes its saved action-bar layout/version and selects a safe remaining roster entry.
+- A generated hero cannot be deleted while its own run is active.
+- Hardcore state does not alter race/class stats; it only changes character mortality.
 
 ## 0.38.0 — modal character creation UX
 
@@ -1844,6 +1867,6 @@ Before changing layout conventions, remember the user's current preferences:
 - action-bar spell icons can be dragged between slots; occupied targets swap positions;
 - Spellbook/action-bar loadouts persist per character in GoblinArcadeDB;
 - Spellbook spells use WoW icons, with an optional Studio-driven icon override via texture shorthand/path/FileDataID;
-- the Dungeon setup CHARACTER roster ends with a roster-sized + CREATE NEW CHARACTER slot that opens the modal Arcade Character Generator; class availability is controlled by Studio Classes -> Playable / Ready, while race records/icons live in the Studio Races section and have no gameplay bonus yet.
+- the Dungeon setup CHARACTER roster ends with a roster-sized + CREATE NEW CHARACTER slot that opens the modal Arcade Character Generator; generated heroes may be NORMAL or HARDCORE, dead Hardcore heroes remain in the roster but can never start another run, and generated heroes can be deleted with two-step confirmation; class availability is controlled by Studio Classes -> Playable / Ready, while race records/icons live in the Studio Races section and have no gameplay bonus yet.
 
 Preserve those decisions unless the user explicitly asks to change them.
