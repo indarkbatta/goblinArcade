@@ -3,9 +3,17 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.27.0**  
+Current addon version: **0.27.1**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.27.1 — XP curve / level-up feedback polish
+
+- Corrected the first eight temporary run-level thresholds to the approved curve: 100 / 125 / 155 / 190 / 230 / 275 / 325 / 380 XP.
+- Added editable Studio `XP Curve` text; values after the explicit curve continue from its last cost using `Level Growth`.
+- LEVEL UP feedback now survives the killing-blow status update and logs the exact old/new level plus any newly unlocked abilities.
+- Enemy Studio preview now shows calculated Normal / Veteran / Elite / Boss XP from Danger Rating, XP per Danger and rank XP multipliers.
+- Studio local draft namespace bumped to v5 so older browser drafts cannot silently drop the new XP Curve field.
 
 ## 0.27.0 — temporary run levels / Danger XP
 
@@ -52,7 +60,7 @@ Deployment is automatic through GitHub Actions.
 
 ### GoblinArcade Studio / Vercel
 
-Studio v0.4.0 keeps a **static-first** architecture for Vercel cost efficiency:
+Studio v0.4.1 keeps a **static-first** architecture for Vercel cost efficiency:
 
 - no npm build is required;
 - no database is used;
@@ -108,7 +116,7 @@ Important addon files:
   - enemy archetypes now carry Danger Rating (1-10); current defaults: Spider 2, Kobold 2, Skeleton 3, Brute 4
   - rank XP multipliers: Normal 1.00, Veteran 1.35, Elite 2.00, Boss 5.00
   - kill XP = Danger Rating × 8 × Rank XP Multiplier by default
-  - temporary run-level XP starts at 100 and grows by 1.22x per level gained; maximum run level 60
+  - temporary run-level XP uses the explicit first-eight curve 100 / 125 / 155 / 190 / 230 / 275 / 325 / 380; later thresholds grow from the last explicit value by the Studio Level Growth setting; maximum run level 60
 
 - `GoblinArcade/UI.lua`
   - main shell

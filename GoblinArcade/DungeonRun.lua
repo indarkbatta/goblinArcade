@@ -679,8 +679,32 @@ local function GetStudioShrineChoice(choiceId)
     return nil
 end
 
+local DEFAULT_RUN_XP_CURVE = { 100, 125, 155, 190, 230, 275, 325, 380 }
+
+local function ParseRunXpCurve(value)
+    local costs = {}
+    for token in string.gmatch(tostring(value or ""), "[^,%s]+") do
+        local amount = tonumber(token)
+        if amount and amount > 0 then
+            costs[#costs + 1] = math.max(1, math.floor(amount + 0.5))
+        end
+    end
+
+    if #costs == 0 then
+        return CopyTable(DEFAULT_RUN_XP_CURVE)
+    end
+
+    return costs
+end
+
 local function GetRunProgression()
-    local fallback = { xpPerDanger = 8, firstLevelXp = 100, levelGrowth = 1.22, maxRunLevel = 60 }
+    local fallback = {
+        xpPerDanger = 8,
+        firstLevelXp = 100,
+        levelGrowth = 1.22,
+        maxRunLevel = 60,
+        levelCosts = CopyTable(DEFAULT_RUN_XP_CURVE),
+    }
     for _, record in ipairs(GA.StudioData and GA.StudioData.progression or {}) do
         if record.id == "run_xp" then
             return {
@@ -688,6 +712,7 @@ local function GetRunProgression()
                 firstLevelXp = math.max(1, tonumber(record.firstLevelXp) or fallback.firstLevelXp),
                 levelGrowth = math.max(1, tonumber(record.levelGrowth) or fallback.levelGrowth),
                 maxRunLevel = math.max(1, math.floor(tonumber(record.maxRunLevel) or fallback.maxRunLevel)),
+                levelCosts = ParseRunXpCurve(record.xpCurve),
             }
         end
     end
@@ -697,7 +722,20 @@ end
 local function GetRunXpRequired(run)
     local progression = run and run.progression or GetRunProgression()
     local levelsGained = math.max(0, tonumber(run and run.levelsGained) or 0)
-    return math.max(1, math.floor(progression.firstLevelXp * (progression.levelGrowth ^ levelsGained) + 0.5))
+    local levelCosts = progression.levelCosts or {}
+
+    if levelsGained < #levelCosts then
+        return math.max(1, tonumber(levelCosts[levelsGained + 1]) or progression.firstLevelXp or 100)
+    end
+
+    local baseCost = progression.firstLevelXp or 100
+    local extraSteps = levelsGained
+    if #levelCosts > 0 then
+        baseCost = tonumber(levelCosts[#levelCosts]) or baseCost
+        extraSteps = levelsGained - #levelCosts + 1
+    end
+
+    return math.max(1, math.floor(baseCost * (progression.levelGrowth ^ extraSteps) + 0.5))
 end
 
 local function GetClassAbilityIdSet(classId, level)
@@ -2181,20 +2219,23 @@ end
 
 function GA:GrantRunExperience(amount)
     local run = self.RunState
-    if not run or not run.active then return end
+    if not run or not run.active then return false end
     local gainedXp = math.max(0, math.floor(tonumber(amount) or 0))
-    if gainedXp <= 0 then return end
+    if gainedXp <= 0 then return false end
 
+    local initialLevel = run.runLevel or 1
     run.totalRunXp = (run.totalRunXp or 0) + gainedXp
-    if (run.runLevel or 1) >= (run.progression and run.progression.maxRunLevel or 60) then
+    if initialLevel >= (run.progression and run.progression.maxRunLevel or 60) then
         self:RefreshRunCounters()
-        return
+        return false, initialLevel, initialLevel
     end
 
     run.runXp = (run.runXp or 0) + gainedXp
     while run.runLevel < run.progression.maxRunLevel do
         local required = GetRunXpRequired(run)
         if run.runXp < required then break end
+
+        local previousLevel = run.runLevel
         run.runXp = run.runXp - required
         run.runLevel = run.runLevel + 1
         run.levelsGained = (run.levelsGained or 0) + 1
@@ -2209,13 +2250,9 @@ function GA:GrantRunExperience(amount)
         end
         run.unlockedAbilities = nextAbilities
 
-        self:AddCombatLog(string.format("LEVEL UP! %s is now Level %d.", run.snapshot.name or "Hero", run.runLevel), "system")
+        self:AddCombatLog(string.format("LEVEL UP! %d -> %d", previousLevel, run.runLevel), "system")
         if #unlockedNames > 0 then
-            self:AddCombatLog("New abilities: " .. table.concat(unlockedNames, ", ") .. ".", "player")
-        end
-        if self.DungeonRunStateText then
-            self.DungeonRunStateText:SetText("LEVEL UP!  LEVEL " .. run.runLevel)
-            self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+            self:AddCombatLog("Unlocked: " .. table.concat(unlockedNames, ", "), "player")
         end
     end
 
@@ -2223,7 +2260,15 @@ function GA:GrantRunExperience(amount)
     if self.DungeonRunPortraitMeta then
         self.DungeonRunPortraitMeta:SetText(string.format("Level %d %s", run.runLevel or run.snapshot.level or 1, run.snapshot.className or "Adventurer"))
     end
+
+    local leveledUp = run.runLevel > initialLevel
+    if leveledUp and self.DungeonRunStateText then
+        self.DungeonRunStateText:SetText(string.format("LEVEL UP!  %d -> %d", initialLevel, run.runLevel))
+        self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    end
+
     self:RefreshRunCounters()
+    return leveledUp, initialLevel, run.runLevel
 end
 
 function GA:PlayerAttackEnemy(targetEnemy)
@@ -2299,15 +2344,24 @@ function GA:PlayerAttackEnemy(targetEnemy)
             string.format("%s defeated. +%d score, +%d XP.", GetEnemyDisplayName(enemy), scoreValue, xpValue),
             "system"
         )
-        self:GrantRunExperience(xpValue)
+        local leveledUp, previousRunLevel, currentRunLevel = self:GrantRunExperience(xpValue)
 
         UpdateEncounterRoomClear(self, run, enemy)
 
         if self.DungeonRunStateText then
-            self.DungeonRunStateText:SetText(
-                "PLAYER TURN - " .. string.upper(GetEnemyDisplayName(enemy)) .. " DEFEATED"
-            )
-            self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+            if leveledUp then
+                self.DungeonRunStateText:SetText(string.format(
+                    "LEVEL UP!  %d -> %d",
+                    previousRunLevel,
+                    currentRunLevel
+                ))
+                self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+            else
+                self.DungeonRunStateText:SetText(
+                    "PLAYER TURN - " .. string.upper(GetEnemyDisplayName(enemy)) .. " DEFEATED"
+                )
+                self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
+            end
         end
 
         self:RefreshRunCounters()
