@@ -3,9 +3,27 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.35.0**  
+Current addon version: **0.36.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.36.0 — strict room-threshold door topology
+
+- Fixed a remaining procedural door-placement bug visible in-game where a door marker could appear on an ordinary corridor tile.
+- Root cause: the previous threshold test confirmed room -> wall-band -> walkable continuity, but did not reject wall-band cells that also belonged to a parallel corridor or junction.
+- DungeonGenerator bumped to v8.
+- A generated door is now valid only when:
+  - the door tile is walkable and outside every room;
+  - the inward neighbor is inside the owning room;
+  - the outward neighbor is a corridor tile outside every room;
+  - the door tile has **exactly two orthogonally walkable neighbors**: room interior and outward corridor.
+- Parallel corridors, T-junctions, intersections and open-area cells can no longer become doors.
+- Door candidates at room corners are now excluded entirely.
+- Existing rules remain intact:
+  - no orthogonally adjacent doors;
+  - small rooms (w*h <= 25) hard-cap at one door;
+  - Studio-driven room door limits still apply.
+- This affects newly generated floors only; start a NEW RUN after /reload to validate the fix.
 
 ## 0.35.0 — right-rail navigation + action-bar slot swapping
 
@@ -1082,7 +1100,7 @@ Recent gameplay foundation:
 - DungeonGenerator v3 assigns room roles: START / COMBAT / TREASURE / ELITE / SHRINE / EXIT / BOSS
 - DungeonGenerator v4 fixes door placement: doors are now true room/corridor thresholds in the one-tile wall band outside rooms, not arbitrary room-edge contacts
 - threshold detection requires room interior -> doorway -> continuing corridor, and contiguous doorway candidates collapse to one centered door
-- DungeonGenerator v7 makes adjacent doors illegal: no two generated doors may share an orthogonal edge
+- DungeonGenerator v8 makes adjacent doors illegal: no two generated doors may share an orthogonal edge
 - door counts are bounded by room: small rooms get at most 1 door; TREASURE / SHRINE / ELITE / BOSS rooms get at most 1; ordinary larger rooms get at most 2
 - door selection prefers the center of a valid threshold segment, then searches outward for a non-adjacent candidate
 - DungeonGenerator v5 adds a < stairs-up marker to the START room on Floors 2-9
@@ -1172,7 +1190,7 @@ Multi-enemy support is now active in 0.14.2:
 
 ### Current map
 
-DungeonGenerator v7 is active in 0.23.0.
+DungeonGenerator v8 is active in 0.23.0.
 
 - map dimensions remain 25×25;
 - rooms are procedurally placed with one-cell separation;
@@ -1632,7 +1650,7 @@ Recommended order:
 1. **Studio data migration**
    - configure the two Vercel publish secrets once
    - EnemyGenerator v5 reads enemy archetypes and ranks from GA.StudioData
-   - DungeonGenerator v7 reads room door limits and map markers from GA.StudioData
+   - DungeonGenerator v8 reads room door limits and map markers from GA.StudioData
    - Shrine effects and Shrine UI values read from GA.StudioData
    - Warrior spellbook data is populated and all 29 retained abilities are runtime-wired. Next priorities are in-game combat testing/balance, finite potion handling and Studio/runtime loot-table migration
 
@@ -1751,7 +1769,7 @@ Before changing layout conventions, remember the user's current preferences:
 - creature art baseline is 128×128 source rendered at 96×96 px with no tile overflow;
 - enemy cells keep the terrain background and use only a red border for hostile highlighting;
 - active floors use the procedural DungeonGenerator; do not restore fixed start/exit/chest coordinates;
-- generated rooms use real room-to-corridor threshold doors in the wall band outside the room; closed doors block LOS and open on bump for one turn;
+- generated rooms use strict room-to-corridor threshold doors in the wall band outside the room; a door tile must have exactly two orthogonally walkable neighbors (room interior + outward corridor), can never be a corner/junction/parallel-corridor cell, blocks LOS while closed, and opens on bump for one turn;
 - two generated doors must never be orthogonally adjacent; small rooms remain hard-capped at 1 door, while larger room-role door limits are Studio-driven;
 - generated rooms have gameplay roles; START / TREASURE / SHRINE / EXIT stay free of ordinary enemy spawns;
 - dungeon floors are bidirectional inside an active run: > descends and < returns, with visited floor state restored rather than regenerated;

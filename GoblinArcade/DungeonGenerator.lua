@@ -3,7 +3,7 @@ local _, GA = ...
 GA.DungeonGenerator = GA.DungeonGenerator or {}
 local DG = GA.DungeonGenerator
 
-DG.VERSION = 7
+DG.VERSION = 8
 
 local MODULUS = 2147483647
 local MULTIPLIER = 48271
@@ -266,17 +266,31 @@ local function BuildDoorSet(rooms, walkable)
         return 2
     end
 
+    local function CountWalkableOrthogonalNeighbors(x, y)
+        local count = 0
+        for _, direction in ipairs(PATH_DIRECTIONS) do
+            if walkable[CellKey(x + direction[1], y + direction[2])] == true then
+                count = count + 1
+            end
+        end
+        return count
+    end
+
     local function IsValidThreshold(roomIndex, doorX, doorY, insideX, insideY, outsideX, outsideY)
         local doorKey = CellKey(doorX, doorY)
         local insideKey = CellKey(insideX, insideY)
         local outsideKey = CellKey(outsideX, outsideY)
 
+        -- A real door is a one-tile threshold through the wall band:
+        -- room interior <-> door <-> corridor. The door tile must not also
+        -- participate in a parallel corridor, T-junction or open area.
         return walkable[doorKey] == true
             and membership[doorKey] == nil
             and walkable[insideKey] == true
             and membership[insideKey] == roomIndex
             and walkable[outsideKey] == true
-            and membership[outsideKey] ~= roomIndex
+            and membership[outsideKey] == nil
+            and CountWalkableOrthogonalNeighbors(doorX, doorY) == 2
     end
 
     local function CommitSegment(roomIndex, room, segment)
@@ -349,7 +363,7 @@ local function BuildDoorSet(rooms, walkable)
         local top = room.y
         local bottom = room.y + room.h - 1
 
-        ScanSide(roomIndex, room, left, right, function(x)
+        ScanSide(roomIndex, room, left + 1, right - 1, function(x)
             return {
                 doorX = x,
                 doorY = top - 1,
@@ -360,7 +374,7 @@ local function BuildDoorSet(rooms, walkable)
             }
         end)
 
-        ScanSide(roomIndex, room, left, right, function(x)
+        ScanSide(roomIndex, room, left + 1, right - 1, function(x)
             return {
                 doorX = x,
                 doorY = bottom + 1,
@@ -371,7 +385,7 @@ local function BuildDoorSet(rooms, walkable)
             }
         end)
 
-        ScanSide(roomIndex, room, top, bottom, function(y)
+        ScanSide(roomIndex, room, top + 1, bottom - 1, function(y)
             return {
                 doorX = left - 1,
                 doorY = y,
@@ -382,7 +396,7 @@ local function BuildDoorSet(rooms, walkable)
             }
         end)
 
-        ScanSide(roomIndex, room, top, bottom, function(y)
+        ScanSide(roomIndex, room, top + 1, bottom - 1, function(y)
             return {
                 doorX = right + 1,
                 doorY = y,
