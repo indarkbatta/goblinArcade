@@ -169,9 +169,17 @@ function GA:CreateHomePage(parent)
     local page = CreateFrame("Frame", nil, parent)
     page:SetAllPoints(parent)
 
-    local creator = CreateText(page, "GameFontNormalLarge", "Goblin Arcade - created by Midnight Traveler.")
-    creator:SetPoint("CENTER")
+    local logo = page:CreateTexture(nil, "ARTWORK")
+    logo:SetSize(520, 520)
+    logo:SetPoint("CENTER", page, "CENTER", 0, 18)
+    logo:SetTexture("Interface\\AddOns\\GoblinArcade\\Media\\UI\\ga_logo.png")
+    logo:SetTexCoord(0, 1, 0, 1)
+    self.HomeLogo = logo
+
+    local creator = CreateText(page, "GameFontNormalLarge", "created by Nightstrider")
+    creator:SetPoint("TOP", logo, "BOTTOM", 0, -14)
     creator:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    self.HomeCreator = creator
 
     return page
 end

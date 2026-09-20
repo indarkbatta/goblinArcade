@@ -3,9 +3,24 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.50.0**  
+Current addon version: **0.51.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.51.0 — branded Home screen and UI media folder
+
+- Addon **0.51.0** adds the new GoblinArcade Home branding.
+- The uploaded `GoblinArcade/Media/Monsters/ga_logo.png` asset is copied into a new UI media folder at:
+  - `GoblinArcade/Media/UI/ga_logo.png`
+- The original Monsters copy is intentionally left in place because this change is a copy/reorganization rather than a destructive move.
+- Home no longer shows:
+  - `Goblin Arcade - created by Midnight Traveler.`
+- Home now shows:
+  - the new `ga_logo` centered in the content area;
+  - `created by Nightstrider` centered directly underneath.
+- The logo is rendered at **520 x 520** and uses the UI-media path rather than the Monsters path.
+- The main application header and navigation are otherwise unchanged.
+- Gameplay, itemization, Central Stash, suspend/resume and 2H inventory mechanics are unchanged.
 
 ## 0.50.0 — in-run two-handed weapon hand management
 
@@ -959,9 +974,13 @@ Header:
 
 ### Home
 
-Home deliberately contains **only**:
+Home deliberately contains **only** the centered GoblinArcade logo and the creator credit underneath:
 
-> Goblin Arcade - created by Midnight Traveler.
+> created by Nightstrider
+
+Logo asset:
+
+- `GoblinArcade/Media/UI/ga_logo.png`
 
 Do not add status cards, explanatory text, launch buttons, feature lists, etc. unless the user explicitly asks.
 
