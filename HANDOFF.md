@@ -3,9 +3,35 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.57.1**  
+Current addon version: **0.58.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.58.0 — monster identity mechanics pass
+
+- Authored complete first-pass skillsets for every current enemy archetype.
+- **Kobold**
+  - Sling Stone: ranged chip damage from Floor 3;
+  - Desperate Slash: stronger melee strike below 40% HP from Floor 3;
+  - Pocket Sand: short movement slow from Floor 5.
+- **Spider**
+  - Venom Bite: melee damage + short poison DoT from Floor 4;
+  - Web: ranged one-turn root from Floor 4;
+  - Venom Spit: weaker ranged poison DoT from Floor 6.
+- **Skeleton**
+  - Heavy Swing: one-turn telegraphed heavy strike from Floor 5;
+  - Grave Chill: ranged movement slow from Floor 6;
+  - Reassemble: telegraphed 16% self-heal below 30% HP from Floor 7, effectively once per encounter via a 99-turn cooldown.
+- **Brute**
+  - Crushing Blow: telegraphed high-damage attack from Floor 5;
+  - Headbutt: immediate lighter melee attack from Floor 6;
+  - Ground Tremor: telegraphed short movement slow from Floor 7;
+  - Second Wind: telegraphed 14% self-heal below 28% HP from Floor 8, effectively once per encounter.
+- Veteran / Elite / Boss ranks inherit the archetype skillset and combine it with their normal rank stat scaling.
+- Raw enemy HP and base damage formulas are unchanged in this content pass.
+- Studio local draft key bumped to **v21** so an older v20 browser draft cannot silently overwrite the new published skillsets.
+- Studio publish validation now rejects enemy records that reference missing Monster Skills.
+- Studio version = **1.7.1**.
 
 ## 0.57.1 — Monster Skill floor gating + Studio QA
 
