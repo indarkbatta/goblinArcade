@@ -3,7 +3,7 @@ local _, GA = ...
 GA.ItemDatabase = GA.ItemDatabase or {}
 local DB = GA.ItemDatabase
 
-DB.VERSION = 2
+DB.VERSION = 3
 
 local SLOT_LABELS = {
     INVTYPE_HEAD = "Head",
@@ -80,9 +80,26 @@ function DB:GetItemDefinition(itemId)
     return nil
 end
 
-function DB:GetLootEntries(source, floorNumber)
+function DB:GetLootTableDefinition(tableId)
+    for _, record in ipairs(GA.StudioData and GA.StudioData.lootTables or {}) do
+        if record.id == tableId then
+            return record
+        end
+    end
+    return nil
+end
+
+function DB:GetObjectDefinition(objectId)
+    for _, record in ipairs(GA.StudioData and GA.StudioData.objects or {}) do
+        if record.id == objectId then
+            return record
+        end
+    end
+    return nil
+end
+
+function DB:GetLootEntries(tableId, floorNumber)
     local result = {}
-    local wantedSource = string.upper(tostring(source or "TREASURE"))
     local floor = math.max(1, math.floor(tonumber(floorNumber) or 1))
 
     for _, entry in ipairs(GA.StudioData and GA.StudioData.loot or {}) do
@@ -91,7 +108,7 @@ function DB:GetLootEntries(source, floorNumber)
         local maxFloor = math.max(minFloor, math.floor(tonumber(entry.maxFloor) or 9))
 
         if enabled
-            and string.upper(tostring(entry.source or "")) == wantedSource
+            and entry.tableId == tableId
             and floor >= minFloor
             and floor <= maxFloor
             and self:GetItemDefinition(entry.itemId) then
@@ -101,6 +118,7 @@ function DB:GetLootEntries(source, floorNumber)
 
     return result
 end
+
 
 function DB:IsItemAllowedForClass(item, classId)
     if not item then return false end
@@ -190,18 +208,26 @@ function DB:BuildItemInstance(itemId, options)
     return item
 end
 
-function DB:RollLoot(source, floorNumber)
-    local entries = self:GetLootEntries(source, floorNumber)
+function DB:RollLootTable(tableId, floorNumber, sourceLabel)
+    local definition = self:GetLootTableDefinition(tableId)
+    if not definition then return nil end
+
+    local dropChance = math.max(0, math.min(100, tonumber(definition.dropChance) or 100))
+    if dropChance <= 0 then
+        return nil
+    end
+    if dropChance < 100 and math.random() * 100 >= dropChance then
+        return nil
+    end
+
+    local entries = self:GetLootEntries(tableId, floorNumber)
     if #entries == 0 then return nil end
 
     local totalWeight = 0
     for _, entry in ipairs(entries) do
         totalWeight = totalWeight + math.max(0, tonumber(entry.weight) or 0)
     end
-
-    if totalWeight <= 0 then
-        return nil
-    end
+    if totalWeight <= 0 then return nil end
 
     local roll = math.random() * totalWeight
     local cursor = 0
@@ -216,12 +242,41 @@ function DB:RollLoot(source, floorNumber)
     end
 
     return self:BuildItemInstance(selected.itemId, {
-        source = string.lower(tostring(source or "dungeon")),
+        source = sourceLabel or tableId or "dungeon",
         itemLevelBonus = tonumber(selected.itemLevelBonus) or 0,
         powerMultiplier = tonumber(selected.powerMultiplier) or 1,
         quantity = tonumber(selected.quantity) or 1,
     })
 end
+
+function DB:RollObjectLoot(objectId, floorNumber)
+    local object = self:GetObjectDefinition(objectId)
+    if not object or not object.lootTableId or object.lootTableId == "" then
+        return nil
+    end
+
+    return self:RollLootTable(object.lootTableId, floorNumber, objectId)
+end
+
+function DB:GetEnemyLootTableId(enemyId)
+    for _, record in ipairs(GA.StudioData and GA.StudioData.enemies or {}) do
+        if record.id == enemyId then
+            return record.lootTableId
+        end
+    end
+    return nil
+end
+
+-- Temporary compatibility for any older call sites while the runtime migrates.
+function DB:RollLoot(source, floorNumber)
+    local map = {
+        TREASURE = "treasure_chest",
+        ELITE = "elite_cache",
+    }
+    local objectId = map[string.upper(tostring(source or ""))]
+    return objectId and self:RollObjectLoot(objectId, floorNumber) or nil
+end
+
 
 function GA:GetStudioItemDefinition(itemId)
     return self.ItemDatabase and self.ItemDatabase:GetItemDefinition(itemId) or nil
@@ -233,4 +288,22 @@ end
 
 function GA:RollStudioLoot(source, floorNumber)
     return self.ItemDatabase and self.ItemDatabase:RollLoot(source, floorNumber) or nil
+end
+
+function GA:RollLootTable(tableId, floorNumber, sourceLabel)
+    return self.ItemDatabase
+        and self.ItemDatabase:RollLootTable(tableId, floorNumber, sourceLabel)
+        or nil
+end
+
+function GA:RollDungeonObjectLoot(objectId, floorNumber)
+    return self.ItemDatabase
+        and self.ItemDatabase:RollObjectLoot(objectId, floorNumber)
+        or nil
+end
+
+function GA:GetDungeonObjectDefinition(objectId)
+    return self.ItemDatabase
+        and self.ItemDatabase:GetObjectDefinition(objectId)
+        or nil
 end

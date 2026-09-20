@@ -272,8 +272,21 @@ local function BuildFloorChestLoot(floorMap, floorNumber)
     local chestKeys = floorMap and floorMap.chestKeys or {}
 
     for _, key in ipairs(chestKeys) do
-        local item = GA.RollStudioLoot and GA:RollStudioLoot("TREASURE", floorNumber)
-        loot[key] = item or CopyTable(FALLBACK_CHEST_LOOT)
+        local marker = floorMap and floorMap.markers and floorMap.markers[key]
+        local objectId = marker and marker.objectId or "treasure_chest"
+        local objectDefinition = GA.GetDungeonObjectDefinition and GA:GetDungeonObjectDefinition(objectId)
+        local item = GA.RollDungeonObjectLoot and GA:RollDungeonObjectLoot(objectId, floorNumber)
+        if item then
+            loot[key] = item
+        elseif objectDefinition and objectDefinition.lootTableId then
+            loot[key] = {
+                empty = true,
+                name = objectDefinition.name or "Container",
+                objectId = objectId,
+            }
+        else
+            loot[key] = CopyTable(FALLBACK_CHEST_LOOT)
+        end
     end
 
     return loot
@@ -1004,16 +1017,26 @@ local function SpawnEliteReward(run, roomIndex)
     end
 
     local key = CellKey(room.center.x, room.center.y)
-    local loot = GA.RollStudioLoot and GA:RollStudioLoot("ELITE", run.floor)
-    if not loot and GA.RollStudioLoot then
-        loot = GA:RollStudioLoot("TREASURE", run.floor)
+    local objectId = "elite_cache"
+    local objectDefinition = GA.GetDungeonObjectDefinition and GA:GetDungeonObjectDefinition(objectId)
+    local loot = GA.RollDungeonObjectLoot and GA:RollDungeonObjectLoot(objectId, run.floor)
+    if not loot then
+        if objectDefinition and objectDefinition.lootTableId then
+            loot = {
+                empty = true,
+                name = objectDefinition.name or "Elite Cache",
+                objectId = objectId,
+            }
+        else
+            loot = CopyTable(FALLBACK_CHEST_LOOT)
+        end
     end
-    loot = loot or CopyTable(FALLBACK_CHEST_LOOT)
 
     run.floorMap.markers[key] = {
-        text = "$",
+        text = objectDefinition and objectDefinition.marker or "$",
         color = "gold",
         kind = "chest",
+        objectId = objectId,
         roomIndex = roomIndex,
         rewardType = "elite",
     }
@@ -4194,6 +4217,28 @@ function GA:HandleEnemyDefeat(enemy)
             to = currentRunLevel,
         }
     end
+
+    if enemy.lootTableId and enemy.lootTableId ~= "" and self.RollLootTable then
+        local drop = self:RollLootTable(
+            enemy.lootTableId,
+            run.floor,
+            "enemy:" .. tostring(enemy.id or enemy.archetype or "unknown")
+        )
+        if drop then
+            if self:AddItemToBackpack(drop) then
+                self:AddCombatLog(
+                    string.format("%s dropped %s.", GetEnemyDisplayName(enemy), drop.name or "an item"),
+                    "system"
+                )
+            else
+                self:AddCombatLog(
+                    string.format("%s dropped %s, but your backpack is full.", GetEnemyDisplayName(enemy), drop.name or "an item"),
+                    "warning"
+                )
+            end
+        end
+    end
+
     UpdateEncounterRoomClear(self, run, enemy)
     return leveledUp, previousRunLevel, currentRunLevel
 end
@@ -6255,7 +6300,7 @@ function GA:TryLootChest(x, y)
         return false
     end
 
-    if not self:AddItemToBackpack(loot) then
+    if not loot.empty and not self:AddItemToBackpack(loot) then
         self:AddCombatLog("Your backpack is full. The chest remains unopened.", "warning")
         return false
     end
@@ -6274,8 +6319,12 @@ function GA:TryLootChest(x, y)
         end
     end
 
-    self:AddCombatLog("Chest opened: " .. loot.name .. " added to your backpack.", "system")
-    self:AddCombatLog("Press C to open your character sheet.", "system")
+    if loot.empty then
+        self:AddCombatLog((loot.name or "Container") .. " opened: empty.", "system")
+    else
+        self:AddCombatLog("Chest opened: " .. loot.name .. " added to your backpack.", "system")
+        self:AddCombatLog("Press C to open your character sheet.", "system")
+    end
     self:RefreshRunCounters()
     self:RenderDungeonGrid()
     return true

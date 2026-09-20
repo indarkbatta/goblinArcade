@@ -3,7 +3,7 @@ local _, GA = ...
 GA.EnemyGenerator = GA.EnemyGenerator or {}
 local EG = GA.EnemyGenerator
 
-EG.VERSION = 6
+EG.VERSION = 7
 
 local GEAR_SLOTS = {
     "head",
@@ -133,6 +133,7 @@ local function GetArchetypeDefinition(archetypeName)
         movementPattern = string.lower(tostring(record.movement or fallback.movementPattern or "normal")),
         baseScore = tonumber(record.baseScore) or fallback.baseScore,
         dangerRating = math.max(1, math.min(10, tonumber(record.dangerRating) or fallback.dangerRating or 1)),
+        lootTableId = record.lootTableId,
     }
 end
 
@@ -347,6 +348,7 @@ function EG:CreateEnemy(options)
         dangerRating = archetype.dangerRating or 1,
         rankXpMultiplier = rank.xpMultiplier or 1,
         xpValue = xpValue,
+        lootTableId = archetype.lootTableId,
         alive = true,
         alerted = false,
         skipTurn = false,

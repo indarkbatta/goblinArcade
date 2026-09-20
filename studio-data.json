@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 4,
-  "studioVersion": "1.3.0",
+  "schemaVersion": 5,
+  "studioVersion": "1.4.0",
   "classes": [
     {
       "id": "warrior",
@@ -637,7 +637,8 @@
       "baseScore": 100,
       "sprite": "Media/Monsters/kobold",
       "description": "Baseline dungeon enemy.",
-      "dangerRating": 2
+      "dangerRating": 2,
+      "lootTableId": "common_enemy_drops"
     },
     {
       "id": "spider",
@@ -649,7 +650,8 @@
       "baseScore": 90,
       "sprite": "Media/Monsters/spider",
       "description": "Fragile, fast pursuit enemy.",
-      "dangerRating": 2
+      "dangerRating": 2,
+      "lootTableId": "common_enemy_drops"
     },
     {
       "id": "skeleton",
@@ -661,7 +663,8 @@
       "baseScore": 125,
       "sprite": "Media/Monsters/skeleton",
       "description": "Durable slow enemy.",
-      "dangerRating": 3
+      "dangerRating": 3,
+      "lootTableId": "common_enemy_drops"
     },
     {
       "id": "brute",
@@ -673,7 +676,8 @@
       "baseScore": 160,
       "sprite": "",
       "description": "Generator-ready heavy enemy.",
-      "dangerRating": 4
+      "dangerRating": 4,
+      "lootTableId": "common_enemy_drops"
     }
   ],
   "ranks": [
@@ -795,58 +799,70 @@
     {
       "id": "treasure_charm",
       "itemId": "candlekeepers_charm",
-      "source": "TREASURE",
       "minFloor": 1,
       "maxFloor": 9,
       "weight": 50,
       "itemLevelBonus": 0,
       "powerMultiplier": 1,
       "quantity": 1,
-      "enabled": "YES"
+      "enabled": "YES",
+      "tableId": "treasure_chest_loot"
     },
     {
       "id": "treasure_ring",
       "itemId": "waxbound_ring",
-      "source": "TREASURE",
       "minFloor": 1,
       "maxFloor": 9,
       "weight": 50,
       "itemLevelBonus": 0,
       "powerMultiplier": 1,
       "quantity": 1,
-      "enabled": "YES"
+      "enabled": "YES",
+      "tableId": "treasure_chest_loot"
     },
     {
       "id": "elite_charm",
       "itemId": "candlekeepers_charm",
-      "source": "ELITE",
       "minFloor": 3,
       "maxFloor": 9,
       "weight": 50,
       "itemLevelBonus": 2,
       "powerMultiplier": 1.15,
       "quantity": 1,
-      "enabled": "YES"
+      "enabled": "YES",
+      "tableId": "elite_cache_loot"
     },
     {
       "id": "elite_ring",
       "itemId": "waxbound_ring",
-      "source": "ELITE",
       "minFloor": 3,
       "maxFloor": 9,
       "weight": 50,
       "itemLevelBonus": 2,
       "powerMultiplier": 1.15,
       "quantity": 1,
-      "enabled": "YES"
+      "enabled": "YES",
+      "tableId": "elite_cache_loot"
     },
     {
       "id": "treasure_minor_healing_potion",
       "itemId": "minor_healing_potion",
-      "source": "TREASURE",
       "minFloor": 1,
       "maxFloor": 9,
       "weight": 35,
+      "itemLevelBonus": 0,
+      "powerMultiplier": 1,
+      "quantity": 1,
+      "enabled": "YES",
+      "tableId": "treasure_chest_loot"
+    },
+    {
+      "id": "common_enemy_potion",
+      "tableId": "common_enemy_drops",
+      "itemId": "minor_healing_potion",
+      "minFloor": 1,
+      "maxFloor": 9,
+      "weight": 100,
       "itemLevelBonus": 0,
       "powerMultiplier": 1,
       "quantity": 1,
@@ -1045,6 +1061,46 @@
       "effectValue": 25,
       "description": "Restores 25% of maximum HP when consumed. Runtime potion use is the next gameplay block.",
       "price": 100
+    }
+  ],
+  "lootTables": [
+    {
+      "id": "treasure_chest_loot",
+      "name": "Treasure Chest Loot",
+      "dropChance": 100,
+      "description": "Default weighted loot table used by Treasure Chest objects."
+    },
+    {
+      "id": "elite_cache_loot",
+      "name": "Elite Cache Loot",
+      "dropChance": 100,
+      "description": "Higher-value weighted loot table used by Elite Cache objects."
+    },
+    {
+      "id": "common_enemy_drops",
+      "name": "Common Enemy Drops",
+      "dropChance": 15,
+      "description": "Shared low-frequency drop table for standard enemy archetypes."
+    }
+  ],
+  "objects": [
+    {
+      "id": "treasure_chest",
+      "name": "Treasure Chest",
+      "type": "CHEST",
+      "marker": "$",
+      "icon": "INV_Chest_Cloth_17",
+      "lootTableId": "treasure_chest_loot",
+      "description": "Standard Treasure-room chest."
+    },
+    {
+      "id": "elite_cache",
+      "name": "Elite Cache",
+      "type": "CHEST",
+      "marker": "$",
+      "icon": "INV_Chest_Chain_16",
+      "lootTableId": "elite_cache_loot",
+      "description": "Reward cache spawned after clearing an Elite room."
     }
   ]
 }

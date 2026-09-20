@@ -3,9 +3,58 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.41.0**  
+Current addon version: **0.42.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.42.0 — attachable named loot tables
+
+- Studio schema bumped to **5** and Studio version to **1.4.0**.
+- Reworked loot architecture into three explicit data layers:
+  - **Loot Tables**: named reusable weighted tables;
+  - **Loot Entries**: Item references belonging to a Loot Table;
+  - **Dungeon Objects**: world/container definitions such as Treasure Chest and Elite Cache that point to a Loot Table.
+- Loot Table records expose:
+  - stable ID;
+  - name;
+  - Drop Chance % (0-100);
+  - description.
+- Loot Entry records expose:
+  - Loot Table reference;
+  - Item reference;
+  - min/max floor;
+  - relative weight;
+  - item-level bonus;
+  - power multiplier;
+  - quantity;
+  - enabled state.
+- Enemy records now expose a **Loot Table** selector.
+- Dungeon Object records expose:
+  - stable ID;
+  - name;
+  - type;
+  - map marker;
+  - WoW icon;
+  - Loot Table reference;
+  - description.
+- Initial Dungeon Objects:
+  - `treasure_chest` -> `treasure_chest_loot`;
+  - `elite_cache` -> `elite_cache_loot`.
+- Existing Treasure/Elite loot entries were migrated from source-based routing to explicit `tableId` references.
+- Added `common_enemy_drops` with a 15% table drop chance and attached it to the current enemy archetypes.
+- The first common enemy drop entry is Minor Healing Potion; this makes enemy loot observable without flooding the backpack.
+- EnemyGenerator bumped to **v7** and carries the Studio enemy's `lootTableId` into each generated enemy instance.
+- DungeonGenerator bumped to **v9** and generated Treasure Chest markers now carry `objectId = "treasure_chest"`.
+- ItemDatabase bumped to **v3**.
+- Runtime loot resolution is now ID-based:
+  - enemy death -> Enemy `lootTableId` -> Loot Table -> weighted Loot Entry -> Item;
+  - chest open -> marker `objectId` -> Dungeon Object -> Loot Table -> weighted Loot Entry -> Item;
+  - Elite Cache uses the same object-driven path.
+- Enemy drops are auto-added to the run backpack when space is available; a full backpack logs a warning instead of silently adding the item.
+- Object tables may intentionally roll no item through Drop Chance. Such containers still open and correctly report **empty**.
+- The emergency fallback item is now reserved for invalid/missing object configuration, not for legitimate empty rolls.
+- Studio and publish validation now reject missing Loot Table / Item references and invalid drop chances.
+- The published Warrior `HP / Level = 3` remains preserved.
 
 ## 0.41.0 — item prices + finite potion runtime
 
@@ -437,7 +486,7 @@ Deployment is automatic through GitHub Actions.
 
 ### GoblinArcade Studio / Vercel
 
-Studio v1.3.0 keeps a **static-first** architecture for Vercel cost efficiency:
+Studio v1.4.0 keeps a **static-first** architecture for Vercel cost efficiency:
 
 - no npm build is required;
 - no database is used;
@@ -1842,7 +1891,7 @@ Recommended order:
    - boss
 
 6. **More deterministic loot**
-   - Studio Items + Loot Tables foundation is active for Treasure and Elite rewards
+   - Studio Items + named Loot Tables + Loot Entries + Dungeon Objects are active; Treasure/Elite containers and enemy archetypes resolve loot through reusable Loot Table IDs
    - add more armor / jewelry / weapons and Boss/Enemy/Shop loot entries
    - keep clear archetype-based differences
 
@@ -1939,7 +1988,7 @@ Before changing layout conventions, remember the user's current preferences:
 - minimap belongs in the lower-right run panel and respects Fog of War instead of revealing unexplored rooms;
 - fog should not show dotted borders;
 - item tooltips should show GoblinArcade stats, not WoW stats;
-- dungeon-created equipment/consumables are defined in Studio Items and referenced by Studio Loot Tables; explicit Studio item stats and Price (Copper) are authoritative, while real WoW gear still uses ItemGenerator/WeaponGenerator conversion;
+- dungeon-created equipment/consumables are defined in Studio Items; reusable Studio Loot Tables own weighted Loot Entries, and both Enemy records and Dungeon Object records attach to those tables by ID; explicit Studio item stats and Price (Copper) are authoritative, while real WoW gear still uses ItemGenerator/WeaponGenerator conversion;
 - action slot 0 is the finite Potion slot: it uses real backpack Potion consumables, consumes one stack and one player turn, then advances the enemy phase;
 - all GoblinArcade HP and damage values use the global 10:1 compression; do not restore the older large-number scale;
 - GoblinArcade Studio stays static-first; the only backend is the on-demand publish request, so avoid database/always-on Vercel spend;

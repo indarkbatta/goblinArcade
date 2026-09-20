@@ -3,7 +3,7 @@ local _, GA = ...
 GA.DungeonGenerator = GA.DungeonGenerator or {}
 local DG = GA.DungeonGenerator
 
-DG.VERSION = 8
+DG.VERSION = 9
 
 local MODULUS = 2147483647
 local MULTIPLIER = 48271
@@ -536,6 +536,7 @@ local function AddTreasureChests(markers, chestKeys, room, maximumChests, marker
                     text = markerText or "$",
                     color = "gold",
                     kind = "chest",
+                    objectId = "treasure_chest",
                     roomIndex = room.index,
                 }
                 chestKeys[#chestKeys + 1] = key
