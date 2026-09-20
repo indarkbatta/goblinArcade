@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 8,
-  "studioVersion": "1.7.1",
+  "schemaVersion": 9,
+  "studioVersion": "1.8.0",
   "classes": [
     {
       "id": "warrior",
@@ -8837,6 +8837,139 @@
       "telegraphTurns": 1,
       "minFloor": 8,
       "description": "Once badly wounded, the brute takes a breath and restores a small portion of its health."
+    }
+  ],
+  "eventRules": [
+    {
+      "id": "dungeon_events",
+      "name": "Dungeon Event Placement",
+      "basePerFloor": 1,
+      "extraEveryFloors": 5,
+      "maxPerFloor": 2,
+      "description": "Places one data-driven event on early floors and a second event from Floor 5 onward, when enough eligible rooms and event definitions exist."
+    }
+  ],
+  "events": [
+    {
+      "id": "abandoned_camp",
+      "name": "Abandoned Camp",
+      "icon": "INV_Misc_Bag_10",
+      "marker": "?",
+      "mapColor": "GOLD",
+      "enabled": "YES",
+      "minFloor": 1,
+      "maxFloor": 9,
+      "weight": 100,
+      "roomRoleIds": [
+        "COMBAT"
+      ],
+      "description": "A cold camp lies abandoned. The embers are dead, but some supplies may still be useful."
+    },
+    {
+      "id": "bloodstained_altar",
+      "name": "Bloodstained Altar",
+      "icon": "Spell_Shadow_SacrificialShield",
+      "marker": "!",
+      "mapColor": "RED",
+      "enabled": "YES",
+      "minFloor": 3,
+      "maxFloor": 9,
+      "weight": 70,
+      "roomRoleIds": [
+        "COMBAT",
+        "ELITE"
+      ],
+      "description": "Old blood darkens the stone. Something in the dungeon still listens for an offering."
+    },
+    {
+      "id": "forgotten_cache",
+      "name": "Forgotten Cache",
+      "icon": "INV_Chest_Cloth_17",
+      "marker": "?",
+      "mapColor": "GOLD",
+      "enabled": "YES",
+      "minFloor": 2,
+      "maxFloor": 9,
+      "weight": 80,
+      "roomRoleIds": [
+        "COMBAT",
+        "TREASURE"
+      ],
+      "description": "A half-collapsed cache has escaped the dungeon's usual scavengers."
+    }
+  ],
+  "eventOptions": [
+    {
+      "id": "abandoned_camp_rest",
+      "name": "Rest by the Embers",
+      "eventId": "abandoned_camp",
+      "sortOrder": 1,
+      "effect": "HEAL_PERCENT",
+      "value": 20,
+      "secondaryValue": 0,
+      "lootTableId": "",
+      "resultText": "You rest for a moment and recover your strength.",
+      "description": "Restore 20% of maximum health."
+    },
+    {
+      "id": "abandoned_camp_search",
+      "name": "Search the Packs",
+      "eventId": "abandoned_camp",
+      "sortOrder": 2,
+      "effect": "LOOT_TABLE",
+      "value": 0,
+      "secondaryValue": 0,
+      "lootTableId": "treasure_chest_loot",
+      "resultText": "You search the abandoned packs.",
+      "description": "Roll the normal treasure-chest loot table."
+    },
+    {
+      "id": "bloodstained_altar_offer",
+      "name": "Offer Blood",
+      "eventId": "bloodstained_altar",
+      "sortOrder": 1,
+      "effect": "HP_FOR_SCORE",
+      "value": 12,
+      "secondaryValue": 180,
+      "lootTableId": "",
+      "resultText": "The altar drinks deeply and the dungeon seems to acknowledge the sacrifice.",
+      "description": "Lose 12% max HP as current health, but gain 180 base score."
+    },
+    {
+      "id": "bloodstained_altar_leave",
+      "name": "Turn Away",
+      "eventId": "bloodstained_altar",
+      "sortOrder": 2,
+      "effect": "NONE",
+      "value": 0,
+      "secondaryValue": 0,
+      "lootTableId": "",
+      "resultText": "You leave the altar untouched.",
+      "description": "Leave without taking a risk."
+    },
+    {
+      "id": "forgotten_cache_open",
+      "name": "Pry It Open",
+      "eventId": "forgotten_cache",
+      "sortOrder": 1,
+      "effect": "LOOT_TABLE",
+      "value": 0,
+      "secondaryValue": 0,
+      "lootTableId": "treasure_chest_loot",
+      "resultText": "The old cache gives way.",
+      "description": "Roll the normal treasure-chest loot table."
+    },
+    {
+      "id": "forgotten_cache_salvage",
+      "name": "Strip the Fittings",
+      "eventId": "forgotten_cache",
+      "sortOrder": 2,
+      "effect": "COPPER",
+      "value": 240,
+      "secondaryValue": 0,
+      "lootTableId": "",
+      "resultText": "You strip useful metal and fittings from the ruined cache.",
+      "description": "Gain 240 run Copper immediately."
     }
   ]
 }

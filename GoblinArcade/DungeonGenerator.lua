@@ -3,7 +3,7 @@ local _, GA = ...
 GA.DungeonGenerator = GA.DungeonGenerator or {}
 local DG = GA.DungeonGenerator
 
-DG.VERSION = 11
+DG.VERSION = 12
 
 local MODULUS = 2147483647
 local MULTIPLIER = 48271
@@ -510,6 +510,173 @@ local function AddRoomRoleMarker(markers, room, text, color, kind)
     }
 end
 
+local function IsStudioYes(value)
+    local normalized = string.upper(tostring(value or "YES"))
+    return normalized == "YES" or normalized == "TRUE" or normalized == "1"
+end
+
+local function GetStudioEventRule()
+    local rules = GA.StudioData and GA.StudioData.eventRules or {}
+    for _, record in ipairs(rules) do
+        if record.id == "dungeon_events" then
+            return record
+        end
+    end
+    return rules[1]
+end
+
+local function GetEventTargetCount(floor)
+    local rule = GetStudioEventRule() or {}
+    local base = math.max(0, math.floor(tonumber(rule.basePerFloor) or 0))
+    local every = math.max(0, math.floor(tonumber(rule.extraEveryFloors) or 0))
+    local maximum = math.max(base, math.floor(tonumber(rule.maxPerFloor) or base))
+    local extra = 0
+    if every > 0 then
+        extra = math.floor((math.max(1, floor) - 1) / every)
+    end
+    return math.min(maximum, base + extra)
+end
+
+local function GetEligibleStudioEvents(floor)
+    local result = {}
+    for _, event in ipairs(GA.StudioData and GA.StudioData.events or {}) do
+        local minFloor = math.max(1, math.floor(tonumber(event.minFloor) or 1))
+        local maxFloor = math.max(minFloor, math.floor(tonumber(event.maxFloor) or 9))
+        local roles = type(event.roomRoleIds) == "table" and event.roomRoleIds or {}
+        if IsStudioYes(event.enabled)
+            and floor >= minFloor
+            and floor <= maxFloor
+            and (tonumber(event.weight) or 0) > 0
+            and #roles > 0 then
+            result[#result + 1] = event
+        end
+    end
+    return result
+end
+
+local function EventAllowsRoomRole(event, role)
+    for _, allowed in ipairs(event and event.roomRoleIds or {}) do
+        if tostring(allowed) == tostring(role) then
+            return true
+        end
+    end
+    return false
+end
+
+local function GetRoomEventTiles(room, markers)
+    local result = {}
+    if not room then return result end
+
+    local right = room.x + room.w - 1
+    local bottom = room.y + room.h - 1
+    local center = room.center or RoomCenter(room)
+
+    for y = room.y + 1, bottom - 1 do
+        for x = room.x + 1, right - 1 do
+            local key = CellKey(x, y)
+            if not markers[key]
+                and not (center and x == center.x and y == center.y) then
+                result[#result + 1] = { x = x, y = y, key = key }
+            end
+        end
+    end
+
+    return result
+end
+
+local function BuildEventPlacementCandidates(event, rooms, markers, usedRooms)
+    local candidates = {}
+    for _, room in ipairs(rooms or {}) do
+        if not usedRooms[room.index] and EventAllowsRoomRole(event, room.role) then
+            local tiles = GetRoomEventTiles(room, markers)
+            for _, tile in ipairs(tiles) do
+                tile.roomIndex = room.index
+                tile.roomRole = room.role
+                candidates[#candidates + 1] = tile
+            end
+        end
+    end
+    return candidates
+end
+
+local function PickWeightedEvent(events, rooms, markers, usedRooms, rng)
+    local eligible = {}
+    local totalWeight = 0
+
+    for _, event in ipairs(events) do
+        local candidates = BuildEventPlacementCandidates(event, rooms, markers, usedRooms)
+        if #candidates > 0 then
+            local weight = math.max(0, tonumber(event.weight) or 0)
+            if weight > 0 then
+                eligible[#eligible + 1] = {
+                    event = event,
+                    candidates = candidates,
+                    weight = weight,
+                }
+                totalWeight = totalWeight + weight
+            end
+        end
+    end
+
+    if #eligible == 0 or totalWeight <= 0 then
+        return nil, nil
+    end
+
+    local roll = rng() * totalWeight
+    local cursor = 0
+    local selected = eligible[#eligible]
+    for _, entry in ipairs(eligible) do
+        cursor = cursor + entry.weight
+        if roll <= cursor then
+            selected = entry
+            break
+        end
+    end
+
+    return selected.event, selected.candidates
+end
+
+local function AddDungeonEvents(markers, rooms, floor, rng)
+    local eventKeys = {}
+    local available = GetEligibleStudioEvents(floor)
+    local usedRooms = {}
+    local targetCount = GetEventTargetCount(floor)
+
+    for _ = 1, targetCount do
+        local event, candidates = PickWeightedEvent(available, rooms, markers, usedRooms, rng)
+        if not event or not candidates or #candidates == 0 then
+            break
+        end
+
+        local tile = candidates[rng(1, #candidates)]
+        local color = string.lower(tostring(event.mapColor or "GOLD"))
+        if color ~= "gold" and color ~= "green" and color ~= "red" and color ~= "muted" then
+            color = "gold"
+        end
+
+        markers[tile.key] = {
+            text = tostring(event.marker or "?"),
+            color = color,
+            kind = "event",
+            eventId = event.id,
+            roomIndex = tile.roomIndex,
+        }
+        eventKeys[#eventKeys + 1] = tile.key
+        usedRooms[tile.roomIndex] = true
+
+        -- Event definitions are unique per floor. Authors can create multiple
+        -- definitions if they want similar events to coexist on one floor.
+        for index = #available, 1, -1 do
+            if available[index].id == event.id then
+                table.remove(available, index)
+                break
+            end
+        end
+    end
+
+    return eventKeys
+end
+
 local function AddTreasureChests(markers, chestKeys, room, maximumChests, markerText)
     if not room or not room.center then
         return
@@ -742,6 +909,8 @@ function DG:GenerateFloor(width, height, floorNumber, runSeed)
     AddRoomRoleMarker(markers, roleData.eliteRoom, GetStudioRoomMarker("ELITE", "!"), "red", "elite")
     AddRoomRoleMarker(markers, roleData.bossRoom, GetStudioRoomMarker("BOSS", "B"), "red", "boss")
 
+    local eventKeys = AddDungeonEvents(markers, rooms, floor, rng)
+
     return {
         generatorVersion = self.VERSION,
         name = "THE SHIFTING CELLAR",
@@ -758,6 +927,8 @@ function DG:GenerateFloor(width, height, floorNumber, runSeed)
         roomRoleCounts = roleData.counts,
         markers = markers,
         chestKeys = chestKeys,
+        eventKeys = eventKeys,
+        eventCount = #eventKeys,
         doors = doors,
         doorCount = CountKeys(doors),
         start = start,

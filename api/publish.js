@@ -12,7 +12,7 @@ function safeEqual(left, right) {
 
 function assertStudioData(data) {
   if (!data || typeof data !== "object") throw new Error("Missing Studio data.");
-  const arrays = ["classes", "races", "abilities", "monsterSkills", "items", "lootTables", "loot", "objects", "enemies", "ranks", "progression", "rooms", "shrines"];
+  const arrays = ["classes", "races", "abilities", "monsterSkills", "items", "lootTables", "loot", "objects", "eventRules", "events", "eventOptions", "enemies", "ranks", "progression", "rooms", "shrines"];
   for (const key of arrays) {
     if (!Array.isArray(data[key])) throw new Error("Missing array: " + key);
     const ids = new Set();
@@ -23,6 +23,56 @@ function assertStudioData(data) {
       if (ids.has(id)) throw new Error("Duplicate " + key + " ID: " + id);
       ids.add(id);
     }
+  }
+
+  const eventIds = new Set(data.events.map(event => String(event.id || "")));
+  const roomIds = new Set(data.rooms.map(room => String(room.id || "")));
+  const lootTableIds = new Set(data.lootTables.map(table => String(table.id || "")));
+  const validEventEffects = new Set([
+    "NONE", "HEAL_PERCENT", "DAMAGE_PERCENT", "HP_FOR_SCORE",
+    "DAMAGE_BONUS", "MAX_HP_PERCENT", "COPPER", "SCORE", "LOOT_TABLE",
+  ]);
+
+  const eventRule = data.eventRules.find(rule => String(rule.id || "") === "dungeon_events");
+  if (!eventRule) throw new Error("Missing dungeon_events Event Rule.");
+  const basePerFloor = Number(eventRule.basePerFloor);
+  const extraEveryFloors = Number(eventRule.extraEveryFloors);
+  const maxPerFloor = Number(eventRule.maxPerFloor);
+  if (!Number.isFinite(basePerFloor) || basePerFloor < 0
+      || !Number.isFinite(extraEveryFloors) || extraEveryFloors < 0
+      || !Number.isFinite(maxPerFloor) || maxPerFloor < basePerFloor) {
+    throw new Error("dungeon_events has invalid placement values.");
+  }
+
+  const optionCount = new Map();
+  for (const event of data.events) {
+    const minFloor = Number(event.minFloor);
+    const maxFloor = Number(event.maxFloor);
+    if (!Number.isFinite(minFloor) || minFloor < 1 || !Number.isFinite(maxFloor) || maxFloor < minFloor) {
+      throw new Error("Event " + event.id + " has an invalid floor range.");
+    }
+    if (!(Number(event.weight) > 0)) throw new Error("Event " + event.id + " needs a positive weight.");
+    const roles = Array.isArray(event.roomRoleIds) ? event.roomRoleIds : [];
+    if (!roles.length) throw new Error("Event " + event.id + " needs at least one room role.");
+    for (const roleId of roles) {
+      if (!roomIds.has(String(roleId))) throw new Error("Event " + event.id + " references unknown room role: " + roleId);
+    }
+  }
+  for (const option of data.eventOptions) {
+    const eventId = String(option.eventId || "");
+    if (!eventIds.has(eventId)) throw new Error("Event Option " + option.id + " references unknown event: " + eventId);
+    optionCount.set(eventId, (optionCount.get(eventId) || 0) + 1);
+    const effect = String(option.effect || "NONE").toUpperCase();
+    if (!validEventEffects.has(effect)) {
+      throw new Error("Event Option " + option.id + " uses unsupported effect: " + effect);
+    }
+    if (effect === "LOOT_TABLE" && !lootTableIds.has(String(option.lootTableId || ""))) {
+      throw new Error("Event Option " + option.id + " references unknown loot table: " + option.lootTableId);
+    }
+  }
+  for (const eventId of eventIds) {
+    const count = optionCount.get(eventId) || 0;
+    if (count < 1 || count > 4) throw new Error("Event " + eventId + " must have 1-4 options.");
   }
 
   const monsterSkillIds = new Set(data.monsterSkills.map(skill => String(skill.id || "")));
@@ -146,6 +196,9 @@ module.exports = async function handler(req, res) {
       lootTables: data.lootTables,
       loot: data.loot,
       objects: data.objects,
+      eventRules: data.eventRules,
+      events: data.events,
+      eventOptions: data.eventOptions,
       enemies: data.enemies,
       ranks: data.ranks,
       progression: data.progression,

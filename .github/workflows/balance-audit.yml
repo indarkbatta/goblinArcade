@@ -12,6 +12,7 @@ on:
       - "studio-data.json"
       - "api/publish.js"
       - "tools/balance_audit.py"
+      - "tools/event_audit.py"
       - ".github/workflows/balance-audit.yml"
 
 jobs:
@@ -50,6 +51,17 @@ jobs:
           Path("/tmp/goblin-arcade-studio.js").write_text("\n".join(scripts), encoding="utf-8")
           PY
           node --check /tmp/goblin-arcade-studio.js
+
+  event-data:
+    name: Event data
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate data-driven dungeon events
+        shell: bash
+        run: python3 tools/event_audit.py
 
   balance-audit:
     name: Balance - ${{ matrix.difficulty }}

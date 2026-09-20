@@ -737,6 +737,67 @@ local function GetStudioShrineChoice(choiceId)
     return nil
 end
 
+local function GetStudioDungeonEvent(eventId)
+    for _, record in ipairs(GA.StudioData and GA.StudioData.events or {}) do
+        if record.id == eventId then
+            return record
+        end
+    end
+    return nil
+end
+
+local function GetStudioDungeonEventOptions(eventId)
+    local result = {}
+    for _, record in ipairs(GA.StudioData and GA.StudioData.eventOptions or {}) do
+        if record.eventId == eventId then
+            result[#result + 1] = record
+        end
+    end
+    table.sort(result, function(a, b)
+        local left = tonumber(a.sortOrder) or 0
+        local right = tonumber(b.sortOrder) or 0
+        if left == right then
+            return tostring(a.id or "") < tostring(b.id or "")
+        end
+        return left < right
+    end)
+    return result
+end
+
+local function GetDungeonEventIcon(event)
+    local fallback = "Interface\\Icons\\INV_Misc_QuestionMark"
+    if GA.ResolveStudioIconTexture then
+        return GA:ResolveStudioIconTexture(event and event.icon, fallback)
+    end
+    return fallback
+end
+
+local function GetDungeonEventOptionHint(option)
+    if not option then return "" end
+    local effect = string.upper(tostring(option.effect or "NONE"))
+    local value = tonumber(option.value) or 0
+    local secondary = tonumber(option.secondaryValue) or 0
+
+    if effect == "HEAL_PERCENT" then
+        return string.format("Restore %.0f%% of maximum health.", value)
+    elseif effect == "DAMAGE_PERCENT" then
+        return string.format("Lose %.0f%% of maximum health.", value)
+    elseif effect == "HP_FOR_SCORE" then
+        return string.format("Lose %.0f%% max HP as current health; gain %.0f base score.", value, secondary)
+    elseif effect == "DAMAGE_BONUS" then
+        return string.format("Gain +%.0f%% run damage.", value)
+    elseif effect == "MAX_HP_PERCENT" then
+        return string.format("Increase maximum health by %.0f%%.", value)
+    elseif effect == "COPPER" then
+        return string.format("Gain %.0f Copper.", value)
+    elseif effect == "SCORE" then
+        return string.format("Gain %.0f base score.", value)
+    elseif effect == "LOOT_TABLE" then
+        return "Roll loot table: " .. tostring(option.lootTableId or "none")
+    end
+    return "No mechanical effect."
+end
+
 local DEFAULT_RUN_XP_CURVE = { 80, 90, 100, 110, 125, 140, 155, 175 }
 
 local RUN_SCORE = {
@@ -780,6 +841,7 @@ local function EnsureRunTracking(run)
     run.stats.bossKills = run.stats.bossKills or 0
     run.stats.chests = run.stats.chests or 0
     run.stats.shrines = run.stats.shrines or 0
+    run.stats.events = run.stats.events or 0
     run.stats.floorsCleared = run.stats.floorsCleared or 0
     run.stats.copperEarned = run.stats.copperEarned or 0
     run.stats.copperSpent = run.stats.copperSpent or 0
@@ -792,6 +854,7 @@ local function EnsureRunTracking(run)
     run.scoreBreakdown.chest = run.scoreBreakdown.chest or 0
     run.scoreBreakdown.floor = run.scoreBreakdown.floor or 0
     run.scoreBreakdown.shrine = run.scoreBreakdown.shrine or 0
+    run.scoreBreakdown.event = run.scoreBreakdown.event or 0
     run.scoreBreakdown.completion = run.scoreBreakdown.completion or 0
 
     run.lootSummary = run.lootSummary or {}
@@ -1429,6 +1492,13 @@ local function CreateGrid(parent)
             lootIcon:SetTexCoord(0.06, 0.94, 0.06, 0.94)
             lootIcon:Hide()
 
+            local eventIcon = spriteLayer:CreateTexture(nil, "OVERLAY", nil, 1)
+            eventIcon:SetSize(48, 48)
+            eventIcon:SetPoint("CENTER", cell, "CENTER", 0, 0)
+            eventIcon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+            eventIcon:SetTexCoord(0.06, 0.94, 0.06, 0.94)
+            eventIcon:Hide()
+
             local enemyIcon = spriteLayer:CreateTexture(nil, "OVERLAY", nil, 2)
             enemyIcon:SetSize(CREATURE_SPRITE_RENDER_SIZE, CREATURE_SPRITE_RENDER_SIZE)
             enemyIcon:SetPoint("CENTER", cell, "CENTER", 0, 0)
@@ -1464,6 +1534,7 @@ local function CreateGrid(parent)
                 frame = cell,
                 marker = marker,
                 lootIcon = lootIcon,
+                eventIcon = eventIcon,
                 enemyIcon = enemyIcon,
                 enemyHealthBackdrop = enemyHealthBackdrop,
                 enemyHealthBar = enemyHealthBar,
@@ -1954,6 +2025,62 @@ function GA:CreateDungeonRunPage(parent)
     self.DungeonFloorTitle = floor
 
     self.DungeonGrid = CreateGrid(center)
+
+    local eventFrame = CreateFrame("Frame", nil, center, "BackdropTemplate")
+    eventFrame:SetSize(620, 360)
+    eventFrame:SetPoint("CENTER", center, "CENTER", 0, 0)
+    eventFrame:SetFrameLevel(center:GetFrameLevel() + 54)
+    eventFrame:EnableMouse(true)
+    ApplyBackdrop(eventFrame, { 0.025, 0.021, 0.017, 0.99 }, COLORS.gold)
+    eventFrame:Hide()
+    self.DungeonEventFrame = eventFrame
+
+    local eventIcon = eventFrame:CreateTexture(nil, "ARTWORK")
+    eventIcon:SetSize(52, 52)
+    eventIcon:SetPoint("TOPLEFT", 18, -18)
+    eventIcon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+    eventIcon:SetTexCoord(0.06, 0.94, 0.06, 0.94)
+    self.DungeonEventIcon = eventIcon
+
+    local eventTitle = CreateText(eventFrame, "GameFontNormalLarge", "DUNGEON EVENT")
+    eventTitle:SetPoint("TOPLEFT", 84, -20)
+    eventTitle:SetPoint("TOPRIGHT", -18, -20)
+    eventTitle:SetJustifyH("LEFT")
+    eventTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    self.DungeonEventTitle = eventTitle
+
+    local eventText = CreateText(eventFrame, "GameFontHighlightSmall", "")
+    eventText:SetPoint("TOPLEFT", 84, -50)
+    eventText:SetWidth(510)
+    eventText:SetJustifyH("LEFT")
+    eventText:SetJustifyV("TOP")
+    eventText:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+    self.DungeonEventText = eventText
+
+    self.DungeonEventOptionButtons = {}
+    for index = 1, 4 do
+        local button = CreateFlatButton(eventFrame, tostring(index) .. "  OPTION", 570, 46)
+        button:SetPoint("TOP", eventFrame, "TOP", 0, -120 - ((index - 1) * 54))
+        button:SetScript("OnClick", function()
+            GA:ChooseDungeonEventOption(index)
+        end)
+        button:SetScript("OnEnter", function(selfButton)
+            local option = selfButton.gaEventOption
+            if option then
+                GameTooltip:SetOwner(selfButton, "ANCHOR_RIGHT")
+                GameTooltip:SetText(option.name or "Event Option", 1, 0.82, 0.2)
+                local hint = option.description
+                if hint == nil or tostring(hint) == "" then
+                    hint = GetDungeonEventOptionHint(option)
+                end
+                GameTooltip:AddLine(tostring(hint), 0.85, 0.82, 0.75, true)
+                GameTooltip:Show()
+            end
+        end)
+        button:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        button:Hide()
+        self.DungeonEventOptionButtons[index] = button
+    end
 
     local shrineFrame = CreateFrame("Frame", nil, center, "BackdropTemplate")
     shrineFrame:SetSize(520, 190)
@@ -3508,6 +3635,15 @@ function GA:CreateDungeonRunPage(parent)
                 GA:CloseDungeonShop()
             elseif key == "1" or key == "2" or key == "3" or key == "4" then
                 GA:BuyDungeonShopItem(tonumber(key))
+            end
+            return
+        end
+
+        if GA.DungeonEventFrame and GA.DungeonEventFrame:IsShown() then
+            if key == "ESCAPE" then
+                GA:CloseDungeonEvent()
+            elseif key == "1" or key == "2" or key == "3" or key == "4" then
+                GA:ChooseDungeonEventOption(tonumber(key))
             end
             return
         end
@@ -5126,6 +5262,8 @@ function GA:OpenSpellbook()
         self.CharacterSheetFrame:Hide()
     end
     self:CloseShrineChoice()
+    self:CloseDungeonEvent()
+    self:CloseDungeonShop()
     self:CancelSpellbookDrag()
     self:RefreshSpellbook()
     self.DungeonSpellbookFrame:Show()
@@ -5469,7 +5607,7 @@ function GA:ShowDungeonRunSummary(completed, reason, hardcoreDeath)
 
     self.DungeonRunSummaryReason:SetText(reason or "")
     self.DungeonRunSummaryStats:SetText(string.format(
-        "SCORE  %d\nDIFFICULTY  %s\nFLOOR  %d / 9\nKILLS  %d\nELITES  %d\nBOSSES  %d\nCHESTS  %d\nSHRINES  %d\nCOPPER  %s\nBOUGHT / SOLD  %d / %d\nEXTRACTED  %d ITEMS\nTURNS  %d\nTEMP LEVELS  +%d",
+        "SCORE  %d\nDIFFICULTY  %s\nFLOOR  %d / 9\nKILLS  %d\nELITES  %d\nBOSSES  %d\nCHESTS  %d\nSHRINES  %d\nEVENTS  %d\nCOPPER  %s\nBOUGHT / SOLD  %d / %d\nEXTRACTED  %d ITEMS\nTURNS  %d\nTEMP LEVELS  +%d",
         run.score or 0,
         string.upper(run.difficultyLabel or run.difficulty or "NORMAL"),
         run.floor or 1,
@@ -5478,6 +5616,7 @@ function GA:ShowDungeonRunSummary(completed, reason, hardcoreDeath)
         stats.bossKills or 0,
         stats.chests or 0,
         stats.shrines or 0,
+        stats.events or 0,
         FormatCopperValue(run.copper or 0),
         stats.itemsBought or 0,
         stats.itemsSold or 0,
@@ -5486,12 +5625,13 @@ function GA:ShowDungeonRunSummary(completed, reason, hardcoreDeath)
         run.levelsGained or 0
     ))
     self.DungeonRunSummaryScore:SetText(string.format(
-        "Enemy %d   Rank %d   Chest %d   Floor %d   Shrine %d   Completion %d",
+        "Enemy %d   Rank %d   Chest %d   Floor %d   Shrine %d   Event %d   Completion %d",
         breakdown.enemy or 0,
         breakdown.rankBonus or 0,
         breakdown.chest or 0,
         breakdown.floor or 0,
         breakdown.shrine or 0,
+        breakdown.event or 0,
         breakdown.completion or 0
     ))
     if self.DungeonRunSummaryLootLabel then
@@ -5531,6 +5671,7 @@ function GA:FailDungeonRun(reason)
     run.failed = true
     self:CloseRunControlMenu()
     self:CloseShrineChoice()
+    self:CloseDungeonEvent()
     self:CloseDungeonShop()
     self:CloseSpellbook()
 
@@ -6827,6 +6968,15 @@ function GA:RefreshDungeonMiniMap()
                         elseif marker.kind == "elite" or marker.kind == "boss" then
                             state = marker.kind
                             r, g, b, a = COLORS.red[1], COLORS.red[2], COLORS.red[3], 1
+                        elseif marker.kind == "event" then
+                            state = "event"
+                            if marker.color == "red" then
+                                r, g, b, a = COLORS.red[1], COLORS.red[2], COLORS.red[3], 1
+                            elseif marker.color == "green" then
+                                r, g, b, a = COLORS.green[1], COLORS.green[2], COLORS.green[3], 1
+                            else
+                                r, g, b, a = COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 1
+                            end
                         elseif marker.kind == "roomCleared" then
                             state = "room-cleared"
                             r, g, b, a = COLORS.green[1], COLORS.green[2], COLORS.green[3], 1
@@ -6963,6 +7113,11 @@ function GA:RenderDungeonGrid()
                     entry.lootIcon:SetAlpha(1)
                     entry.lootIcon:SetTexCoord(0.06, 0.94, 0.06, 0.94)
                 end
+                if entry.eventIcon then
+                    entry.eventIcon:Hide()
+                    entry.eventIcon:SetAlpha(1)
+                    entry.eventIcon:SetTexCoord(0.06, 0.94, 0.06, 0.94)
+                end
                 if entry.enemyIcon then
                     entry.enemyIcon:Hide()
                 end
@@ -7007,19 +7162,25 @@ function GA:RenderDungeonGrid()
                         and run.openedChests
                         and run.openedChests[worldKey]
 
-                    if staticMarker and not (staticMarker.text == "$" and chestOpened) then
-                        local renderedLootIcon = false
+                    if staticMarker and not (staticMarker.kind == "chest" and chestOpened) then
+                        local renderedMarkerIcon = false
                         if staticMarker.kind == "chest" and entry.lootIcon then
                             local lootIcon = GetDungeonLootIcon(run, worldKey)
                             if lootIcon then
                                 entry.lootIcon:SetTexture(lootIcon)
                                 entry.lootIcon:SetAlpha(visible and 1 or 0.32)
                                 entry.lootIcon:Show()
-                                renderedLootIcon = true
+                                renderedMarkerIcon = true
                             end
+                        elseif staticMarker.kind == "event" and entry.eventIcon then
+                            local event = GetStudioDungeonEvent(staticMarker.eventId)
+                            entry.eventIcon:SetTexture(GetDungeonEventIcon(event))
+                            entry.eventIcon:SetAlpha(visible and 1 or 0.32)
+                            entry.eventIcon:Show()
+                            renderedMarkerIcon = true
                         end
 
-                        if renderedLootIcon then
+                        if renderedMarkerIcon then
                             entry.marker:SetText("")
                         elseif staticMarker.kind == "door" then
                             local doorOpen = run
@@ -7320,6 +7481,7 @@ function GA:BeginDungeonRun()
             bossKills = 0,
             chests = 0,
             shrines = 0,
+            events = 0,
             floorsCleared = 0,
             copperEarned = 0,
             copperSpent = 0,
@@ -7332,6 +7494,7 @@ function GA:BeginDungeonRun()
             chest = 0,
             floor = 0,
             shrine = 0,
+            event = 0,
             completion = 0,
         },
         lootSummary = {},
@@ -7376,6 +7539,7 @@ function GA:BeginDungeonRun()
         roomRoleCounts = CopyTable(roomRoleCounts),
         roomStates = BuildInitialRoomStates(floorMap),
         shrineDamageBonus = 0,
+        eventHistory = {},
         chestLoot = BuildFloorChestLoot(floorMap, 1),
         densityProfile = CopyTable(densityProfile),
         walkableTiles = walkableTiles,
@@ -7585,6 +7749,7 @@ end
 local function ReturnDirectlyToCharacterSelection(self)
     self:CloseRunControlMenu()
     self:CloseShrineChoice()
+    self:CloseDungeonEvent()
     self:CloseDungeonShop()
     self:CloseSpellbook()
     if self.CharacterSheetFrame then self.CharacterSheetFrame:Hide() end
@@ -7791,6 +7956,7 @@ end
 function GA:ApplyDungeonFloor(floorNumber, entryDirection)
     self:CloseRunControlMenu()
     self:CloseShrineChoice()
+    self:CloseDungeonEvent()
     self:CloseDungeonShop()
     self:CloseSpellbook()
 
@@ -7977,6 +8143,7 @@ function GA:CompleteDungeonRun()
     run.completed = true
     self:CloseRunControlMenu()
     self:CloseShrineChoice()
+    self:CloseDungeonEvent()
     self:CloseDungeonShop()
     self:CloseSpellbook()
 
@@ -8938,6 +9105,7 @@ function GA:OpenRunControlMenu()
 
     self:CloseRunControlMenu()
     self:CloseShrineChoice()
+    self:CloseDungeonEvent()
     self:CloseDungeonShop()
     self:CloseSpellbook()
     if self.CharacterSheetFrame then self.CharacterSheetFrame:Hide() end
@@ -9031,6 +9199,8 @@ function GA:RefreshDungeonShop()
 end
 
 function GA:OpenDungeonShop(roomIndex)
+    self:CloseDungeonEvent()
+    self:CloseShrineChoice()
     local run = self.RunState
     if not run or not run.active or not roomIndex or (run.floor or 1) ~= 6 then return false end
 
@@ -9113,6 +9283,178 @@ function GA:SellDungeonShopItem(slotIndex)
     return true
 end
 
+function GA:CloseDungeonEvent()
+    if self.DungeonEventFrame then
+        self.DungeonEventFrame:Hide()
+    end
+    self.PendingDungeonEvent = nil
+end
+
+function GA:OpenDungeonEvent(marker, eventKey)
+    local run = self.RunState
+    local event = marker and GetStudioDungeonEvent(marker.eventId)
+    if not run or not run.active or not marker or marker.kind ~= "event" or not event then
+        return false
+    end
+
+    local options = GetStudioDungeonEventOptions(event.id)
+    if #options == 0 then
+        self:AddCombatLog("Event data error: " .. tostring(event.id) .. " has no options.", "warning")
+        return false
+    end
+
+    self:CloseShrineChoice()
+    self:CloseDungeonEvent()
+    self:CloseDungeonShop()
+    self.PendingDungeonEvent = {
+        key = eventKey,
+        eventId = event.id,
+        roomIndex = marker.roomIndex,
+    }
+
+    if self.DungeonEventTitle then
+        self.DungeonEventTitle:SetText(string.upper(event.name or event.id or "DUNGEON EVENT"))
+    end
+    if self.DungeonEventText then
+        self.DungeonEventText:SetText(event.description or "")
+    end
+    if self.DungeonEventIcon then
+        self.DungeonEventIcon:SetTexture(GetDungeonEventIcon(event))
+    end
+
+    for index = 1, 4 do
+        local button = self.DungeonEventOptionButtons and self.DungeonEventOptionButtons[index]
+        local option = options[index]
+        if button then
+            button.gaEventOption = option
+            if option then
+                button.label:SetText(string.format("%d  %s", index, string.upper(option.name or option.id or "OPTION")))
+                button:SetEnabled(true)
+                button:Show()
+            else
+                button:Hide()
+            end
+        end
+    end
+
+    if self.DungeonEventFrame then
+        self.DungeonEventFrame:Show()
+    end
+    self:AddCombatLog("EVENT - " .. tostring(event.name or event.id) .. ".", "system")
+    return true
+end
+
+function GA:ChooseDungeonEventOption(index)
+    local run = self.RunState
+    local pending = self.PendingDungeonEvent
+    index = math.floor(tonumber(index) or 0)
+    if not run or not run.active or not pending or index < 1 or index > 4 then
+        return false
+    end
+
+    local event = GetStudioDungeonEvent(pending.eventId)
+    local options = GetStudioDungeonEventOptions(pending.eventId)
+    local option = options[index]
+    if not event or not option then
+        return false
+    end
+
+    local effect = string.upper(tostring(option.effect or "NONE"))
+    local value = tonumber(option.value) or 0
+    local secondary = tonumber(option.secondaryValue) or 0
+    local effectMessage
+
+    if effect == "HEAL_PERCENT" then
+        local amount = math.max(0, math.floor((run.playerMaxHealth or 1) * (math.max(0, value) / 100) + 0.5))
+        local before = run.playerHealth or 0
+        run.playerHealth = math.min(run.playerMaxHealth or before, before + amount)
+        effectMessage = string.format("+%d HP.", run.playerHealth - before)
+    elseif effect == "DAMAGE_PERCENT" then
+        local amount = math.max(0, math.floor((run.playerMaxHealth or 1) * (math.max(0, value) / 100) + 0.5))
+        local before = run.playerHealth or 1
+        run.playerHealth = math.max(1, before - amount)
+        effectMessage = string.format("-%d HP.", before - run.playerHealth)
+    elseif effect == "HP_FOR_SCORE" then
+        local amount = math.max(0, math.floor((run.playerMaxHealth or 1) * (math.max(0, value) / 100) + 0.5))
+        local before = run.playerHealth or 1
+        run.playerHealth = math.max(1, before - amount)
+        local awarded = AddRunScore(run, "event", math.max(0, secondary))
+        effectMessage = string.format("-%d HP, +%d score.", before - run.playerHealth, awarded)
+    elseif effect == "DAMAGE_BONUS" then
+        local bonus = math.max(0, value) / 100
+        local capPercent = secondary > 0 and secondary or 100
+        run.shrineDamageBonus = math.min(capPercent / 100, (run.shrineDamageBonus or 0) + bonus)
+        effectMessage = string.format("Run damage bonus is now +%d%%.", math.floor((run.shrineDamageBonus or 0) * 100 + 0.5))
+    elseif effect == "MAX_HP_PERCENT" then
+        local amount = math.max(0, math.floor((run.playerMaxHealth or 1) * (math.max(0, value) / 100) + 0.5))
+        run.playerMaxHealth = math.max(1, (run.playerMaxHealth or 1) + amount)
+        run.playerHealth = math.min(run.playerMaxHealth, (run.playerHealth or 1) + amount)
+        effectMessage = string.format("+%d maximum HP.", amount)
+    elseif effect == "COPPER" then
+        local amount = math.max(0, math.floor(value + 0.5))
+        run.copper = (run.copper or 0) + amount
+        local stats = EnsureRunTracking(run)
+        stats.copperEarned = stats.copperEarned + amount
+        effectMessage = "+" .. FormatCopperValue(amount) .. "."
+    elseif effect == "SCORE" then
+        local awarded = AddRunScore(run, "event", math.max(0, value))
+        effectMessage = string.format("+%d score.", awarded)
+    elseif effect == "LOOT_TABLE" then
+        local tableId = tostring(option.lootTableId or "")
+        if tableId == "" or not self.RollLootTable then
+            self:AddCombatLog("Event data error: no valid loot table.", "warning")
+            return false
+        end
+        local drop = self:RollLootTable(tableId, run.floor, "event:" .. tostring(event.id))
+        if drop then
+            if not self:AddItemToBackpack(drop) then
+                self:AddCombatLog("Your backpack is full. The event remains unresolved.", "warning")
+                return false
+            end
+            RecordRunLoot(run, drop)
+            effectMessage = tostring(drop.name or "An item") .. " added to your backpack."
+        else
+            effectMessage = "Nothing useful was found."
+        end
+    elseif effect ~= "NONE" then
+        self:AddCombatLog("Event data error: unsupported effect " .. effect .. ".", "warning")
+        return false
+    end
+
+    local resultText = tostring(option.resultText or "")
+    if resultText ~= "" then
+        self:AddCombatLog(resultText, "system")
+    end
+    if effectMessage and effectMessage ~= "" then
+        self:AddCombatLog("EVENT RESULT - " .. effectMessage, "system")
+    end
+
+    local stats = EnsureRunTracking(run)
+    stats.events = stats.events + 1
+    run.eventHistory = run.eventHistory or {}
+    run.eventHistory[#run.eventHistory + 1] = {
+        floor = run.floor,
+        eventId = event.id,
+        optionId = option.id,
+    }
+
+    if run.floorMap and run.floorMap.markers and pending.key then
+        local marker = run.floorMap.markers[pending.key]
+        if marker and marker.kind == "event" then
+            run.floorMap.markers[pending.key] = nil
+        end
+    end
+
+    self:CloseDungeonEvent()
+    self:UpdateRunHealth()
+    self:RefreshRunCounters()
+    self:RenderDungeonGrid()
+    if self.CharacterSheetFrame and self.CharacterSheetFrame:IsShown() then
+        self:RefreshCharacterSheet()
+    end
+    return true
+end
+
 function GA:CloseShrineChoice()
     if self.DungeonShrineFrame then
         self.DungeonShrineFrame:Hide()
@@ -9121,6 +9463,8 @@ function GA:CloseShrineChoice()
 end
 
 function GA:OpenShrineChoice(roomIndex)
+    self:CloseDungeonEvent()
+    self:CloseDungeonShop()
     local run = self.RunState
     if not run or not run.active or not roomIndex then
         return false
@@ -9314,7 +9658,17 @@ function GA:MoveDungeonPlayer(dx, dy)
     self:RenderDungeonGrid()
     self:TryLootChest(nextX, nextY)
 
-    local marker = GetDungeonMarkers()[CellKey(nextX, nextY)]
+    local markerKey = CellKey(nextX, nextY)
+    local marker = GetDungeonMarkers()[markerKey]
+
+    if marker and marker.kind == "event" then
+        self:RunEnemyTurn()
+        if run.active then
+            self:OpenDungeonEvent(marker, markerKey)
+        end
+        return
+    end
+
     local shrineState = marker
         and marker.kind == "shrine"
         and marker.roomIndex

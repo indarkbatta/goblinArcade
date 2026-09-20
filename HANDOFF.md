@@ -3,9 +3,33 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.58.1**  
+Current addon version: **0.59.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.59.0 — data-driven dungeon event system
+
+- Added a complete **Dungeon Event** system. Events are authored in GoblinArcade Studio; event identities and choices are not hardcoded into `DungeonRun.lua`.
+- Studio schema is now **9**, Studio version **1.8.0**, with three new editable datasets:
+  - `Event Rules`: controls base events per floor, progression cadence and the per-floor cap;
+  - `Events`: name, WoW icon, fallback marker, map color, enabled state, floor range, spawn weight and allowed room roles;
+  - `Event Options`: parent event, order, generic effect, values, optional loot table, result text and tooltip hint.
+- Event placement is deterministic from the dungeon floor seed and uses the configured weighted pool. Event definitions are unique within a floor and are placed only in allowed room roles on free interior tiles.
+- Current published placement rule: **1 event per floor**, increasing to **2 from Floor 5**, capped at 2.
+- Added three initial Studio-authored events:
+  - **Abandoned Camp** — rest for healing or search its packs for treasure loot;
+  - **Bloodstained Altar** — trade current HP for score or walk away;
+  - **Forgotten Cache** — roll treasure loot or salvage it for Copper.
+- Runtime supports generic event-option effects: `NONE`, `HEAL_PERCENT`, `DAMAGE_PERCENT`, `HP_FOR_SCORE`, `DAMAGE_BONUS`, `MAX_HP_PERCENT`, `COPPER`, `SCORE`, and `LOOT_TABLE`.
+- Event tiles render their Studio-configured WoW icon, remain dimly visible after discovery through Fog of War, and appear on the minimap using the configured event color.
+- Stepping onto an event advances the enemy phase before the event choice opens, matching shrine/shop turn semantics.
+- The event modal supports up to four data-authored choices and keyboard shortcuts 1-4. ESC closes it without consuming the event; returning to the tile reopens it.
+- A resolved event removes its marker from the floor. Loot-table choices do not resolve if the backpack is full, so the reward is not silently lost.
+- Run statistics now track resolved Events, and Event score has its own score-breakdown bucket.
+- Event placement survives floor backtracking/suspension because it is part of the generated/stored `floorMap`.
+- Publishing validates event references, room-role references, loot-table references and the 1-4 option limit server-side.
+- Added `tools/event_audit.py` and a dedicated **Event data** GitHub Actions job.
+- The existing balance simulator does not model event rewards yet; combat difficulty formulas themselves are unchanged in this release.
 
 ## 0.58.1 — dungeon loot item icons
 
