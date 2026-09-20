@@ -37,6 +37,30 @@ local SLOT_COMPATIBILITY = {
     },
 }
 
+local EQUIP_LOCATION_LABELS = {
+    INVTYPE_HEAD = "Head",
+    INVTYPE_NECK = "Neck",
+    INVTYPE_SHOULDER = "Shoulder",
+    INVTYPE_CHEST = "Chest",
+    INVTYPE_ROBE = "Chest",
+    INVTYPE_WAIST = "Waist",
+    INVTYPE_LEGS = "Legs",
+    INVTYPE_FEET = "Feet",
+    INVTYPE_WRIST = "Wrist",
+    INVTYPE_HAND = "Hands",
+    INVTYPE_FINGER = "Finger",
+    INVTYPE_TRINKET = "Trinket",
+    INVTYPE_CLOAK = "Back",
+    INVTYPE_WEAPON = "One-Hand",
+    INVTYPE_WEAPONMAINHAND = "Main Hand",
+    INVTYPE_WEAPONOFFHAND = "Off Hand",
+    INVTYPE_2HWEAPON = "Two-Hand",
+    INVTYPE_RANGED = "Ranged",
+    INVTYPE_RANGEDRIGHT = "Ranged",
+    INVTYPE_SHIELD = "Off Hand / Shield",
+    INVTYPE_HOLDABLE = "Off Hand",
+}
+
 local function IsTwoHandedWeapon(item)
     return item and item.equipLoc == "INVTYPE_2HWEAPON"
 end
@@ -504,6 +528,22 @@ function GA:DropCharacterItem(targetType, targetKey)
                 "You cannot equip an off-hand item while using a two-handed weapon.",
                 "warning"
             )
+        elseif targetType == "equipment"
+            and drag.item.studioDefined
+            and (tonumber(drag.item.requiredLevel) or 1) > (tonumber(run and run.runLevel) or 1) then
+            self:AddCombatLog(
+                string.format(
+                    "%s requires Run Level %d.",
+                    drag.item.name or "That item",
+                    tonumber(drag.item.requiredLevel) or 1
+                ),
+                "warning"
+            )
+        elseif targetType == "equipment" and not drag.item.equipLoc then
+            self:AddCombatLog(
+                (drag.item.name or "That item") .. " is not equippable. Keep it as loot or sell it.",
+                "warning"
+            )
         else
             self:AddCombatLog("That item cannot be placed there.", "warning")
         end
@@ -620,6 +660,27 @@ local function AddArcadeConversionToTooltip(item)
         GameTooltip:AddLine(string.format("Item Level %d", tonumber(item.itemLevel) or 1), 0.75, 0.70, 0.62)
     end
 
+    if item.equipLoc then
+        GameTooltip:AddLine(
+            "Slot: " .. tostring(item.slotLabel or EQUIP_LOCATION_LABELS[item.equipLoc] or item.equipLoc),
+            0.92, 0.89, 0.82
+        )
+    elseif item.category and string.upper(tostring(item.category)) ~= "CONSUMABLE" then
+        GameTooltip:AddLine("Not equippable", 0.75, 0.75, 0.75)
+    end
+
+    local requiredLevel = math.max(1, math.floor(tonumber(item.requiredLevel) or 1))
+    if requiredLevel > 1 then
+        local runLevel = GA.RunState and tonumber(GA.RunState.runLevel) or 0
+        local allowed = runLevel >= requiredLevel
+        GameTooltip:AddLine(
+            string.format("Requires Run Level %d", requiredLevel),
+            allowed and 0.75 or 1.00,
+            allowed and 0.75 or 0.20,
+            allowed and 0.75 or 0.20
+        )
+    end
+
     if weapon then
         GameTooltip:AddLine("Weapon", 0.65, 0.60, 0.52)
         GameTooltip:AddLine(
@@ -733,6 +794,13 @@ local function ShowItemTooltip(button)
     GameTooltip:SetText(item.name or "Dungeon item", r, g, b)
 
     AddArcadeConversionToTooltip(item)
+    if item.ownershipSource == "baseline" then
+        GameTooltip:AddLine("BASELINE", 0.65, 0.65, 0.65)
+    elseif item.ownershipSource == "loadout" then
+        GameTooltip:AddLine("LOADOUT", 0.35, 0.85, 1.00)
+    elseif item.ownershipSource == "found" then
+        GameTooltip:AddLine("FOUND THIS RUN", 1.00, 0.82, 0.20)
+    end
     GameTooltip:Show()
 end
 
@@ -1024,6 +1092,9 @@ function GA:AddItemToBackpack(item)
     run.backpack = run.backpack or {}
     local incoming = CopyTable(item)
     incoming.acquiredRunId = incoming.acquiredRunId or run.runId
+    if incoming.acquiredRunId == run.runId then
+        incoming.ownershipSource = "found"
+    end
     local amount = math.max(1, math.floor(tonumber(incoming.stackCount) or 1))
     local stackMax = math.max(1, math.floor(tonumber(incoming.stackMax) or 1))
     local stackable = incoming.studioItemId and stackMax > 1

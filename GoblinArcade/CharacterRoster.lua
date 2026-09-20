@@ -68,6 +68,15 @@ local LOADOUT_SLOT_PRIORITY = {
     "trinket2", "back", "mainhand", "offhand",
 }
 
+local PRE_RUN_SUPPLY_SLOTS = 3
+
+local function IsConsumableItem(item)
+    return item and (
+        string.upper(tostring(item.category or "")) == "CONSUMABLE"
+        or tostring(item.itemType or "") == "Consumable"
+    )
+end
+
 local function GetItemSnapshot(itemLink, icon, slotKey)
     if not itemLink then
         return nil
@@ -340,6 +349,7 @@ function GA:CreateArcadeCharacter(name, raceId, classId, hardcore)
             mainhand = mainHand,
         },
         arcadeLoadout = {},
+        arcadeSupplies = {},
         weapon = CopyTable(weapon),
         weaponName = weapon.sourceName,
         weaponIcon = weaponIcon,
@@ -420,6 +430,17 @@ function GA:DeleteArcadeCharacter(key)
         end
         character.arcadeLoadout[slotKey] = nil
     end
+    for slotIndex, item in pairs(character.arcadeSupplies or {}) do
+        if item and item.stashEligible == true and item.baselineLocked ~= true then
+            local stored = CopyTable(item)
+            stored.supplyLoadout = nil
+            stored.supplyOwnerKey = nil
+            stored.acquiredRunId = nil
+            stored.stackCount = 1
+            self:DepositCentralStashItem(stored)
+        end
+        character.arcadeSupplies[slotIndex] = nil
+    end
 
     db.characters[key] = nil
     if db.actionBars then
@@ -486,6 +507,7 @@ GetDB = function()
     for _, character in pairs(GoblinArcadeDB.characters) do
         if character then
             character.arcadeLoadout = character.arcadeLoadout or {}
+            character.arcadeSupplies = character.arcadeSupplies or {}
             for _, item in pairs(character.equipment or {}) do
                 if item then
                     item.baselineLocked = true
@@ -499,6 +521,16 @@ GetDB = function()
                     item.stashEligible = true
                     item.ownershipSource = item.ownershipSource or "extracted"
                     item.acquiredRunId = nil
+                end
+            end
+            for _, item in pairs(character.arcadeSupplies) do
+                if item then
+                    item.stashEligible = true
+                    item.baselineLocked = nil
+                    item.ownershipSource = "extracted"
+                    item.acquiredRunId = nil
+                    item.supplyLoadout = true
+                    item.stackCount = 1
                 end
             end
         end
@@ -689,6 +721,159 @@ function GA:GetCharacterArcadeLoadout(characterOrKey)
     return character.arcadeLoadout
 end
 
+function GA:GetCharacterArcadeSupplies(characterOrKey)
+    local db = GetDB()
+    local character = type(characterOrKey) == "table"
+        and characterOrKey
+        or db.characters[characterOrKey]
+    if not character then return nil end
+
+    character.arcadeSupplies = character.arcadeSupplies or {}
+    return character.arcadeSupplies
+end
+
+function GA:GetPreRunSupplySlotCount()
+    return PRE_RUN_SUPPLY_SLOTS
+end
+
+function GA:AssignCentralStashSupply(characterKey, stashIndex)
+    local db = GetDB()
+    local character = db.characters[characterKey]
+    local index = math.floor(tonumber(stashIndex) or 0)
+    local item = db.centralStash[index]
+
+    if not character or not item then
+        return false, "Select a valid character and stash item."
+    end
+    if character.dead and character.hardcore then
+        return false, "A dead Hardcore hero cannot prepare supplies."
+    end
+    if db.suspendedRuns[characterKey] then
+        return false, "Resume or abandon this character's saved run before changing supplies."
+    end
+    if item.baselineLocked == true or item.stashEligible ~= true then
+        return false, "Only extracted stash items can be prepared as supplies."
+    end
+    if not IsConsumableItem(item) then
+        return false, "Only consumables can be placed in supply slots."
+    end
+
+    local supplies = self:GetCharacterArcadeSupplies(character)
+    local slotIndex
+    for i = 1, PRE_RUN_SUPPLY_SLOTS do
+        if not supplies[i] then
+            slotIndex = i
+            break
+        end
+    end
+    if not slotIndex then
+        return false, "All 3 pre-run supply slots are full."
+    end
+
+    local prepared = CopyTable(item)
+    prepared.stackCount = 1
+    prepared.acquiredRunId = nil
+    prepared.baselineLocked = nil
+    prepared.stashEligible = true
+    prepared.ownershipSource = "extracted"
+    prepared.supplyLoadout = true
+    prepared.supplyOwnerKey = characterKey
+
+    local stackCount = math.max(1, math.floor(tonumber(item.stackCount) or 1))
+    if stackCount > 1 then
+        item.stackCount = stackCount - 1
+    else
+        table.remove(db.centralStash, index)
+    end
+
+    supplies[slotIndex] = prepared
+    db.characters[characterKey] = character
+    return true, slotIndex
+end
+
+function GA:ReturnCharacterSupplyToStash(characterKey, slotIndex)
+    local db = GetDB()
+    local character = db.characters[characterKey]
+    local index = math.floor(tonumber(slotIndex) or 0)
+    if not character or index < 1 or index > PRE_RUN_SUPPLY_SLOTS then
+        return false, "Invalid supply slot."
+    end
+    if db.suspendedRuns[characterKey] then
+        return false, "Resume or abandon this character's saved run before changing supplies."
+    end
+
+    local supplies = self:GetCharacterArcadeSupplies(character)
+    local item = supplies[index]
+    if not item then return false, "That supply slot is empty." end
+
+    local stored = CopyTable(item)
+    stored.supplyLoadout = nil
+    stored.supplyOwnerKey = nil
+    stored.acquiredRunId = nil
+    stored.stackCount = 1
+    stored.ownershipSource = "extracted"
+    if not self:DepositCentralStashItem(stored) then
+        return false, "Could not return that supply to the Central Stash."
+    end
+
+    supplies[index] = nil
+    db.characters[characterKey] = character
+    return true
+end
+
+function GA:TakeCharacterSuppliesForRun(characterKey)
+    local db = GetDB()
+    local character = db.characters[characterKey]
+    if not character then return {} end
+
+    local supplies = self:GetCharacterArcadeSupplies(character)
+    local result = {}
+    for i = 1, PRE_RUN_SUPPLY_SLOTS do
+        local item = supplies[i]
+        if item then
+            local runItem = CopyTable(item)
+            runItem.stackCount = 1
+            runItem.acquiredRunId = nil
+            runItem.baselineLocked = nil
+            runItem.stashEligible = true
+            runItem.ownershipSource = "loadout"
+            runItem.supplyLoadout = true
+            runItem.supplyOwnerKey = characterKey
+            result[#result + 1] = runItem
+            supplies[i] = nil
+        end
+    end
+
+    db.characters[characterKey] = character
+    return result
+end
+
+function GA:RecoverRunSuppliesToCentralStash(run)
+    if not run or run.suppliesRecovered then
+        return run and run.suppliesRecoveredCount or 0
+    end
+
+    local recovered = 0
+    for slotIndex, item in pairs(run.backpack or {}) do
+        if item and item.supplyLoadout == true and item.acquiredRunId == nil then
+            local stored = CopyTable(item)
+            stored.supplyLoadout = nil
+            stored.supplyOwnerKey = nil
+            stored.ownershipSource = "extracted"
+            stored.stackCount = math.max(1, math.floor(tonumber(stored.stackCount) or 1))
+            if self:DepositCentralStashItem(stored) then
+                recovered = recovered + stored.stackCount
+                run.backpack[slotIndex] = nil
+            end
+        end
+    end
+
+    run.suppliesRecovered = true
+    run.suppliesRecoveredCount = recovered
+    return recovered
+end
+
+
 function GA:GetEffectiveCharacterEquipment(character)
     if not character then return {} end
 
@@ -699,6 +884,7 @@ function GA:GetEffectiveCharacterEquipment(character)
             override.acquiredRunId = nil
             override.loadoutOverride = true
             override.stashEligible = true
+            override.ownershipSource = "loadout"
             equipment[slotKey] = override
         end
     end
@@ -871,6 +1057,7 @@ function GA:InitializeCharacterRoster()
     character.updatedAt = time and time() or 0
     character.equipment = self:SnapshotCurrentEquipment()
     character.arcadeLoadout = character.arcadeLoadout or {}
+    character.arcadeSupplies = character.arcadeSupplies or {}
 
     db.characters[key] = character
     db.lastCharacterKey = key
@@ -900,6 +1087,7 @@ function GA:SyncCurrentCharacterRoster(weapon, source)
     character.updatedAt = time and time() or 0
     character.equipment = self:SnapshotCurrentEquipment()
     character.arcadeLoadout = character.arcadeLoadout or {}
+    character.arcadeSupplies = character.arcadeSupplies or {}
 
     source = source or {}
 

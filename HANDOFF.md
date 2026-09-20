@@ -3,9 +3,53 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.51.0**  
+Current addon version: **0.52.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.52.0 — pre-run supplies, ownership states and Misc-item clarity
+
+- Addon **0.52.0** completes the first pre-run consumable/supply loop.
+- Every persistent character now has `arcadeSupplies` with exactly **3 pre-run supply slots**.
+- Central Stash consumables can be clicked to prepare them for the selected hero:
+  - one click moves **one consumable unit**, not a whole stack;
+  - maximum **3 total supply items**;
+  - prepared items physically leave the Central Stash, so there is no duplication.
+- Prepared supplies can be clicked in the loadout UI to return them to the Central Stash before the run starts.
+- The Central Stash modal is taller and now has three explicit sections on the right:
+  - selected hero;
+  - **PRE-RUN SUPPLIES 0/3**;
+  - **GEAR LOADOUT**.
+- Starting a fresh run commits prepared supplies:
+  - prepared supply slots are emptied from the persistent character record;
+  - the items are inserted into the first available run-backpack positions;
+  - each supply remains a single unit;
+  - they are tagged as `ownershipSource = "loadout"`, `supplyLoadout = true`, with no current `acquiredRunId`.
+- Run outcome rules for committed supplies:
+  - consumed supplies are gone;
+  - unused supplies return to Central Stash on successful Floor 9 extraction;
+  - failed, abandoned or Killswitch runs lose committed supplies along with found run loot;
+  - SAVE & SWITCH preserves them because the exact run backpack is suspended.
+- Successful extraction reports how many unused supply items were returned separately from newly extracted found loot.
+- Character deletion returns any still-prepared pre-run supplies to Central Stash before deleting the hero.
+- Suspended-run anti-dupe locking also applies to supply changes.
+- Runtime item ownership is now explicit:
+  - `baseline` = WoW/starter gear;
+  - `loadout` = persistent extracted gear or supplies brought into the run;
+  - `found` = loot acquired during the current run;
+  - successful extraction converts FOUND items to persistent `extracted` stash ownership.
+- `AddItemToBackpack()` now marks newly acquired run items as **FOUND** without altering baseline/loadout items moved directly between inventory slots.
+- MISC investigation:
+  - the current 100-item Studio catalog contains **no standalone `MISC` category items**;
+  - there are 15 jewelry/trinket items whose subtype is `Miscellaneous`;
+  - all 15 have valid equip locations: Finger, Neck or Trinket;
+  - therefore `Miscellaneous` in the old tooltip was a subtype label, not an equipment destination.
+- Character Sheet tooltips now explicitly show the equipment slot (for example Finger / Neck / Trinket) and `Requires Run Level X`.
+- If a found Studio item cannot be equipped because the current temporary Run Level is too low, the combat log now states the exact required Run Level instead of only saying the placement is invalid.
+- Truly non-equippable future items now produce an explicit `not equippable; keep it as loot or sell it` message.
+- Central Stash tooltips also show equipment slot and required Run Level, reducing ambiguity around `Miscellaneous` jewelry.
+- Studio data itself is unchanged: **100 items**, **366 Loot Entries**, one Shop on Floor 6, Warrior `HP / Level = 3`.
+- Next major step: full Warrior Floor 1-9 balance pass across enemy scaling, XP, item tiers, Copper/shop affordability, potion pressure and 1H+shield vs 2H builds.
 
 ## 0.51.0 — branded Home screen and UI media folder
 
@@ -89,7 +133,7 @@ Default branch: `main`
   - Left: Delete Hero or Abandon Saved depending on state.
   - Right: Begin Run / Resume Floor / disabled state.
 - Existing mechanics are unchanged: suspend/resume, Killswitch, Central Stash ownership rules, 100 items, 366 Loot Entries, single Floor 6 Shop, Warrior `HP / Level = 3`.
-- Next major step remains the consumable/supply rule and then the full Warrior Floor 1-9 balance pass.
+- The consumable/supply rule is implemented in 0.52.0; next major step is the full Warrior Floor 1-9 balance pass.
 
 ## 0.48.0 — active-run exit controls, suspend/resume and Killswitch
 

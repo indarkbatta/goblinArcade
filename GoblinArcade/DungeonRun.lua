@@ -2134,7 +2134,7 @@ function GA:CreateDungeonRunPage(parent)
     local abandonDesc = CreateText(
         runControl,
         "GameFontDisableSmall",
-        "End the run as a failure. All loot acquired in this run is lost. The character survives."
+        "End the run as a failure. Found loot and committed supplies are lost. The character survives."
     )
     abandonDesc:SetPoint("TOPLEFT", abandonButton, "TOPRIGHT", 16, -2)
     abandonDesc:SetWidth(350)
@@ -2175,7 +2175,7 @@ function GA:CreateDungeonRunPage(parent)
     local killDesc = CreateText(
         runControl,
         "GameFontDisableSmall",
-        "Kill the run character immediately. Run loot is lost. For a Hardcore Arcade hero, death is permanent."
+        "Kill the run character immediately. Found loot and committed supplies are lost. For a Hardcore Arcade hero, death is permanent."
     )
     killDesc:SetPoint("TOPLEFT", killButton, "TOPRIGHT", 16, -2)
     killDesc:SetWidth(350)
@@ -2764,7 +2764,7 @@ function GA:CreateDungeonRunPage(parent)
     self.DungeonCentralStashOverlay = stashOverlay
 
     local stashModal = CreateFrame("Frame", nil, stashOverlay, "BackdropTemplate")
-    stashModal:SetSize(920, 560)
+    stashModal:SetSize(920, 650)
     stashModal:SetPoint("CENTER")
     ApplyBackdrop(stashModal, { 0.040, 0.034, 0.027, 1 }, COLORS.goldDim)
 
@@ -2824,6 +2824,13 @@ function GA:CreateDungeonRunPage(parent)
                 string.format("%s  -  Item Level %d", item.tier or "T0", tonumber(item.itemLevel) or 1),
                 0.85, 0.82, 0.75
             )
+            if item.equipLoc then
+                GameTooltip:AddLine("Slot: " .. tostring(item.slotLabel or item.equipLoc), 0.92, 0.89, 0.82)
+            end
+            local requiredLevel = math.max(1, math.floor(tonumber(item.requiredLevel) or 1))
+            if requiredLevel > 1 then
+                GameTooltip:AddLine("Requires Run Level " .. tostring(requiredLevel), 0.85, 0.82, 0.75)
+            end
             if item.buildProfile and item.buildProfile ~= "" and item.buildProfile ~= "NONE" then
                 GameTooltip:AddLine("Build: " .. item.buildProfile, 1, 0.72, 0.12)
             end
@@ -2854,7 +2861,8 @@ function GA:CreateDungeonRunPage(parent)
                 GameTooltip:AddLine("Extracted by " .. item.extractedFromCharacter, 0.65, 0.65, 0.65)
             end
             if item.category == "CONSUMABLE" or item.itemType == "Consumable" then
-                GameTooltip:AddLine("Consumables are not part of the pre-run gear loadout yet.", 0.65, 0.65, 0.65, true)
+                GameTooltip:AddLine("Click to prepare 1 as a pre-run supply.", 0.30, 1.00, 0.38, true)
+                GameTooltip:AddLine("Maximum: 3 supply items. Prepared supplies are committed when the run starts.", 0.65, 0.65, 0.65, true)
             else
                 GameTooltip:AddLine("Click to equip on the selected character.", 0.30, 1.00, 0.38, true)
             end
@@ -2862,7 +2870,11 @@ function GA:CreateDungeonRunPage(parent)
         end)
         slot:SetScript("OnLeave", function() GameTooltip:Hide() end)
         slot:SetScript("OnClick", function(button)
-            if button.gaStashIndex then
+            if not button.gaStashIndex or not button.gaStashItem then return end
+            if button.gaStashItem.category == "CONSUMABLE"
+                or button.gaStashItem.itemType == "Consumable" then
+                GA:AssignSelectedCentralStashSupply(button.gaStashIndex)
+            else
                 GA:EquipSelectedCentralStashItem(button.gaStashIndex)
             end
         end)
@@ -2902,7 +2914,7 @@ function GA:CreateDungeonRunPage(parent)
     local loadoutHint = CreateText(
         stashModal,
         "GameFontHighlightSmall",
-        "Click stash gear to equip it. Click an extracted loadout item to return it. Baseline gear is locked and can never enter the stash."
+        "Gear overrides baseline slots. Consumables use the 3 supply slots. Baseline gear is locked and can never enter the stash."
     )
     loadoutHint:SetPoint("TOPLEFT", 410, -138)
     loadoutHint:SetWidth(460)
@@ -2910,14 +2922,71 @@ function GA:CreateDungeonRunPage(parent)
     loadoutHint:SetWordWrap(true)
     loadoutHint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
+    local suppliesTitle = CreateText(stashModal, "GameFontNormalSmall", "PRE-RUN SUPPLIES  0 / 3")
+    suppliesTitle:SetPoint("TOPLEFT", 410, -184)
+    suppliesTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    self.DungeonCentralSuppliesTitle = suppliesTitle
+
+    local suppliesHint = CreateText(stashModal, "GameFontDisableSmall", "One item per slot. Unused supplies return only after a successful extraction.")
+    suppliesHint:SetPoint("TOPLEFT", 410, -202)
+    suppliesHint:SetWidth(450)
+    suppliesHint:SetJustifyH("LEFT")
+    suppliesHint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    self.DungeonCentralSupplySlots = {}
+    for i = 1, 3 do
+        local button = CreateFrame("Button", nil, stashModal, "BackdropTemplate")
+        button:SetSize(58, 58)
+        button:SetPoint("TOPLEFT", 410 + ((i - 1) * 70), -224)
+        ApplyBackdrop(button, { 0.025, 0.022, 0.018, 1 }, COLORS.goldDim)
+        button.supplySlotIndex = i
+
+        local icon = button:CreateTexture(nil, "ARTWORK")
+        icon:SetPoint("TOPLEFT", 4, -4)
+        icon:SetPoint("BOTTOMRIGHT", -4, 4)
+        icon:SetTexture("Interface\\Icons\\INV_Potion_54")
+        icon:SetAlpha(0.12)
+        button.icon = icon
+
+        local number = CreateText(button, "GameFontNormalSmall", tostring(i))
+        number:SetPoint("TOPLEFT", 4, -3)
+        number:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+        button:SetScript("OnClick", function(selfButton)
+            if selfButton.gaSupplyItem then
+                GA:ReturnSelectedSupplyItem(selfButton.supplySlotIndex)
+            end
+        end)
+        button:SetScript("OnEnter", function(selfButton)
+            GameTooltip:SetOwner(selfButton, "ANCHOR_LEFT")
+            local item = selfButton.gaSupplyItem
+            if item then
+                GameTooltip:SetText(item.name or "Prepared Supply", 1, 0.82, 0.2)
+                GameTooltip:AddLine(item.description or "Prepared consumable.", 0.82, 0.79, 0.72, true)
+                GameTooltip:AddLine("PRE-RUN SUPPLY", 0.25, 1.00, 0.35)
+                GameTooltip:AddLine("Click to return this item to the Central Stash.", 0.82, 0.79, 0.72, true)
+            else
+                GameTooltip:SetText("Supply Slot " .. tostring(selfButton.supplySlotIndex), 1, 0.82, 0.2)
+                GameTooltip:AddLine("Click a consumable in the stash to prepare one item here.", 0.75, 0.75, 0.75, true)
+            end
+            GameTooltip:Show()
+        end)
+        button:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        self.DungeonCentralSupplySlots[i] = button
+    end
+
+    local gearTitle = CreateText(stashModal, "GameFontNormalSmall", "GEAR LOADOUT")
+    gearTitle:SetPoint("TOPLEFT", 410, -294)
+    gearTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
     self.DungeonCentralLoadoutSlots = {}
     local loadoutDefs = self.GetLoadoutSlotDefinitions and self:GetLoadoutSlotDefinitions() or {}
     for index, definition in ipairs(loadoutDefs) do
         local col = (index - 1) % 4
         local row = math.floor((index - 1) / 4)
         local button = CreateFrame("Button", nil, stashModal, "BackdropTemplate")
-        button:SetSize(92, 68)
-        button:SetPoint("TOPLEFT", 410 + col * 112, -190 - row * 78)
+        button:SetSize(92, 62)
+        button:SetPoint("TOPLEFT", 410 + col * 112, -316 - row * 68)
         ApplyBackdrop(button, { 0.025, 0.022, 0.018, 1 }, COLORS.goldDim)
         button.slotKey = definition.key
         button.slotLabel = definition.label
@@ -3429,6 +3498,11 @@ function GA:RefreshCentralStash()
             string.format("%d ITEM%s  -  %d SLOT%s", itemCount, itemCount == 1 and "" or "S", #stash, #stash == 1 and "" or "S")
         )
     end
+    if self.DungeonCentralStashButton and self.GetCentralStashItemCount then
+        self.DungeonCentralStashButton.label:SetText(
+            string.format("CENTRAL STASH  %d", self:GetCentralStashItemCount())
+        )
+    end
     if self.DungeonCentralStashPageText then
         self.DungeonCentralStashPageText:SetText(string.format("PAGE %d / %d", self.DungeonCentralStashPage, pageCount))
     end
@@ -3475,6 +3549,70 @@ function GA:RefreshCentralStash()
             button:SetBackdropBorderColor(COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 1)
         end
     end
+
+    local supplies = selected and selected.arcadeSupplies or {}
+    local supplyCount = 0
+    for i, button in ipairs(self.DungeonCentralSupplySlots or {}) do
+        local item = supplies and supplies[i]
+        button.gaSupplyItem = item
+        if item then
+            supplyCount = supplyCount + 1
+            button.icon:SetTexture(item.icon or "Interface\\Icons\\INV_Potion_54")
+            button.icon:SetAlpha(1)
+            button:SetBackdropBorderColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 1)
+        else
+            button.icon:SetTexture("Interface\\Icons\\INV_Potion_54")
+            button.icon:SetAlpha(0.12)
+            button:SetBackdropBorderColor(COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 1)
+        end
+    end
+    if self.DungeonCentralSuppliesTitle then
+        self.DungeonCentralSuppliesTitle:SetText(string.format("PRE-RUN SUPPLIES  %d / 3", supplyCount))
+    end
+end
+
+function GA:AssignSelectedCentralStashSupply(stashIndex)
+    local selected = self.GetSelectedDungeonCharacter and self:GetSelectedDungeonCharacter()
+    if not selected or not self.AssignCentralStashSupply then return false end
+
+    local ok, result = self:AssignCentralStashSupply(selected.key, stashIndex)
+    if self.DungeonCentralLoadoutStatus then
+        self.DungeonCentralLoadoutStatus:SetText(
+            ok
+                and ("Prepared supply slot " .. tostring(result or "?") .. ".")
+                or tostring(result or "Could not prepare that supply.")
+        )
+        self.DungeonCentralLoadoutStatus:SetTextColor(
+            ok and COLORS.green[1] or COLORS.red[1],
+            ok and COLORS.green[2] or COLORS.red[2],
+            ok and COLORS.green[3] or COLORS.red[3]
+        )
+    end
+    self:RefreshCentralStash()
+    self:RefreshDungeonCharacterSelection()
+    return ok
+end
+
+function GA:ReturnSelectedSupplyItem(slotIndex)
+    local selected = self.GetSelectedDungeonCharacter and self:GetSelectedDungeonCharacter()
+    if not selected or not self.ReturnCharacterSupplyToStash then return false end
+
+    local ok, result = self:ReturnCharacterSupplyToStash(selected.key, slotIndex)
+    if self.DungeonCentralLoadoutStatus then
+        self.DungeonCentralLoadoutStatus:SetText(
+            ok
+                and ("Supply slot " .. tostring(slotIndex) .. " returned to Central Stash.")
+                or tostring(result or "Could not return that supply.")
+        )
+        self.DungeonCentralLoadoutStatus:SetTextColor(
+            ok and COLORS.green[1] or COLORS.red[1],
+            ok and COLORS.green[2] or COLORS.red[2],
+            ok and COLORS.green[3] or COLORS.red[3]
+        )
+    end
+    self:RefreshCentralStash()
+    self:RefreshDungeonCharacterSelection()
+    return ok
 end
 
 function GA:EquipSelectedCentralStashItem(stashIndex)
@@ -5234,7 +5372,7 @@ function GA:FailDungeonRun(reason)
     end
 
     self:AddCombatLog(deathReason, "warning")
-    self:AddCombatLog("Extraction failed: all loot acquired during this run is lost.", "warning")
+    self:AddCombatLog("Extraction failed: all found loot and committed pre-run supplies are lost.", "warning")
     if hardcoreDeath then
         self:AddCombatLog("HARDCORE DEATH: this Arcade hero is permanently dead.", "warning")
     end
@@ -6852,6 +6990,13 @@ function GA:BeginDungeonRun()
     local sampleEnemy = floorEnemies[1]
     local unlockedAbilities = GetClassAbilityIdSet(classId, level)
     local actionSlots = self:LoadSavedActionSlots(selected.key, unlockedAbilities)
+    local preparedSupplies = self.TakeCharacterSuppliesForRun
+        and self:TakeCharacterSuppliesForRun(selected.key)
+        or {}
+    local startingBackpack = {}
+    for i, item in ipairs(preparedSupplies) do
+        startingBackpack[i] = CopyTable(item)
+    end
 
     self.RunState = {
         active = true,
@@ -6908,7 +7053,8 @@ function GA:BeginDungeonRun()
         playerMaxHealth = maxHealth,
         baseMaxHealth = maxHealth,
         equipment = CopyTable(effectiveEquipment or {}),
-        backpack = {},
+        backpack = startingBackpack,
+        preRunSupplyCount = #preparedSupplies,
         openedChests = {},
         openDoors = {},
         shopStock = nil,
@@ -6997,6 +7143,17 @@ function GA:BeginDungeonRun()
             self.RunState.snapshot.weapon.damageMax),
         "player"
     )
+
+    if #preparedSupplies > 0 then
+        self:AddCombatLog(
+            string.format(
+                "%d pre-run supply item%s committed to this run.",
+                #preparedSupplies,
+                #preparedSupplies == 1 and "" or "s"
+            ),
+            "system"
+        )
+    end
     self:AddCombatLog(
         string.format(
             "%s floor: %d enemies across %d walkable tiles.",
@@ -7479,6 +7636,10 @@ function GA:CompleteDungeonRun()
 
     AwardFloorClear(run, run.floor or 9)
     AddRunScore(run, "completion", RUN_SCORE.COMPLETION)
+    local recoveredSupplies = 0
+    if self.RecoverRunSuppliesToCentralStash then
+        recoveredSupplies = self:RecoverRunSuppliesToCentralStash(run)
+    end
     local extractedCount, extractedTypes = 0, 0
     if self.ExtractRunLootToCentralStash then
         extractedCount, extractedTypes = self:ExtractRunLootToCentralStash(run)
@@ -7538,6 +7699,17 @@ function GA:CompleteDungeonRun()
         "system"
     )
 
+    if recoveredSupplies > 0 then
+        self:AddCombatLog(
+            string.format(
+                "%d unused pre-run supply item%s returned to the Central Stash.",
+                recoveredSupplies,
+                recoveredSupplies == 1 and "" or "s"
+            ),
+            "system"
+        )
+    end
+
     if self.CharacterSheetFrame then
         self.CharacterSheetFrame:Hide()
     end
@@ -7552,9 +7724,11 @@ function GA:CompleteDungeonRun()
     self:ShowDungeonRunSummary(
         true,
         string.format(
-            "Extraction successful. %d item%s secured in the Central Stash.",
+            "Extraction successful. %d found item%s secured; %d unused supply item%s returned.",
             run.extractedLootCount or 0,
-            (run.extractedLootCount or 0) == 1 and "" or "s"
+            (run.extractedLootCount or 0) == 1 and "" or "s",
+            recoveredSupplies,
+            recoveredSupplies == 1 and "" or "s"
         ),
         false
     )
