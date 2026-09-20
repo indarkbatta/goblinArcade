@@ -3,9 +3,53 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.29.0**  
+Current addon version: **0.30.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.30.0 — Warrior level 1-10 combat package
+
+The Warrior is no longer being wired one spell at a time. A shared ability runtime now covers the first full level band.
+
+Runtime-wired Warrior abilities through level 10:
+- Battle Stance
+- Heroic Strike
+- Battle Shout
+- Charge
+- Rend
+- Thunder Clap
+- Hamstring
+- Bloodrage
+- Defensive Stance
+- Sunder Armor
+
+Shared combat infrastructure:
+- ability panel opened with action button 3 / B;
+- all supported abilities auto-appear when the current Run Level unlocks them;
+- panel hotkeys 1-0 activate the ten current abilities;
+- Studio-driven Resource Cost, Damage Multiplier, Cooldown Turns, Duration Turns, Range, Effect Value, Secondary Value and Resource Gain;
+- shared run cooldown table;
+- timed player buffs and enemy debuffs;
+- enemy damage-over-time ticking;
+- stance state;
+- deterministic movement slow;
+- enemy damage reduction debuff;
+- stacking vulnerability;
+- mobility targeting for Charge;
+- AoE resolution for Thunder Clap;
+- level-up feedback survives the enemy phase, including DoT/AoE kills.
+
+Current default translations:
+- Battle Shout: +15% damage for 6 turns, 8-turn cooldown, 1 Rage;
+- Charge: visible target at range 2-4, 1.0x weapon damage, +2 Rage, one-turn stagger, 4-turn cooldown;
+- Rend: 0.4x weapon strike plus the same bleed tick for 3 turns, 1 Rage;
+- Thunder Clap: 0.75x weapon AoE to adjacent enemies and -20% enemy damage for 3 turns, 2 Rage, 3-turn cooldown;
+- Hamstring: 0.75x weapon damage and 50% deterministic movement slow for 3 turns, 1 Rage;
+- Bloodrage: trades 10% max HP for +2 Rage, 6-turn cooldown and cannot self-kill;
+- Defensive Stance: -20% incoming damage / -10% outgoing damage until Battle Stance is activated;
+- Sunder Armor: 0.5x weapon damage, +10% incoming damage per stack, max 3 stacks, 5-turn duration, 1 Rage.
+
+The user's published Warrior HP / Level = 3 remains preserved.
 
 ## 0.29.0 — Warrior Rage + Heroic Strike
 
@@ -84,7 +128,7 @@ Deployment is automatic through GitHub Actions.
 
 ### GoblinArcade Studio / Vercel
 
-Studio v0.6.0 keeps a **static-first** architecture for Vercel cost efficiency:
+Studio v0.7.0 keeps a **static-first** architecture for Vercel cost efficiency:
 
 - no npm build is required;
 - no database is used;
@@ -1460,7 +1504,7 @@ Recommended order:
    - EnemyGenerator v5 reads enemy archetypes and ranks from GA.StudioData
    - DungeonGenerator v7 reads room door limits and map markers from GA.StudioData
    - Shrine effects and Shrine UI values read from GA.StudioData
-   - Warrior spellbook data is populated; Heroic Strike is the first runtime-wired ability. Next expand the same engine to Rend / Charge / Thunder Clap, then migrate loot tables
+   - Warrior spellbook data is populated; level 1-10 abilities are runtime-wired on the shared ability/status engine. Next batch should cover the level 12-20 Warrior abilities, then the later level bands
 
 2. **Room-role gameplay polish**
    - test the stricter door rules, Shrine modal, Elite Cache and Floor 9 exit lock in-game
@@ -1471,7 +1515,7 @@ Recommended order:
 3. **Abilities**
    - Warrior first
    - basic attack + 4 actives + passive is the longer-term design
-   - button 2 now executes Heroic Strike; button 3 remains a placeholder
+   - button 2 quick-casts Heroic Strike; button 3 opens the unlocked Warrior ability panel
 
 4. **Potions**
    - finite run resource

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "studioVersion": "0.6.0",
+  "studioVersion": "0.7.0",
   "classes": [
     {
       "id": "warrior",
@@ -21,9 +21,15 @@
       "learnLevel": 1,
       "category": "ARMS",
       "effect": "STANCE",
-      "description": "Balanced combat stance.",
+      "description": "Balanced stance. In GoblinArcade it clears Defensive Stance modifiers.",
       "resourceCost": 0,
-      "damageMultiplier": 1
+      "damageMultiplier": 1,
+      "cooldownTurns": 0,
+      "durationTurns": 0,
+      "range": 0,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "heroic_strike",
@@ -34,7 +40,13 @@
       "effect": "DAMAGE",
       "description": "Empowered melee strike. In GoblinArcade it spends Rage to deal increased weapon damage.",
       "resourceCost": 2,
-      "damageMultiplier": 1.5
+      "damageMultiplier": 1.5,
+      "cooldownTurns": 0,
+      "durationTurns": 0,
+      "range": 1,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "battle_shout",
@@ -43,9 +55,15 @@
       "learnLevel": 1,
       "category": "FURY",
       "effect": "BUFF",
-      "description": "Raises melee attack power for the party.",
-      "resourceCost": 0,
-      "damageMultiplier": 1
+      "description": "Raises melee damage for several turns.",
+      "resourceCost": 1,
+      "damageMultiplier": 1,
+      "cooldownTurns": 8,
+      "durationTurns": 6,
+      "range": 0,
+      "effectValue": 15,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "charge",
@@ -54,9 +72,15 @@
       "learnLevel": 4,
       "category": "ARMS",
       "effect": "MOBILITY",
-      "description": "Rush to an enemy, gain Rage and briefly stun.",
+      "description": "Rush to a visible enemy within range, gain Rage, deal weapon damage and stagger it for one turn.",
       "resourceCost": 0,
-      "damageMultiplier": 1
+      "damageMultiplier": 1,
+      "cooldownTurns": 4,
+      "durationTurns": 1,
+      "range": 4,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "resourceGain": 2
     },
     {
       "id": "rend",
@@ -65,9 +89,15 @@
       "learnLevel": 4,
       "category": "ARMS",
       "effect": "DOT",
-      "description": "Applies a bleeding damage-over-time effect.",
-      "resourceCost": 0,
-      "damageMultiplier": 1
+      "description": "Applies a weapon-based bleed that ticks for several turns.",
+      "resourceCost": 1,
+      "damageMultiplier": 0.4,
+      "cooldownTurns": 0,
+      "durationTurns": 3,
+      "range": 1,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "thunder_clap",
@@ -76,9 +106,15 @@
       "learnLevel": 6,
       "category": "ARMS",
       "effect": "AOE_DEBUFF",
-      "description": "Damages nearby enemies and slows their attacks.",
-      "resourceCost": 0,
-      "damageMultiplier": 1
+      "description": "Damages all adjacent enemies and reduces their damage for several turns.",
+      "resourceCost": 2,
+      "damageMultiplier": 0.75,
+      "cooldownTurns": 3,
+      "durationTurns": 3,
+      "range": 1,
+      "effectValue": 20,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "hamstring",
@@ -87,9 +123,15 @@
       "learnLevel": 8,
       "category": "ARMS",
       "effect": "SLOW",
-      "description": "Deals light damage and slows movement.",
-      "resourceCost": 0,
-      "damageMultiplier": 1
+      "description": "Deals reduced weapon damage and slows the target's movement.",
+      "resourceCost": 1,
+      "damageMultiplier": 0.75,
+      "cooldownTurns": 0,
+      "durationTurns": 3,
+      "range": 1,
+      "effectValue": 50,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "bloodrage",
@@ -98,9 +140,15 @@
       "learnLevel": 10,
       "category": "PROTECTION",
       "effect": "RESOURCE",
-      "description": "Trades health for an immediate and short Rage gain.",
+      "description": "Trades a percentage of max HP for immediate Rage.",
       "resourceCost": 0,
-      "damageMultiplier": 1
+      "damageMultiplier": 1,
+      "cooldownTurns": 6,
+      "durationTurns": 0,
+      "range": 0,
+      "effectValue": 10,
+      "secondaryValue": 0,
+      "resourceGain": 2
     },
     {
       "id": "defensive_stance",
@@ -109,9 +157,15 @@
       "learnLevel": 10,
       "category": "PROTECTION",
       "effect": "STANCE",
-      "description": "Defensive stance that reduces damage dealt and taken.",
+      "description": "Defensive stance: reduces damage taken and also reduces damage dealt.",
       "resourceCost": 0,
-      "damageMultiplier": 1
+      "damageMultiplier": 1,
+      "cooldownTurns": 0,
+      "durationTurns": 0,
+      "range": 0,
+      "effectValue": 20,
+      "secondaryValue": 10,
+      "resourceGain": 0
     },
     {
       "id": "sunder_armor",
@@ -120,9 +174,15 @@
       "learnLevel": 10,
       "category": "PROTECTION",
       "effect": "ARMOR_BREAK",
-      "description": "Stacking armor reduction with high threat.",
-      "resourceCost": 0,
-      "damageMultiplier": 1
+      "description": "Deals light damage and stacks vulnerability on the target.",
+      "resourceCost": 1,
+      "damageMultiplier": 0.5,
+      "cooldownTurns": 0,
+      "durationTurns": 5,
+      "range": 1,
+      "effectValue": 10,
+      "secondaryValue": 3,
+      "resourceGain": 0
     },
     {
       "id": "overpower",
@@ -133,7 +193,13 @@
       "effect": "REACTIVE_DAMAGE",
       "description": "Reactive weapon attack available after a dodge.",
       "resourceCost": 0,
-      "damageMultiplier": 1
+      "damageMultiplier": 1,
+      "cooldownTurns": 0,
+      "durationTurns": 0,
+      "range": 1,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "shield_bash",
@@ -144,7 +210,13 @@
       "effect": "INTERRUPT",
       "description": "Shield attack that interrupts spellcasting.",
       "resourceCost": 0,
-      "damageMultiplier": 1
+      "damageMultiplier": 1,
+      "cooldownTurns": 0,
+      "durationTurns": 0,
+      "range": 1,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "demoralizing_shout",
@@ -155,7 +227,13 @@
       "effect": "DEBUFF",
       "description": "Reduces nearby enemies' melee attack power.",
       "resourceCost": 0,
-      "damageMultiplier": 1
+      "damageMultiplier": 1,
+      "cooldownTurns": 0,
+      "durationTurns": 0,
+      "range": 1,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "revenge",
@@ -166,7 +244,13 @@
       "effect": "REACTIVE_DAMAGE",
       "description": "Reactive counterattack after blocking, dodging or parrying.",
       "resourceCost": 0,
-      "damageMultiplier": 1
+      "damageMultiplier": 1,
+      "cooldownTurns": 0,
+      "durationTurns": 0,
+      "range": 1,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "shield_block",
@@ -177,7 +261,13 @@
       "effect": "DEFEND",
       "description": "Greatly raises block chance for a limited number of attacks.",
       "resourceCost": 0,
-      "damageMultiplier": 1
+      "damageMultiplier": 1,
+      "cooldownTurns": 0,
+      "durationTurns": 0,
+      "range": 1,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "disarm",
@@ -188,7 +278,13 @@
       "effect": "DEBUFF",
       "description": "Temporarily removes an enemy's weapon.",
       "resourceCost": 0,
-      "damageMultiplier": 1
+      "damageMultiplier": 1,
+      "cooldownTurns": 0,
+      "durationTurns": 0,
+      "range": 1,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "retaliation",
@@ -199,7 +295,13 @@
       "effect": "COUNTER",
       "description": "Counterattacks enemies that strike you in melee.",
       "resourceCost": 0,
-      "damageMultiplier": 1
+      "damageMultiplier": 1,
+      "cooldownTurns": 0,
+      "durationTurns": 0,
+      "range": 1,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "victory_rush",
@@ -210,7 +312,13 @@
       "effect": "HEAL_ATTACK",
       "description": "Post-kill attack that also restores health.",
       "resourceCost": 0,
-      "damageMultiplier": 1
+      "damageMultiplier": 1,
+      "cooldownTurns": 0,
+      "durationTurns": 0,
+      "range": 1,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "cleave",
@@ -221,7 +329,13 @@
       "effect": "CLEAVE",
       "description": "Weapon attack that also hits a nearby second enemy.",
       "resourceCost": 0,
-      "damageMultiplier": 1
+      "damageMultiplier": 1,
+      "cooldownTurns": 0,
+      "durationTurns": 0,
+      "range": 1,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "slam",
@@ -232,7 +346,13 @@
       "effect": "DAMAGE",
       "description": "Heavy weapon strike.",
       "resourceCost": 0,
-      "damageMultiplier": 1
+      "damageMultiplier": 1,
+      "cooldownTurns": 0,
+      "durationTurns": 0,
+      "range": 1,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "intimidating_shout",
@@ -243,7 +363,13 @@
       "effect": "CONTROL",
       "description": "Fears the target and nearby enemies.",
       "resourceCost": 0,
-      "damageMultiplier": 1
+      "damageMultiplier": 1,
+      "cooldownTurns": 0,
+      "durationTurns": 0,
+      "range": 1,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "execute",
@@ -254,7 +380,13 @@
       "effect": "EXECUTE",
       "description": "Finisher usable against low-health enemies.",
       "resourceCost": 0,
-      "damageMultiplier": 1
+      "damageMultiplier": 1,
+      "cooldownTurns": 0,
+      "durationTurns": 0,
+      "range": 1,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "shield_wall",
@@ -265,7 +397,13 @@
       "effect": "DEFEND",
       "description": "Major temporary damage reduction.",
       "resourceCost": 0,
-      "damageMultiplier": 1
+      "damageMultiplier": 1,
+      "cooldownTurns": 0,
+      "durationTurns": 0,
+      "range": 1,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "berserker_stance",
@@ -276,7 +414,13 @@
       "effect": "STANCE",
       "description": "Aggressive stance with more critical chance and more damage taken.",
       "resourceCost": 0,
-      "damageMultiplier": 1
+      "damageMultiplier": 1,
+      "cooldownTurns": 0,
+      "durationTurns": 0,
+      "range": 1,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "intercept",
@@ -287,7 +431,13 @@
       "effect": "MOBILITY",
       "description": "Rushes an enemy, deals damage and stuns.",
       "resourceCost": 0,
-      "damageMultiplier": 1
+      "damageMultiplier": 1,
+      "cooldownTurns": 0,
+      "durationTurns": 0,
+      "range": 1,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "berserker_rage",
@@ -298,7 +448,13 @@
       "effect": "BUFF",
       "description": "Breaks or prevents fear-like control and improves Rage gain from damage.",
       "resourceCost": 0,
-      "damageMultiplier": 1
+      "damageMultiplier": 1,
+      "cooldownTurns": 0,
+      "durationTurns": 0,
+      "range": 1,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "whirlwind",
@@ -309,7 +465,13 @@
       "effect": "AOE",
       "description": "Weapon attack against several nearby enemies.",
       "resourceCost": 0,
-      "damageMultiplier": 1
+      "damageMultiplier": 1,
+      "cooldownTurns": 0,
+      "durationTurns": 0,
+      "range": 1,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "pummel",
@@ -320,7 +482,13 @@
       "effect": "INTERRUPT",
       "description": "Melee interrupt with light damage.",
       "resourceCost": 0,
-      "damageMultiplier": 1
+      "damageMultiplier": 1,
+      "cooldownTurns": 0,
+      "durationTurns": 0,
+      "range": 1,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "resourceGain": 0
     },
     {
       "id": "recklessness",
@@ -331,7 +499,13 @@
       "effect": "BUFF",
       "description": "Massively boosts critical chance while increasing damage taken.",
       "resourceCost": 0,
-      "damageMultiplier": 1
+      "damageMultiplier": 1,
+      "cooldownTurns": 0,
+      "durationTurns": 0,
+      "range": 1,
+      "effectValue": 0,
+      "secondaryValue": 0,
+      "resourceGain": 0
     }
   ],
   "enemies": [

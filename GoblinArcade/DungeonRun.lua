@@ -82,6 +82,19 @@ local ENEMY_VISUALS = {
     },
 }
 
+local RUN_ABILITY_IDS = {
+    "battle_stance",
+    "heroic_strike",
+    "battle_shout",
+    "charge",
+    "rend",
+    "thunder_clap",
+    "hamstring",
+    "bloodrage",
+    "defensive_stance",
+    "sunder_armor",
+}
+
 local CHEST_LOOT_TEMPLATES = {
     {
         name = "Candlekeeper's Charm",
@@ -1471,6 +1484,43 @@ function GA:CreateDungeonRunPage(parent)
     sacrificeDesc:SetPoint("BOTTOM", sacrificeButton, "TOP", 0, 5)
     sacrificeDesc:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
+    local abilityFrame = CreateFrame("Frame", nil, center, "BackdropTemplate")
+    abilityFrame:SetSize(548, 330)
+    abilityFrame:SetPoint("CENTER", center, "CENTER", 0, 0)
+    abilityFrame:SetFrameLevel(center:GetFrameLevel() + 55)
+    abilityFrame:EnableMouse(true)
+    ApplyBackdrop(abilityFrame, { 0.025, 0.021, 0.017, 0.985 }, COLORS.gold)
+    abilityFrame:Hide()
+    self.DungeonAbilityFrame = abilityFrame
+
+    local abilityTitle = CreateText(abilityFrame, "GameFontNormalLarge", "WARRIOR ABILITIES")
+    abilityTitle:SetPoint("TOP", 0, -16)
+    abilityTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    local abilityHint = CreateText(abilityFrame, "GameFontHighlightSmall", "Unlocked abilities from your current Run Level")
+    abilityHint:SetPoint("TOP", abilityTitle, "BOTTOM", 0, -7)
+    abilityHint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    self.DungeonAbilityButtons = {}
+    for i = 1, #RUN_ABILITY_IDS do
+        local col = (i - 1) % 2
+        local row = math.floor((i - 1) / 2)
+        local hotkey = i == 10 and "0" or tostring(i)
+        local abilityButton = CreateFlatButton(abilityFrame, hotkey .. "  --", 248, 40)
+        abilityButton:SetPoint("TOPLEFT", 18 + col * 264, -70 - row * 48)
+        abilityButton.gaAbilityIndex = i
+        abilityButton:SetScript("OnClick", function(button)
+            GA:UseAbilityPanelIndex(button.gaAbilityIndex)
+        end)
+        self.DungeonAbilityButtons[i] = abilityButton
+    end
+
+    local abilityClose = CreateFlatButton(abilityFrame, "B / ESC  CLOSE", 160, 30)
+    abilityClose:SetPoint("BOTTOM", 0, 12)
+    abilityClose:SetScript("OnClick", function()
+        GA:CloseAbilityPanel()
+    end)
+
     local legend = CreateText(center, "GameFontDisableSmall", "@ YOU    ENEMY SPRITE    * CLEARED    S SHRINE    $ CHEST    < / > STAIRS")
     legend:SetPoint("BOTTOM", 0, 9)
     legend:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
@@ -1487,8 +1537,8 @@ function GA:CreateDungeonRunPage(parent)
 
     local actions = {
         { "1", "ATTACK" },
-        { "2", "ABILITY" },
-        { "3", "ABILITY" },
+        { "2", "HEROIC STRIKE" },
+        { "3", "ABILITIES" },
         { "4", "POTION" },
     }
 
@@ -1510,6 +1560,11 @@ function GA:CreateDungeonRunPage(parent)
             self.DungeonHeroicStrikeButton = button
             button:SetScript("OnClick", function()
                 GA:UseRunAbility("heroic_strike")
+            end)
+        elseif i == 3 then
+            self.DungeonAbilitiesButton = button
+            button:SetScript("OnClick", function()
+                GA:ToggleAbilityPanel()
             end)
         end
     end
@@ -1714,6 +1769,23 @@ function GA:CreateDungeonRunPage(parent)
             elseif key == "ESCAPE" then
                 GA:CloseShrineChoice()
             end
+            return
+        end
+
+        if GA.DungeonAbilityFrame and GA.DungeonAbilityFrame:IsShown() then
+            if key == "ESCAPE" or key == "B" then
+                GA:CloseAbilityPanel()
+            else
+                local abilityIndex = key == "0" and 10 or tonumber(key)
+                if abilityIndex then
+                    GA:UseAbilityPanelIndex(abilityIndex)
+                end
+            end
+            return
+        end
+
+        if key == "B" or key == "3" then
+            GA:ToggleAbilityPanel()
             return
         end
 
@@ -2212,29 +2284,122 @@ function GA:RefreshActionButtons()
 
     if self.DungeonAttackButton then
         self.DungeonAttackButton:SetEnabled(canAttack and true or false)
-
-        if canAttack then
-            self.DungeonAttackButton.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
-        else
-            self.DungeonAttackButton.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
-        end
+        self.DungeonAttackButton.label:SetTextColor(
+            canAttack and COLORS.gold[1] or COLORS.muted[1],
+            canAttack and COLORS.gold[2] or COLORS.muted[2],
+            canAttack and COLORS.gold[3] or COLORS.muted[3]
+        )
     end
 
     if self.DungeonHeroicStrikeButton then
         local heroic = GetStudioAbilityById("heroic_strike")
         local cost = math.max(0, tonumber(heroic and heroic.resourceCost) or 0)
+        local cooldown = run and run.cooldowns and (run.cooldowns.heroic_strike or 0) or 0
         local unlocked = run and run.unlockedAbilities and run.unlockedAbilities.heroic_strike
         local enoughResource = run and (run.resource or 0) >= cost
-        local usable = canAttack and unlocked and enoughResource
+        local usable = canAttack and unlocked and enoughResource and cooldown <= 0
 
         self.DungeonHeroicStrikeButton.label:SetText("2  HEROIC STRIKE")
         self.DungeonHeroicStrikeButton:SetEnabled(usable and true or false)
-        if usable then
-            self.DungeonHeroicStrikeButton.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+        self.DungeonHeroicStrikeButton.label:SetTextColor(
+            usable and COLORS.gold[1] or COLORS.muted[1],
+            usable and COLORS.gold[2] or COLORS.muted[2],
+            usable and COLORS.gold[3] or COLORS.muted[3]
+        )
+    end
+
+    if self.DungeonAbilitiesButton then
+        local hasAbility = false
+        if run and run.active then
+            for _, abilityId in ipairs(RUN_ABILITY_IDS) do
+                if run.unlockedAbilities and run.unlockedAbilities[abilityId] then
+                    hasAbility = true
+                    break
+                end
+            end
+        end
+        self.DungeonAbilitiesButton:SetEnabled(hasAbility)
+        self.DungeonAbilitiesButton.label:SetTextColor(
+            hasAbility and COLORS.gold[1] or COLORS.muted[1],
+            hasAbility and COLORS.gold[2] or COLORS.muted[2],
+            hasAbility and COLORS.gold[3] or COLORS.muted[3]
+        )
+    end
+
+    if self.DungeonAbilityFrame and self.DungeonAbilityFrame:IsShown() then
+        self:RefreshAbilityPanel()
+    end
+end
+
+function GA:RefreshAbilityPanel()
+    local run = self.RunState
+    for i, button in ipairs(self.DungeonAbilityButtons or {}) do
+        local abilityId = RUN_ABILITY_IDS[i]
+        local ability = GetStudioAbilityById(abilityId)
+        local unlocked = run and run.active and run.unlockedAbilities and run.unlockedAbilities[abilityId]
+
+        if ability and unlocked then
+            local hotkey = i == 10 and "0" or tostring(i)
+            local cost = math.max(0, tonumber(ability.resourceCost) or 0)
+            local cooldown = run.cooldowns and math.max(0, run.cooldowns[abilityId] or 0) or 0
+            local enoughResource = (run.resource or 0) >= cost
+            local suffix = ""
+            if cooldown > 0 then
+                suffix = string.format("  CD:%d", cooldown)
+            elseif cost > 0 then
+                suffix = string.format("  %d %s", cost, run.resourceType or "RESOURCE")
+            end
+
+            button.gaAbilityId = abilityId
+            button.label:SetText(hotkey .. "  " .. string.upper(ability.name or abilityId) .. suffix)
+            button:SetEnabled(enoughResource and cooldown <= 0)
+            button.label:SetTextColor(
+                enoughResource and cooldown <= 0 and COLORS.gold[1] or COLORS.muted[1],
+                enoughResource and cooldown <= 0 and COLORS.gold[2] or COLORS.muted[2],
+                enoughResource and cooldown <= 0 and COLORS.gold[3] or COLORS.muted[3]
+            )
+            button:Show()
         else
-            self.DungeonHeroicStrikeButton.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+            button.gaAbilityId = nil
+            button:Hide()
         end
     end
+end
+
+function GA:OpenAbilityPanel()
+    if not self.RunState or not self.RunState.active or not self.DungeonAbilityFrame then
+        return
+    end
+    if self.CharacterSheetFrame then
+        self.CharacterSheetFrame:Hide()
+    end
+    self:CloseShrineChoice()
+    self:RefreshAbilityPanel()
+    self.DungeonAbilityFrame:Show()
+end
+
+function GA:CloseAbilityPanel()
+    if self.DungeonAbilityFrame then
+        self.DungeonAbilityFrame:Hide()
+    end
+end
+
+function GA:ToggleAbilityPanel()
+    if not self.DungeonAbilityFrame then return end
+    if self.DungeonAbilityFrame:IsShown() then
+        self:CloseAbilityPanel()
+    else
+        self:OpenAbilityPanel()
+    end
+end
+
+function GA:UseAbilityPanelIndex(index)
+    local button = self.DungeonAbilityButtons and self.DungeonAbilityButtons[index]
+    local abilityId = button and button.gaAbilityId
+    if not abilityId then return false end
+
+    self:CloseAbilityPanel()
+    return self:UseRunAbility(abilityId)
 end
 
 function GA:UpdateRunResource()
@@ -2279,6 +2444,7 @@ function GA:FailDungeonRun(reason)
     run.active = false
     run.failed = true
     self:CloseShrineChoice()
+    self:CloseAbilityPanel()
 
     self:AddCombatLog(reason or "The run is over.", "warning")
 
@@ -2388,6 +2554,310 @@ function GA:GrantRunExperience(amount)
     return leveledUp, initialLevel, run.runLevel
 end
 
+local function GetRunAbilityCooldown(run, abilityId)
+    return run and run.cooldowns and math.max(0, tonumber(run.cooldowns[abilityId]) or 0) or 0
+end
+
+local function SetRunAbilityCooldown(run, ability)
+    local turns = math.max(0, math.floor(tonumber(ability and ability.cooldownTurns) or 0))
+    if turns <= 0 then return end
+    run.cooldowns = run.cooldowns or {}
+    -- Combat effects tick after the enemy phase, so +1 preserves the configured
+    -- number of future player turns.
+    run.cooldowns[ability.id] = turns + 1
+end
+
+local function SpendRunResource(run, amount)
+    amount = math.max(0, tonumber(amount) or 0)
+    if (run.resource or 0) < amount then
+        return false
+    end
+    run.resource = math.max(0, (run.resource or 0) - amount)
+    return true
+end
+
+local function GainRunResource(run, amount)
+    amount = math.max(0, tonumber(amount) or 0)
+    if amount <= 0 or (run.resourceMax or 0) <= 0 then return end
+    run.resource = math.min(run.resourceMax, (run.resource or 0) + amount)
+end
+
+local function GetAdjacentEnemies(run)
+    local result = {}
+    for _, enemy in ipairs(run and run.enemies or {}) do
+        if enemy.alive ~= false and IsAdjacent(run.playerX, run.playerY, enemy.x, enemy.y) then
+            result[#result + 1] = enemy
+        end
+    end
+    return result
+end
+
+local function GetNearestVisibleEnemyInRange(run, range, minimumRange)
+    local best
+    local bestDistance
+    minimumRange = math.max(0, tonumber(minimumRange) or 0)
+    range = math.max(minimumRange, tonumber(range) or 1)
+
+    for _, enemy in ipairs(run and run.enemies or {}) do
+        if enemy.alive ~= false then
+            local distance = math.abs(enemy.x - run.playerX) + math.abs(enemy.y - run.playerY)
+            if distance >= minimumRange and distance <= range
+                and HasLineOfSight(run.playerX, run.playerY, enemy.x, enemy.y)
+                and (not bestDistance or distance < bestDistance) then
+                best = enemy
+                bestDistance = distance
+            end
+        end
+    end
+
+    return best
+end
+
+local function FindChargeDestination(run, enemy)
+    local occupied = BuildOccupiedEnemyCells(run, enemy and enemy.uid)
+    local bestX
+    local bestY
+    local bestDistance
+
+    for _, delta in ipairs(PATH_DIRECTIONS) do
+        local x = enemy.x + delta[1]
+        local y = enemy.y + delta[2]
+        local key = CellKey(x, y)
+        if not IsDungeonWall(x, y)
+            and not IsDungeonDoorClosed(x, y)
+            and not occupied[key]
+            and not (x == run.playerX and y == run.playerY) then
+            local distance = math.abs(x - run.playerX) + math.abs(y - run.playerY)
+            if not bestDistance or distance < bestDistance then
+                bestX = x
+                bestY = y
+                bestDistance = distance
+            end
+        end
+    end
+
+    return bestX, bestY
+end
+
+local function GetRunDamageDoneMultiplier(run)
+    local multiplier = 1
+
+    local shout = run and run.buffs and run.buffs.battle_shout
+    if shout and (shout.turns or 0) > 0 then
+        multiplier = multiplier * (1 + math.max(0, tonumber(shout.percent) or 0) / 100)
+    end
+
+    if run and run.stance == "defensive" then
+        local stance = GetStudioAbilityById("defensive_stance") or {}
+        local penalty = math.max(0, math.min(90, tonumber(stance.secondaryValue) or 0))
+        multiplier = multiplier * (1 - penalty / 100)
+    end
+
+    return multiplier
+end
+
+local function GetEnemyIncomingDamageMultiplier(enemy)
+    local multiplier = 1
+    local sunder = enemy and enemy.statuses and enemy.statuses.sunder
+    if sunder and (sunder.turns or 0) > 0 then
+        multiplier = multiplier * (1 + math.max(0, tonumber(sunder.percent) or 0) * math.max(1, tonumber(sunder.stacks) or 1) / 100)
+    end
+    return multiplier
+end
+
+local function RollRunWeaponDamage(self, run, enemy, ability)
+    local weapon = self:GetCurrentRunWeapon()
+    local minimum = weapon and math.max(1, tonumber(weapon.damageMin) or 1) or 1
+    local maximum = weapon and math.max(minimum, tonumber(weapon.damageMax) or minimum) or 2
+    local damage = math.random(minimum, maximum)
+
+    local abilityMultiplier = ability and math.max(0.01, tonumber(ability.damageMultiplier) or 1) or 1
+    damage = math.max(1, math.floor(damage * abilityMultiplier + 0.5))
+    damage = math.max(1, math.floor(damage * GetRunDamageDoneMultiplier(run) + 0.5))
+    damage = math.max(1, math.floor(damage * GetEnemyIncomingDamageMultiplier(enemy) + 0.5))
+
+    local shrineDamageBonus = math.max(0, tonumber(run.shrineDamageBonus) or 0)
+    if shrineDamageBonus > 0 then
+        damage = math.max(1, math.floor(damage * (1 + shrineDamageBonus) + 0.5))
+    end
+
+    local critChance = run.arcadeStats and run.arcadeStats.crit or 0
+    local critical = critChance > 0 and math.random(1, 1000) <= math.floor(critChance * 10)
+    if critical then
+        damage = math.max(1, math.floor(damage * 1.5 + 0.5))
+    end
+
+    return damage, critical, weapon
+end
+
+function GA:HandleEnemyDefeat(enemy)
+    local run = self.RunState
+    if not run or not enemy or enemy.alive == false then
+        return false, run and run.runLevel or 1, run and run.runLevel or 1
+    end
+
+    enemy.alive = false
+    enemy.hp = 0
+    if run.activeEnemyId == enemy.uid then
+        run.activeEnemyId = nil
+    end
+
+    local scoreValue = enemy.scoreValue or 100
+    local xpValue = enemy.xpValue or math.max(1, (enemy.dangerRating or 1) * 8)
+    run.score = (run.score or 0) + scoreValue
+
+    self:AddCombatLog(
+        string.format("%s defeated. +%d score, +%d XP.", GetEnemyDisplayName(enemy), scoreValue, xpValue),
+        "system"
+    )
+
+    local leveledUp, previousRunLevel, currentRunLevel = self:GrantRunExperience(xpValue)
+    if leveledUp then
+        local pending = run.justLeveledUp
+        run.justLeveledUp = {
+            from = pending and pending.from or previousRunLevel,
+            to = currentRunLevel,
+        }
+    end
+    UpdateEncounterRoomClear(self, run, enemy)
+    return leveledUp, previousRunLevel, currentRunLevel
+end
+
+function GA:DealRunDamage(enemy, ability, options)
+    local run = self.RunState
+    if not run or not run.active or not enemy or enemy.alive == false then
+        return false
+    end
+
+    options = type(options) == "table" and options or {}
+    local damage, critical, weapon = RollRunWeaponDamage(self, run, enemy, ability)
+    enemy.hp = math.max(0, (enemy.hp or enemy.maxHp or 1) - damage)
+
+    local sourceName = ability and (ability.name or ability.id) or "You"
+    self:AddCombatLog(
+        string.format("%s%s %s the %s for %d damage. (%d/%d HP)",
+            critical and "CRITICAL! " or "",
+            sourceName,
+            ability and "hits" or "hit",
+            string.lower(GetEnemyDisplayName(enemy)),
+            damage,
+            enemy.hp,
+            enemy.maxHp or enemy.hp),
+        "player"
+    )
+
+    if enemy.hp > 0 and options.allowWeaponTrait ~= false and weapon and weapon.traitName == "STAGGER" then
+        local staggerChance = tonumber(weapon.traitValue) or 0
+        if staggerChance > 0 and math.random(1, 100) <= staggerChance then
+            enemy.skipTurn = true
+            enemy.intent = "STAGGERED"
+            self:AddCombatLog(
+                string.format("STAGGER! The %s loses its next action.", string.lower(GetEnemyDisplayName(enemy))),
+                "system"
+            )
+        end
+    end
+
+    if enemy.hp > 0 and ability then
+        enemy.statuses = enemy.statuses or {}
+        local duration = math.max(0, math.floor(tonumber(ability.durationTurns) or 0))
+
+        if ability.id == "charge" then
+            enemy.skipTurn = true
+            enemy.intent = "STAGGERED"
+        elseif ability.id == "rend" and duration > 0 then
+            enemy.statuses.rend = {
+                turns = duration,
+                damage = damage,
+            }
+        elseif ability.id == "hamstring" and duration > 0 then
+            enemy.statuses.hamstring = {
+                turns = duration,
+                percent = math.max(0, tonumber(ability.effectValue) or 0),
+            }
+        elseif ability.id == "sunder_armor" and duration > 0 then
+            local current = enemy.statuses.sunder or {}
+            local maxStacks = math.max(1, math.floor(tonumber(ability.secondaryValue) or 3))
+            enemy.statuses.sunder = {
+                turns = duration + 1,
+                percent = math.max(0, tonumber(ability.effectValue) or 0),
+                stacks = math.min(maxStacks, math.max(0, tonumber(current.stacks) or 0) + 1),
+            }
+            self:AddCombatLog(
+                string.format("Sunder Armor: %d/%d stacks.", enemy.statuses.sunder.stacks, maxStacks),
+                "system"
+            )
+        end
+    end
+
+    if enemy.hp <= 0 then
+        local leveledUp, previousRunLevel, currentRunLevel = self:HandleEnemyDefeat(enemy)
+        return true, true, leveledUp, previousRunLevel, currentRunLevel
+    end
+
+    return true, false
+end
+
+function GA:AdvanceCombatEffects()
+    local run = self.RunState
+    if not run or not run.active then return end
+
+    for _, enemy in ipairs(run.enemies or {}) do
+        if enemy.alive ~= false and enemy.statuses then
+            local rend = enemy.statuses.rend
+            if rend and (rend.turns or 0) > 0 then
+                local tick = math.max(1, math.floor(tonumber(rend.damage) or 1))
+                enemy.hp = math.max(0, (enemy.hp or 1) - tick)
+                self:AddCombatLog(
+                    string.format("Rend bleeds %s for %d damage. (%d/%d HP)",
+                        string.lower(GetEnemyDisplayName(enemy)),
+                        tick,
+                        enemy.hp,
+                        enemy.maxHp or enemy.hp),
+                    "player"
+                )
+                rend.turns = rend.turns - 1
+                if enemy.hp <= 0 then
+                    self:HandleEnemyDefeat(enemy)
+                elseif rend.turns <= 0 then
+                    enemy.statuses.rend = nil
+                end
+            end
+
+            for _, statusId in ipairs({ "hamstring", "weakened", "sunder" }) do
+                local status = enemy.statuses[statusId]
+                if status then
+                    status.turns = (status.turns or 1) - 1
+                    if status.turns <= 0 then
+                        enemy.statuses[statusId] = nil
+                    end
+                end
+            end
+        end
+    end
+
+    local shout = run.buffs and run.buffs.battle_shout
+    if shout then
+        shout.turns = (shout.turns or 1) - 1
+        if shout.turns <= 0 then
+            run.buffs.battle_shout = nil
+            self:AddCombatLog("Battle Shout fades.", "system")
+        end
+    end
+
+    for abilityId, turns in pairs(run.cooldowns or {}) do
+        turns = math.max(0, (tonumber(turns) or 0) - 1)
+        if turns <= 0 then
+            run.cooldowns[abilityId] = nil
+        else
+            run.cooldowns[abilityId] = turns
+        end
+    end
+
+    self:UpdateRunResource()
+    self:RefreshActionButtons()
+end
+
 function GA:UseRunAbility(abilityId)
     local run = self.RunState
     if not run or not run.active then
@@ -2410,12 +2880,146 @@ function GA:UseRunAbility(abilityId)
         return false
     end
 
-    if ability.effect ~= "DAMAGE" then
-        self:AddCombatLog((ability.name or abilityId) .. " is not wired to the combat engine yet.", "warning")
+    local cooldown = GetRunAbilityCooldown(run, abilityId)
+    if cooldown > 0 then
+        self:AddCombatLog(string.format("%s is on cooldown for %d more turn(s).", ability.name or abilityId, cooldown), "warning")
         return false
     end
 
-    return self:PlayerAttackEnemy(nil, { ability = ability })
+    local resourceCost = math.max(0, tonumber(ability.resourceCost) or 0)
+    if (run.resource or 0) < resourceCost then
+        if self.DungeonRunStateText then
+            self.DungeonRunStateText:SetText(
+                string.format("NEED %d %s FOR %s", resourceCost, run.resourceType or "RESOURCE", string.upper(ability.name or abilityId))
+            )
+            self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+        end
+        return false
+    end
+
+    if abilityId == "battle_stance" or abilityId == "defensive_stance" then
+        SpendRunResource(run, resourceCost)
+        GainRunResource(run, ability.resourceGain)
+        SetRunAbilityCooldown(run, ability)
+        run.stance = abilityId == "defensive_stance" and "defensive" or "battle"
+        run.turns = run.turns + 1
+        self:AddCombatLog((ability.name or abilityId) .. " activated.", "player")
+        self:UpdateRunResource()
+        self:RefreshRunCounters()
+        self:RenderDungeonGrid()
+        self:RunEnemyTurn()
+        return true
+    end
+
+    if abilityId == "battle_shout" then
+        SpendRunResource(run, resourceCost)
+        GainRunResource(run, ability.resourceGain)
+        SetRunAbilityCooldown(run, ability)
+        run.buffs = run.buffs or {}
+        run.buffs.battle_shout = {
+            turns = math.max(1, math.floor(tonumber(ability.durationTurns) or 1)) + 1,
+            percent = math.max(0, tonumber(ability.effectValue) or 0),
+        }
+        run.turns = run.turns + 1
+        self:AddCombatLog(
+            string.format("Battle Shout: +%d%% damage for %d turns.",
+                run.buffs.battle_shout.percent,
+                math.max(1, math.floor(tonumber(ability.durationTurns) or 1))),
+            "player"
+        )
+        self:UpdateRunResource()
+        self:RefreshRunCounters()
+        self:RenderDungeonGrid()
+        self:RunEnemyTurn()
+        return true
+    end
+
+    if abilityId == "bloodrage" then
+        local percent = math.max(0, tonumber(ability.effectValue) or 0)
+        local hpCost = math.max(1, math.floor((run.playerMaxHealth or 1) * percent / 100 + 0.5))
+        if (run.playerHealth or 0) <= hpCost then
+            self:AddCombatLog("Not enough health to use Bloodrage safely.", "warning")
+            return false
+        end
+
+        SpendRunResource(run, resourceCost)
+        run.playerHealth = math.max(1, (run.playerHealth or 1) - hpCost)
+        GainRunResource(run, ability.resourceGain)
+        SetRunAbilityCooldown(run, ability)
+        run.turns = run.turns + 1
+        self:AddCombatLog(
+            string.format("Bloodrage: -%d HP, +%d %s.", hpCost, tonumber(ability.resourceGain) or 0, run.resourceType or "RESOURCE"),
+            "player"
+        )
+        self:UpdateRunHealth()
+        self:UpdateRunResource()
+        self:RefreshRunCounters()
+        self:RenderDungeonGrid()
+        self:RunEnemyTurn()
+        return true
+    end
+
+    if abilityId == "charge" then
+        local target = GetNearestVisibleEnemyInRange(run, ability.range, 2)
+        if not target then
+            self:AddCombatLog("No visible enemy in Charge range.", "warning")
+            return false
+        end
+        local destinationX, destinationY = FindChargeDestination(run, target)
+        if not destinationX then
+            self:AddCombatLog("No clear landing space for Charge.", "warning")
+            return false
+        end
+
+        run.playerX = destinationX
+        run.playerY = destinationY
+        run.activeEnemyId = target.uid
+        self:AddCombatLog("You charge " .. string.lower(GetEnemyDisplayName(target)) .. "!", "player")
+        return self:PlayerAttackEnemy(target, { ability = ability })
+    end
+
+    if abilityId == "thunder_clap" then
+        local targets = GetAdjacentEnemies(run)
+        if #targets == 0 then
+            self:AddCombatLog("No adjacent enemies for Thunder Clap.", "warning")
+            return false
+        end
+
+        SpendRunResource(run, resourceCost)
+        GainRunResource(run, ability.resourceGain)
+        SetRunAbilityCooldown(run, ability)
+        run.turns = run.turns + 1
+
+        local duration = math.max(1, math.floor(tonumber(ability.durationTurns) or 1))
+        local weaken = math.max(0, tonumber(ability.effectValue) or 0)
+        self:AddCombatLog("Thunder Clap crashes through the nearby enemies!", "player")
+
+        for _, enemy in ipairs(targets) do
+            if enemy.alive ~= false then
+                self:DealRunDamage(enemy, ability, { allowWeaponTrait = false })
+                if enemy.alive ~= false then
+                    enemy.statuses = enemy.statuses or {}
+                    enemy.statuses.weakened = { turns = duration, percent = weaken }
+                end
+            end
+        end
+
+        self:UpdateRunResource()
+        self:RefreshRunCounters()
+        self:RenderDungeonGrid()
+        self:RunEnemyTurn()
+        return true
+    end
+
+    if abilityId == "heroic_strike"
+        or abilityId == "rend"
+        or abilityId == "hamstring"
+        or abilityId == "sunder_armor" then
+        return self:PlayerAttackEnemy(nil, { ability = ability })
+    end
+
+    self:AddCombatLog((ability.name or abilityId) .. " is not wired to the combat engine yet.", "warning")
+    return false
 end
 
 function GA:PlayerAttackEnemy(targetEnemy, attackOptions)
@@ -2438,135 +3042,50 @@ function GA:PlayerAttackEnemy(targetEnemy, attackOptions)
     local ability = attackOptions.ability
     local resourceCost = math.max(0, tonumber(ability and ability.resourceCost) or 0)
 
-    if ability and (run.resource or 0) < resourceCost then
-        if self.DungeonRunStateText then
-            self.DungeonRunStateText:SetText(
-                string.format("NEED %d %s FOR %s", resourceCost, run.resourceType or "RESOURCE", string.upper(ability.name or ability.id or "ABILITY"))
-            )
-            self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
-        end
-        return false
-    end
-
-    local weapon = self:GetCurrentRunWeapon()
-    local minimum = weapon and math.max(1, tonumber(weapon.damageMin) or 1) or 1
-    local maximum = weapon and math.max(minimum, tonumber(weapon.damageMax) or minimum) or 2
-    local damage = math.random(minimum, maximum)
-    local damageMultiplier = ability and math.max(0.01, tonumber(ability.damageMultiplier) or 1) or 1
-    damage = math.max(1, math.floor(damage * damageMultiplier + 0.5))
-    local critChance = run.arcadeStats and run.arcadeStats.crit or 0
-    local critical = critChance > 0
-        and math.random(1, 1000) <= math.floor(critChance * 10)
-
-    local shrineDamageBonus = math.max(0, tonumber(run.shrineDamageBonus) or 0)
-    if shrineDamageBonus > 0 then
-        damage = math.max(1, math.floor(damage * (1 + shrineDamageBonus) + 0.5))
-    end
-
-    if critical then
-        damage = math.max(1, math.floor(damage * 1.5 + 0.5))
-    end
-
-    enemy.hp = math.max(0, (enemy.hp or enemy.maxHp or 1) - damage)
-    run.turns = run.turns + 1
-
     if ability then
-        run.resource = math.max(0, (run.resource or 0) - resourceCost)
-    else
-        local resourceGain = math.max(0, tonumber(run.classGrowth and run.classGrowth.basicAttackResourceGain) or 0)
-        if resourceGain > 0 and (run.resourceMax or 0) > 0 then
-            run.resource = math.min(run.resourceMax, (run.resource or 0) + resourceGain)
+        local cooldown = GetRunAbilityCooldown(run, ability.id)
+        if cooldown > 0 then
+            self:AddCombatLog(string.format("%s is on cooldown for %d more turn(s).", ability.name or ability.id, cooldown), "warning")
+            return false
         end
+        if not SpendRunResource(run, resourceCost) then
+            if self.DungeonRunStateText then
+                self.DungeonRunStateText:SetText(
+                    string.format("NEED %d %s FOR %s", resourceCost, run.resourceType or "RESOURCE", string.upper(ability.name or ability.id or "ABILITY"))
+                )
+                self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+            end
+            return false
+        end
+        GainRunResource(run, ability.resourceGain)
+        SetRunAbilityCooldown(run, ability)
+    else
+        GainRunResource(run, run.classGrowth and run.classGrowth.basicAttackResourceGain or 0)
     end
+
+    run.turns = run.turns + 1
     self:UpdateRunResource()
 
-    if ability then
-        self:AddCombatLog(
-            string.format("%s%s hits the %s for %d damage. (%d/%d HP)",
-                critical and "CRITICAL! " or "",
-                ability.name or "Ability",
-                string.lower(GetEnemyDisplayName(enemy)),
-                damage,
-                enemy.hp,
-                enemy.maxHp or enemy.hp),
-            "player"
-        )
-    else
-        self:AddCombatLog(
-            string.format("%sYou hit the %s for %d damage. (%d/%d HP)",
-                critical and "CRITICAL! " or "",
-                string.lower(GetEnemyDisplayName(enemy)),
-                damage,
-                enemy.hp,
-                enemy.maxHp or enemy.hp),
-            "player"
-        )
-    end
+    local _, defeated, leveledUp, previousRunLevel, currentRunLevel = self:DealRunDamage(enemy, ability)
 
-    local staggered = false
-    if enemy.hp > 0 and weapon and weapon.traitName == "STAGGER" then
-        local staggerChance = tonumber(weapon.traitValue) or 0
-        if staggerChance > 0 and math.random(1, 100) <= staggerChance then
-            enemy.skipTurn = true
-            enemy.intent = "STAGGERED"
-            staggered = true
-            self:AddCombatLog(
-                string.format("STAGGER! The %s loses its next action.", string.lower(GetEnemyDisplayName(enemy))),
-                "system"
-            )
+    if defeated and self.DungeonRunStateText then
+        if leveledUp then
+            self.DungeonRunStateText:SetText(string.format("LEVEL UP!  %d -> %d", previousRunLevel, currentRunLevel))
+            self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+        else
+            self.DungeonRunStateText:SetText("PLAYER TURN - " .. string.upper(GetEnemyDisplayName(enemy)) .. " DEFEATED")
+            self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
         end
-    end
-
-    if enemy.hp <= 0 then
-        enemy.alive = false
-        if run.activeEnemyId == enemy.uid then
-            run.activeEnemyId = nil
-        end
-
-        local scoreValue = enemy.scoreValue or 100
-        local xpValue = enemy.xpValue or math.max(1, (enemy.dangerRating or 1) * 8)
-        run.score = (run.score or 0) + scoreValue
-        self:AddCombatLog(
-            string.format("%s defeated. +%d score, +%d XP.", GetEnemyDisplayName(enemy), scoreValue, xpValue),
-            "system"
-        )
-        local leveledUp, previousRunLevel, currentRunLevel = self:GrantRunExperience(xpValue)
-
-        UpdateEncounterRoomClear(self, run, enemy)
-
-        if self.DungeonRunStateText then
-            if leveledUp then
-                self.DungeonRunStateText:SetText(string.format(
-                    "LEVEL UP!  %d -> %d",
-                    previousRunLevel,
-                    currentRunLevel
-                ))
-                self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
-            else
-                self.DungeonRunStateText:SetText(
-                    "PLAYER TURN - " .. string.upper(GetEnemyDisplayName(enemy)) .. " DEFEATED"
-                )
-                self.DungeonRunStateText:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
-            end
-        end
-
-        self:RefreshRunCounters()
-        self:RenderDungeonGrid()
-        self:RefreshActionButtons()
-
-        -- A killing blow still consumes the player's action. Other surviving
-        -- enemies receive their normal enemy-phase opportunity.
-        if run.active then
-            self:RunEnemyTurn()
-        end
-
-        return true
     end
 
     self:RefreshRunCounters()
     self:RenderDungeonGrid()
     self:RefreshActionButtons()
-    self:RunEnemyTurn()
+
+    -- Every valid attack, including a killing blow, consumes the player's action.
+    if run.active then
+        self:RunEnemyTurn()
+    end
     return true
 end
 
@@ -3068,6 +3587,9 @@ function GA:BeginDungeonRun()
         baseResourceMax = classGrowth.baseResourceMax,
         resourceMax = classGrowth.baseResourceMax,
         resource = 0,
+        cooldowns = {},
+        buffs = {},
+        stance = "battle",
         unlockedAbilities = GetClassAbilityIdSet(classId, level),
         playerX = startX,
         playerY = startY,
@@ -3311,6 +3833,7 @@ end
 
 function GA:ApplyDungeonFloor(floorNumber, entryDirection)
     self:CloseShrineChoice()
+    self:CloseAbilityPanel()
 
     local run = self.RunState
     if not run or not run.active or not run.snapshot then
@@ -3482,6 +4005,7 @@ function GA:CompleteDungeonRun()
     run.active = false
     run.completed = true
     self:CloseShrineChoice()
+    self:CloseAbilityPanel()
 
     if self.DungeonFloorTitle then
         self.DungeonFloorTitle:SetText("RUN COMPLETE  -  FLOOR 9 CLEARED")
@@ -3658,6 +4182,22 @@ function GA:RunEnemyTurn()
                             enemy.damageMin or 1,
                             enemy.damageMax or enemy.damageMin or 1
                         )
+
+                        local enemyDamageMultiplier = 1
+                        local weakened = enemy.statuses and enemy.statuses.weakened
+                        if weakened and (weakened.turns or 0) > 0 then
+                            enemyDamageMultiplier = enemyDamageMultiplier
+                                * (1 - math.max(0, math.min(90, tonumber(weakened.percent) or 0)) / 100)
+                        end
+
+                        if run.stance == "defensive" then
+                            local defensive = GetStudioAbilityById("defensive_stance") or {}
+                            local reduction = math.max(0, math.min(90, tonumber(defensive.effectValue) or 0))
+                            enemyDamageMultiplier = enemyDamageMultiplier * (1 - reduction / 100)
+                        end
+
+                        rawDamage = math.max(1, math.floor(rawDamage * enemyDamageMultiplier + 0.5))
+
                         local armor = stats.armor or 0
                         local mitigation = math.min(0.55, armor / (armor + 100))
                         local damage = math.max(
@@ -3705,6 +4245,12 @@ function GA:RunEnemyTurn()
                 elseif enemy.alerted then
                     enemy.intent = "ALERTED"
                     local movementSteps = GetEnemyMovementSteps(enemy, enemyPhase)
+                    local hamstring = enemy.statuses and enemy.statuses.hamstring
+                    if hamstring and (hamstring.turns or 0) > 0 then
+                        local slow = math.max(0, math.min(100, tonumber(hamstring.percent) or 0))
+                        movementSteps = math.max(0, math.floor(movementSteps * (1 - slow / 100)))
+                    end
+
                     local movedSteps = 0
                     local visibleDuringMove = self:IsDungeonCellVisible(enemy.x, enemy.y)
 
@@ -3761,12 +4307,19 @@ function GA:RunEnemyTurn()
         end
     end
 
+    self:AdvanceCombatEffects()
     self:RenderDungeonGrid()
 
     if self.DungeonRunStateText and run.active then
         local adjacent = GetAdjacentEnemy(run)
 
-        if adjacent then
+        if run.justLeveledUp then
+            self.DungeonRunStateText:SetText(
+                string.format("LEVEL UP!  %d -> %d", run.justLeveledUp.from or run.runLevel, run.justLeveledUp.to or run.runLevel)
+            )
+            self.DungeonRunStateText:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+            run.justLeveledUp = nil
+        elseif adjacent then
             self.DungeonRunStateText:SetText(
                 string.format(
                     "PLAYER TURN - %s %d/%d HP",
@@ -3782,7 +4335,6 @@ function GA:RunEnemyTurn()
         end
     end
 end
-
 function GA:TryLootChest(x, y)
     local run = self.RunState
     if not run or not run.active then
