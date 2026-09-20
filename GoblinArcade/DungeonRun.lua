@@ -8231,7 +8231,7 @@ function GA:ApplyMonsterSkillDamage(enemy, rawDamage, skillName)
     local shieldWall = run.buffs and run.buffs.shield_wall
     if shieldWall and (shieldWall.turns or 0) > 0 then
         multiplier = multiplier
-            * (1 - math.max(0, math.min(90, tonumber(shieldWall.reduction) or 0) / 100)
+            * (1 - math.max(0, math.min(90, tonumber(shieldWall.reduction) or 0)) / 100)
     end
     local recklessness = run.buffs and run.buffs.recklessness
     if recklessness and (recklessness.turns or 0) > 0 then
