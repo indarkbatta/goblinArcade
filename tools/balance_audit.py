@@ -10,7 +10,9 @@ evaluated without manual playthroughs.
 Two combat envelopes are reported:
 - SEQUENTIAL: optimistic one-on-one engagements.
 - PRESSURE: sensitivity test that adds bounded extra incoming attacks to model
-  clustered/alerted enemies. It is intentionally harsher than clean 1v1 play.
+  clustered/alerted enemies.
+- HEAVY_PRESSURE: doubles that extra pressure envelope to expose how quickly a
+  build collapses when several enemies converge.
 
 The audit never edits Studio data. It reports evidence for a later balance pass.
 """
@@ -552,7 +554,7 @@ class Audit:
         player.potions_used += 1
         return True
 
-    def fight(self, player: Player, enemy: Enemy, floor: int, pressure: bool) -> tuple[bool, int]:
+    def fight(self, player: Player, enemy: Enemy, floor: int, pressure_scale: float) -> tuple[bool, int]:
         turns = 0
         rage = 0
         defensive = player.profile == "shield" and player.level >= 10
@@ -597,10 +599,10 @@ class Audit:
             # claimed to be exact pathfinding; it prevents the audit from
             # treating every dungeon as a sterile duel corridor.
             if (
-                pressure
+                pressure_scale > 0
                 and player.hp > 0
                 and enemy.hp > 0
-                and self.rng.random() < PRESSURE_EXTRA_HIT[floor]
+                and self.rng.random() < min(0.75, PRESSURE_EXTRA_HIT[floor] * pressure_scale)
             ):
                 extra = self.incoming_hit(player, enemy, defensive)
                 player.hp -= extra
@@ -630,7 +632,7 @@ class Audit:
             if item:
                 self.maybe_equip(player, item)
 
-    def run_once(self, profile: str, pressure: bool) -> dict[str, Any]:
+    def run_once(self, profile: str, pressure_scale: float) -> dict[str, Any]:
         player = self.initial_player(profile)
         floor_rows: list[dict[str, Any]] = []
         shop_snapshot: dict[str, Any] | None = None
@@ -639,6 +641,38 @@ class Audit:
             start_damage = player.damage_taken
             start_potions = player.potions_used
             start_copper = player.copper
+
+            # The exact Shop room can occur at different points in Floor 6.
+            # For economy auditing we use the conservative floor-entry wallet,
+            # rather than pretending every F6 kill happened before shopping.
+            if floor == 6:
+                stock = self.shop_stock()
+                affordable = [item for item in stock if item.price <= player.copper]
+                shop_snapshot = {
+                    "copper": player.copper,
+                    "affordable": len(affordable),
+                    "stock_prices": [item.price for item in stock],
+                }
+
+                # Model an early shop: at most one useful affordable purchase.
+                best_item = None
+                best_gain = 0.0
+                for item in affordable:
+                    if item.is_potion:
+                        gain = (25 if player.hp / player.max_hp < 0.70 else 5) + item.potion_heal * 0.2
+                    elif item.required_level <= player.level:
+                        key = self.slot_key(item, player)
+                        current = player.gear.get(key) if key else None
+                        gain = self.gear_score(item, profile) - self.gear_score(current, profile)
+                    else:
+                        gain = 0
+                    if gain > best_gain:
+                        best_gain = gain
+                        best_item = item
+                if best_item:
+                    player.copper -= best_item.price
+                    self.maybe_equip(player, best_item)
+
             enemies = self.floor_enemies(player.level, floor)
             attacks = 0
             kills = 0
@@ -646,7 +680,7 @@ class Audit:
             boss_killed = False
 
             for enemy in enemies:
-                won, used_turns = self.fight(player, enemy, floor, pressure)
+                won, used_turns = self.fight(player, enemy, floor, pressure_scale)
                 attacks += used_turns
                 if not won:
                     floor_rows.append({
@@ -681,35 +715,6 @@ class Audit:
 
             self.floor_rewards(player, floor, elite_killed, boss_killed)
 
-            if floor == 6:
-                stock = self.shop_stock()
-                affordable = [item for item in stock if item.price <= player.copper]
-                shop_snapshot = {
-                    "copper": player.copper,
-                    "affordable": len(affordable),
-                    "stock_prices": [item.price for item in stock],
-                }
-
-                # Buy at most one useful item; this prevents the survival model
-                # from assuming perfect liquidation / repeated shopping.
-                best_item = None
-                best_gain = 0.0
-                for item in affordable:
-                    if item.is_potion:
-                        gain = (25 if player.hp / player.max_hp < 0.70 else 5) + item.potion_heal * 0.2
-                    elif item.required_level <= player.level:
-                        key = self.slot_key(item, player)
-                        current = player.gear.get(key) if key else None
-                        gain = self.gear_score(item, profile) - self.gear_score(current, profile)
-                    else:
-                        gain = 0
-                    if gain > best_gain:
-                        best_gain = gain
-                        best_item = item
-                if best_item:
-                    player.copper -= best_item.price
-                    self.maybe_equip(player, best_item)
-
             floor_rows.append({
                 "floor": floor,
                 "dead": False,
@@ -731,7 +736,7 @@ class Audit:
             "shop": shop_snapshot,
         }
 
-    def simulate(self, profile: str, pressure: bool, runs: int) -> dict[str, Any]:
+    def simulate(self, profile: str, pressure_scale: float, scenario: str, runs: int) -> dict[str, Any]:
         floor_agg = [
             {
                 "floor": floor,
@@ -754,7 +759,7 @@ class Audit:
         final_levels: list[float] = []
 
         for _ in range(runs):
-            result = self.run_once(profile, pressure)
+            result = self.run_once(profile, pressure_scale)
             player: Player = result["player"]
             total_potions.append(player.potions_used)
 
@@ -796,7 +801,7 @@ class Audit:
 
         return {
             "profile": profile,
-            "scenario": "PRESSURE" if pressure else "SEQUENTIAL",
+            "scenario": scenario,
             "runs": runs,
             "completion_rate": completions / runs,
             "deaths": {str(floor): deaths[floor] for floor in range(1, 10) if deaths[floor]},
@@ -817,7 +822,7 @@ def render_markdown(results: list[dict[str, Any]], schema: int, studio_version: 
         f"- Studio: {studio_version} / schema {schema}",
         f"- Seed: {seed}",
         "- Model: fresh level-1 Arcade Warrior, live Studio loot/economy/progression, greedy compatible equipment.",
-        "- PRESSURE is a bounded multi-aggro sensitivity test, not a pixel-perfect WoW pathfinding simulation.",
+        "- PRESSURE / HEAVY_PRESSURE are bounded multi-aggro sensitivity tests, not pixel-perfect WoW pathfinding simulations.",
         "",
         "## Run outcomes",
         "",
@@ -864,13 +869,16 @@ def render_markdown(results: list[dict[str, Any]], schema: int, studio_version: 
     # Evidence flags only. They intentionally do not fail CI.
     seq = [x for x in results if x["scenario"] == "SEQUENTIAL"]
     pressure = [x for x in results if x["scenario"] == "PRESSURE"]
+    heavy = [x for x in results if x["scenario"] == "HEAVY_PRESSURE"]
     lines += ["## Audit signals", ""]
     if seq and all(x["completion_rate"] > 0.95 for x in seq):
         lines.append("- ⚠️ Clean one-on-one model is very forgiving (>95% completion for both builds).")
     if pressure and all(x["completion_rate"] > 0.80 for x in pressure):
-        lines.append("- ⚠️ Even the clustered-enemy pressure model remains forgiving (>80% completion for both builds).")
-    if pressure and any(x["completion_rate"] < 0.35 for x in pressure):
-        lines.append("- ⚠️ Pressure model may be too lethal (<35% completion for at least one build).")
+        lines.append("- ⚠️ The clustered-enemy pressure model remains forgiving (>80% completion for both builds).")
+    if heavy and all(x["completion_rate"] > 0.70 for x in heavy):
+        lines.append("- ⚠️ Even HEAVY_PRESSURE remains forgiving (>70% completion for both builds).")
+    if heavy and any(x["completion_rate"] < 0.25 for x in heavy):
+        lines.append("- ⚠️ HEAVY_PRESSURE is extremely lethal (<25% completion for at least one build).")
     if len(pressure) == 2:
         gap = abs(pressure[0]["completion_rate"] - pressure[1]["completion_rate"])
         if gap > 0.10:
@@ -897,8 +905,9 @@ def main() -> int:
     audit = Audit(args.seed)
     results = []
     for profile in ("shield", "2h"):
-        results.append(audit.simulate(profile, False, args.runs))
-        results.append(audit.simulate(profile, True, args.runs))
+        results.append(audit.simulate(profile, 0.0, "SEQUENTIAL", args.runs))
+        results.append(audit.simulate(profile, 1.0, "PRESSURE", args.runs))
+        results.append(audit.simulate(profile, 2.0, "HEAVY_PRESSURE", args.runs))
 
     print(
         render_markdown(

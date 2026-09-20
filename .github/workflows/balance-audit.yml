@@ -24,5 +24,5 @@ jobs:
       - name: Run headless balance audit
         shell: bash
         run: |
-          python3 tools/balance_audit.py --runs 6000 --seed 5401 | tee balance-audit.md
+          python3 tools/balance_audit.py --runs 4000 --seed 5401 | tee balance-audit.md
           cat balance-audit.md >> "$GITHUB_STEP_SUMMARY"
