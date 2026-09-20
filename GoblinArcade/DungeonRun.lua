@@ -561,7 +561,7 @@ local function BuildRoomEnemyCandidates(floorMap)
     return candidates
 end
 
-local function CreateFloorEnemies(enemyGenerator, playerLevel, floor, gearPressure, archetypePlan, rankPlan, floorMap)
+local function CreateFloorEnemies(enemyGenerator, playerLevel, floor, gearPressure, archetypePlan, rankPlan, floorMap, difficulty)
     local candidates = BuildRoomEnemyCandidates(floorMap)
 
     if not candidates or #candidates == 0 then
@@ -595,6 +595,7 @@ local function CreateFloorEnemies(enemyGenerator, playerLevel, floor, gearPressu
             playerLevel = playerLevel,
             floor = floor,
             gearPressure = gearPressure,
+            difficulty = difficulty,
         })
 
         enemy.uid = "enemy-" .. tostring(nextIndex)
@@ -778,7 +779,8 @@ local function AddRunScore(run, bucket, amount)
     if not run then return 0 end
     EnsureRunTracking(run)
 
-    local value = math.max(0, math.floor((tonumber(amount) or 0) + 0.5))
+    local scoreMultiplier = math.max(0.1, tonumber(run.difficultyScoreMultiplier) or 1)
+    local value = math.max(0, math.floor(((tonumber(amount) or 0) * scoreMultiplier) + 0.5))
     if value <= 0 then return 0 end
 
     run.score = (run.score or 0) + value
@@ -1275,7 +1277,7 @@ local function GetEnemyDisplayName(enemy)
     return name
 end
 
-local function GenerateFloorSetup(floorGenerator, enemyGenerator, playerLevel, floorNumber, gearPressure, floorMap)
+local function GenerateFloorSetup(floorGenerator, enemyGenerator, playerLevel, floorNumber, gearPressure, floorMap, difficulty)
     local walkableTiles = CountWalkableTiles()
     local densityProfile = floorGenerator:RollDensityProfile()
     local enemyCount, baseEnemyCount = floorGenerator:CalculateEnemyCount(
@@ -1300,7 +1302,8 @@ local function GenerateFloorSetup(floorGenerator, enemyGenerator, playerLevel, f
         gearPressure,
         archetypePlan,
         rankPlan,
-        floorMap
+        floorMap,
+        difficulty
     )
 
     local actualRankCounts = CountEnemyRanks(floorEnemies)
@@ -2620,6 +2623,40 @@ function GA:CreateDungeonRunPage(parent)
     selectedSource:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
     self.DungeonSelectedCharacterSource = selectedSource
 
+    local selectedDifficultyLabel = CreateText(selectedPanel, "GameFontNormalSmall", "DIFFICULTY")
+    selectedDifficultyLabel:SetPoint("TOPLEFT", 16, -111)
+    selectedDifficultyLabel:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+    self.DungeonSelectedDifficultyLabel = selectedDifficultyLabel
+
+    self.DungeonSelectedDifficultyButtons = {}
+    local setupDifficultyIds = { "EASY", "NORMAL", "HARD" }
+    for i, difficultyId in ipairs(setupDifficultyIds) do
+        local button = CreateFlatButton(selectedPanel, difficultyId, 96, 24)
+        button:SetPoint("TOPLEFT", 112 + ((i - 1) * 106), -105)
+        button.difficultyId = difficultyId
+        button:SetScript("OnClick", function(selfButton)
+            local selectedCharacter = GA:GetSelectedDungeonCharacter()
+            if not selectedCharacter then return end
+            local ok, err = GA:SetCharacterDifficulty(selectedCharacter.key, selfButton.difficultyId)
+            if not ok and GA.DungeonSelectedNote then
+                GA.DungeonSelectedNote:SetText(err or "Could not change difficulty.")
+                GA.DungeonSelectedNote:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+            end
+        end)
+        button:SetScript("OnEnter", function(selfButton)
+            local definition = GA.GetDifficultyDefinition and GA:GetDifficultyDefinition(selfButton.difficultyId)
+            if definition then
+                GameTooltip:SetOwner(selfButton, "ANCHOR_TOP")
+                GameTooltip:SetText(definition.label or selfButton.difficultyId, 1, 0.82, 0.2)
+                GameTooltip:AddLine(definition.description or "", 0.85, 0.82, 0.75, true)
+                GameTooltip:AddLine(string.format("Score multiplier: %.2fx", tonumber(definition.scoreMultiplier) or 1), 0.25, 1.00, 0.35)
+                GameTooltip:Show()
+            end
+        end)
+        button:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        self.DungeonSelectedDifficultyButtons[i] = button
+    end
+
     local loadoutTitle = CreateText(selectedPanel, "GameFontNormalSmall", "RUN LOADOUT")
     loadoutTitle:SetPoint("TOPLEFT", 16, -136)
     loadoutTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
@@ -3067,7 +3104,7 @@ function GA:CreateDungeonRunPage(parent)
     self.DungeonCharacterGeneratorOverlay = generatorOverlay
 
     local generatorModal = CreateFrame("Frame", nil, generatorOverlay, "BackdropTemplate")
-    generatorModal:SetSize(760, 560)
+    generatorModal:SetSize(760, 620)
     generatorModal:SetPoint("CENTER", generatorOverlay, "CENTER", 0, 0)
     generatorModal:SetFrameLevel(generatorOverlay:GetFrameLevel() + 1)
     generatorModal:EnableMouse(true)
@@ -3116,11 +3153,11 @@ function GA:CreateDungeonRunPage(parent)
     end)
     self.DungeonGeneratorNameInput = nameInput
 
-    local modeLabel = CreateText(generatorModal, "GameFontNormalSmall", "MODE")
+    local modeLabel = CreateText(generatorModal, "GameFontNormalSmall", "PERMADEATH")
     modeLabel:SetPoint("TOPLEFT", 390, -82)
     modeLabel:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
-    local normalMode = CreateFlatButton(generatorModal, "NORMAL", 150, 32)
+    local normalMode = CreateFlatButton(generatorModal, "STANDARD", 150, 32)
     normalMode:SetPoint("TOPLEFT", 390, -102)
     normalMode:SetScript("OnClick", function()
         GA.CharacterGeneratorHardcore = false
@@ -3136,14 +3173,49 @@ function GA:CreateDungeonRunPage(parent)
     end)
     self.DungeonGeneratorHardcoreButton = hardcoreMode
 
-    local modeHint = CreateText(generatorModal, "GameFontDisableSmall", "Hardcore death is permanent.")
+    local modeHint = CreateText(generatorModal, "GameFontDisableSmall", "Hardcore controls permanent death only.")
     modeHint:SetPoint("TOPLEFT", 390, -140)
     modeHint:SetWidth(320)
     modeHint:SetJustifyH("LEFT")
-    modeHint:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+    modeHint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    local difficultyLabel = CreateText(generatorModal, "GameFontNormalSmall", "DIFFICULTY")
+    difficultyLabel:SetPoint("TOPLEFT", 24, -166)
+    difficultyLabel:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+    self.DungeonGeneratorDifficultyButtons = {}
+    local generatorDifficultyIds = { "EASY", "NORMAL", "HARD" }
+    for i, difficultyId in ipairs(generatorDifficultyIds) do
+        local button = CreateFlatButton(generatorModal, difficultyId, 144, 32)
+        button:SetPoint("TOPLEFT", 24 + ((i - 1) * 154), -186)
+        button.difficultyId = difficultyId
+        button:SetScript("OnClick", function(selfButton)
+            GA.CharacterGeneratorDifficulty = selfButton.difficultyId
+            GA:RefreshCharacterGenerator()
+        end)
+        button:SetScript("OnEnter", function(selfButton)
+            local definition = GA.GetDifficultyDefinition and GA:GetDifficultyDefinition(selfButton.difficultyId)
+            if definition then
+                GameTooltip:SetOwner(selfButton, "ANCHOR_TOP")
+                GameTooltip:SetText(definition.label or selfButton.difficultyId, 1, 0.82, 0.2)
+                GameTooltip:AddLine(definition.description or "", 0.85, 0.82, 0.75, true)
+                GameTooltip:AddLine(string.format("Score multiplier: %.2fx", tonumber(definition.scoreMultiplier) or 1), 0.25, 1.00, 0.35)
+                GameTooltip:Show()
+            end
+        end)
+        button:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        self.DungeonGeneratorDifficultyButtons[i] = button
+    end
+
+    local difficultyHint = CreateText(generatorModal, "GameFontDisableSmall", "Difficulty changes combat strength. Hardcore remains a separate choice.")
+    difficultyHint:SetPoint("TOPLEFT", 494, -190)
+    difficultyHint:SetWidth(235)
+    difficultyHint:SetJustifyH("LEFT")
+    difficultyHint:SetWordWrap(true)
+    difficultyHint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
     local raceLabel = CreateText(generatorModal, "GameFontNormalSmall", "RACE")
-    raceLabel:SetPoint("TOPLEFT", 24, -154)
+    raceLabel:SetPoint("TOPLEFT", 24, -236)
     raceLabel:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
     self.DungeonGeneratorRaceButtons = {}
@@ -3152,7 +3224,7 @@ function GA:CreateDungeonRunPage(parent)
         local row = math.floor((i - 1) / 5)
         local button = CreateFrame("Button", nil, generatorModal, "BackdropTemplate")
         button:SetSize(132, 62)
-        button:SetPoint("TOPLEFT", 24 + col * 142, -176 - row * 70)
+        button:SetPoint("TOPLEFT", 24 + col * 142, -258 - row * 70)
         ApplyBackdrop(button, { 0.040, 0.035, 0.028, 1 }, COLORS.goldDim)
 
         local icon = button:CreateTexture(nil, "ARTWORK")
@@ -3187,7 +3259,7 @@ function GA:CreateDungeonRunPage(parent)
     end
 
     local classLabel = CreateText(generatorModal, "GameFontNormalSmall", "CLASS")
-    classLabel:SetPoint("TOPLEFT", 24, -330)
+    classLabel:SetPoint("TOPLEFT", 24, -412)
     classLabel:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
     self.DungeonGeneratorClassButtons = {}
@@ -3196,7 +3268,7 @@ function GA:CreateDungeonRunPage(parent)
         local row = math.floor((i - 1) / 5)
         local button = CreateFrame("Button", nil, generatorModal, "BackdropTemplate")
         button:SetSize(132, 58)
-        button:SetPoint("TOPLEFT", 24 + col * 142, -352 - row * 66)
+        button:SetPoint("TOPLEFT", 24 + col * 142, -434 - row * 66)
         ApplyBackdrop(button, { 0.040, 0.035, 0.028, 1 }, COLORS.goldDim)
 
         local icon = button:CreateTexture(nil, "ARTWORK")
@@ -3252,7 +3324,8 @@ function GA:CreateDungeonRunPage(parent)
             GA.DungeonGeneratorNameInput and GA.DungeonGeneratorNameInput:GetText() or "",
             GA.CharacterGeneratorRaceId,
             GA.CharacterGeneratorClassId,
-            GA.CharacterGeneratorHardcore == true
+            GA.CharacterGeneratorHardcore == true,
+            GA.CharacterGeneratorDifficulty
         )
         if character then
             if GA.DungeonGeneratorNameInput then
@@ -3718,6 +3791,7 @@ function GA:OpenCharacterGeneratorModal()
     self.CharacterGeneratorRaceId = nil
     self.CharacterGeneratorClassId = nil
     self.CharacterGeneratorHardcore = false
+    self.CharacterGeneratorDifficulty = "NORMAL"
     if self.DungeonGeneratorNameInput then
         self.DungeonGeneratorNameInput:SetText("")
         self.DungeonGeneratorNameInput:ClearFocus()
@@ -3844,6 +3918,26 @@ function GA:RefreshCharacterGenerator()
         )
     end
 
+    local generatorDifficulty = self.NormalizeDifficulty
+        and self:NormalizeDifficulty(self.CharacterGeneratorDifficulty)
+        or "NORMAL"
+    self.CharacterGeneratorDifficulty = generatorDifficulty
+    for _, button in ipairs(self.DungeonGeneratorDifficultyButtons or {}) do
+        local selected = button.difficultyId == generatorDifficulty
+        button:SetBackdropColor(
+            selected and 0.15 or 0.040,
+            selected and 0.105 or 0.035,
+            selected and 0.045 or 0.028,
+            1
+        )
+        button:SetBackdropBorderColor(
+            selected and COLORS.gold[1] or COLORS.goldDim[1],
+            selected and COLORS.gold[2] or COLORS.goldDim[2],
+            selected and COLORS.gold[3] or COLORS.goldDim[3],
+            1
+        )
+    end
+
     local name = self.DungeonGeneratorNameInput and self.DungeonGeneratorNameInput:GetText() or ""
     local canCreate = name:match("%S")
         and self.CharacterGeneratorRaceId
@@ -3860,17 +3954,19 @@ function GA:RefreshCharacterGenerator()
     end
 
     if self.DungeonGeneratorStatus then
-        self.DungeonGeneratorStatus:SetText(
-            hardcore
-                and "HARDCORE: death in a run permanently kills this hero."
-                or "NORMAL: failed runs do not permanently kill this hero."
-        )
+        local difficultyDefinition = self.GetDifficultyDefinition
+            and self:GetDifficultyDefinition(generatorDifficulty)
+            or { label = generatorDifficulty }
+        self.DungeonGeneratorStatus:SetText(string.format(
+            "%s  •  %s DIFFICULTY",
+            hardcore and "HARDCORE PERMADEATH" or "STANDARD DEATH",
+            string.upper(difficultyDefinition.label or generatorDifficulty)
+        ))
         self.DungeonGeneratorStatus:SetTextColor(
             hardcore and COLORS.red[1] or COLORS.muted[1],
             hardcore and COLORS.red[2] or COLORS.muted[2],
             hardcore and COLORS.red[3] or COLORS.muted[3]
         )
-        self.DungeonGeneratorStatus:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
     end
 end
 
@@ -3911,6 +4007,8 @@ function GA:RefreshDungeonCharacterSelection()
             row.nameText:SetText(character.name or "Unknown")
             local characterClassId = string.lower(tostring(character.classId or character.classFile or character.className or ""))
             local classReady = self:IsStudioClassPlayable(characterClassId)
+            local difficultyId = self.NormalizeDifficulty and self:NormalizeDifficulty(character.difficulty) or "NORMAL"
+            local difficultyTag = "  -  " .. difficultyId
             local hardcoreTag = character.hardcore and "  -  HC" or ""
             local deadTag = character.dead and "  -  DEAD" or ""
             local savedRun = self.GetSuspendedRun and self:GetSuspendedRun(character.key)
@@ -3921,6 +4019,7 @@ function GA:RefreshDungeonCharacterSelection()
                 character.raceName or "",
                 character.className or "Adventurer",
                 character.key == currentKey and "  -  CURRENT" or "",
+                difficultyTag,
                 hardcoreTag,
                 deadTag,
                 savedTag,
@@ -3970,11 +4069,12 @@ function GA:RefreshDungeonCharacterSelection()
     SetCharacterVisual(self.DungeonSelectedCharacterIcon, selected)
     self.DungeonSelectedCharacterName:SetText(selected.name or "Unknown")
     self.DungeonSelectedCharacterMeta:SetText(string.format(
-        "Level %d %s %s  -  %s%s%s",
+        "Level %d %s %s  -  %s  -  %s%s%s",
         selected.level or 0,
         selected.raceName or "",
         selected.className or "Adventurer",
         selected.realm or "Unknown Realm",
+        self.NormalizeDifficulty and self:NormalizeDifficulty(selected.difficulty) or "NORMAL",
         selected.hardcore and "  -  HARDCORE" or "",
         selected.dead and "  -  DEAD" or ""
     ))
@@ -4020,6 +4120,29 @@ function GA:RefreshDungeonCharacterSelection()
 
     local generated = selected.isArcadeGenerated or selected.sourceType == "arcade"
     local hasSavedRun = self.HasSuspendedRun and self:HasSuspendedRun(selected.key)
+    local selectedDifficulty = self.NormalizeDifficulty and self:NormalizeDifficulty(selected.difficulty) or "NORMAL"
+    for _, button in ipairs(self.DungeonSelectedDifficultyButtons or {}) do
+        local activeDifficulty = button.difficultyId == selectedDifficulty
+        local locked = hasSavedRun or selected.dead
+        button:SetEnabled(not locked)
+        button:SetBackdropColor(
+            activeDifficulty and 0.15 or 0.040,
+            activeDifficulty and 0.105 or 0.035,
+            activeDifficulty and 0.045 or 0.028,
+            1
+        )
+        button:SetBackdropBorderColor(
+            activeDifficulty and COLORS.gold[1] or COLORS.goldDim[1],
+            activeDifficulty and COLORS.gold[2] or COLORS.goldDim[2],
+            activeDifficulty and COLORS.gold[3] or COLORS.goldDim[3],
+            1
+        )
+        button.label:SetTextColor(
+            locked and COLORS.muted[1] or COLORS.gold[1],
+            locked and COLORS.muted[2] or COLORS.gold[2],
+            locked and COLORS.muted[3] or COLORS.gold[3]
+        )
+    end
     if self.DungeonDeleteHeroButton then
         if generated and not hasSavedRun then
             self.DungeonDeleteHeroButton:Show()
@@ -5307,8 +5430,9 @@ function GA:ShowDungeonRunSummary(completed, reason, hardcoreDeath)
 
     self.DungeonRunSummaryReason:SetText(reason or "")
     self.DungeonRunSummaryStats:SetText(string.format(
-        "SCORE  %d\nFLOOR  %d / 9\nKILLS  %d\nELITES  %d\nBOSSES  %d\nCHESTS  %d\nSHRINES  %d\nCOPPER  %s\nBOUGHT / SOLD  %d / %d\nEXTRACTED  %d ITEMS\nTURNS  %d\nTEMP LEVELS  +%d",
+        "SCORE  %d\nDIFFICULTY  %s\nFLOOR  %d / 9\nKILLS  %d\nELITES  %d\nBOSSES  %d\nCHESTS  %d\nSHRINES  %d\nCOPPER  %s\nBOUGHT / SOLD  %d / %d\nEXTRACTED  %d ITEMS\nTURNS  %d\nTEMP LEVELS  +%d",
         run.score or 0,
+        string.upper(run.difficultyLabel or run.difficulty or "NORMAL"),
         run.floor or 1,
         stats.kills or 0,
         stats.eliteKills or 0,
@@ -7035,6 +7159,10 @@ function GA:BeginDungeonRun()
     end
     local progression = GetRunProgression()
     local classGrowth = GetClassRunGrowth(classId)
+    local difficulty = self.NormalizeDifficulty and self:NormalizeDifficulty(selected.difficulty) or "NORMAL"
+    local difficultyDefinition = self.GetDifficultyDefinition
+        and self:GetDifficultyDefinition(difficulty)
+        or { id = difficulty, label = difficulty, hpMultiplier = 1, damageMultiplier = 1, scoreMultiplier = 1 }
     local maxHealth = self:ScaleCombatValue(selected.maxHealth or 0)
     local floor = 1
 
@@ -7076,7 +7204,8 @@ function GA:BeginDungeonRun()
         level,
         floor,
         gearPressure,
-        floorMap
+        floorMap,
+        difficulty
     )
 
     local walkableTiles = floorSetup.walkableTiles
@@ -7105,6 +7234,9 @@ function GA:BeginDungeonRun()
         score = 0,
         copper = 0,
         turns = 0,
+        difficulty = difficulty,
+        difficultyLabel = difficultyDefinition.label or difficulty,
+        difficultyScoreMultiplier = tonumber(difficultyDefinition.scoreMultiplier) or 1,
         stats = {
             kills = 0,
             eliteKills = 0,
@@ -7188,6 +7320,7 @@ function GA:BeginDungeonRun()
             sourceType = selected.sourceType,
             isArcadeGenerated = selected.isArcadeGenerated,
             hardcore = selected.hardcore == true,
+            difficulty = difficulty,
             dead = selected.dead == true,
             maxHealth = maxHealth,
             mainHandLink = effectiveEquipment and effectiveEquipment.mainhand and effectiveEquipment.mainhand.link or selected.weaponLink,
@@ -7234,7 +7367,14 @@ function GA:BeginDungeonRun()
     self:SetRunMode(true)
     self:SetDungeonRunPortraitMode(true)
     self:ResetCombatLog()
-    self:AddCombatLog("Dungeon Run started.", "system")
+    self:AddCombatLog(
+        string.format(
+            "Dungeon Run started. Difficulty: %s%s.",
+            string.upper(self.RunState.difficultyLabel or self.RunState.difficulty or "NORMAL"),
+            self.RunState.snapshot.hardcore and " / HARDCORE" or ""
+        ),
+        "system"
+    )
     self:AddCombatLog(
         string.format("Loadout locked: %s  %d-%d damage.",
             self.RunState.snapshot.weapon.sourceName or "Main hand",
@@ -7431,6 +7571,17 @@ function GA:ResumeDungeonRun(characterKey)
     self.RunState = run
     run.active = true
     run.suspended = nil
+    run.difficulty = self.NormalizeDifficulty and self:NormalizeDifficulty(
+        run.difficulty or (run.snapshot and run.snapshot.difficulty)
+    ) or "NORMAL"
+    local resumedDifficulty = self.GetDifficultyDefinition
+        and self:GetDifficultyDefinition(run.difficulty)
+        or { label = run.difficulty, scoreMultiplier = 1 }
+    run.difficultyLabel = run.difficultyLabel or resumedDifficulty.label or run.difficulty
+    run.difficultyScoreMultiplier = tonumber(run.difficultyScoreMultiplier)
+        or tonumber(resumedDifficulty.scoreMultiplier)
+        or 1
+    run.snapshot.difficulty = run.snapshot.difficulty or run.difficulty
     SetActiveFloorMap(run.floorMap)
     self.DungeonCameraX = nil
     self.DungeonCameraY = nil
@@ -7603,7 +7754,8 @@ function GA:ApplyDungeonFloor(floorNumber, entryDirection)
             run.runLevel or run.snapshot.level or 1,
             floorNumber,
             run.gearPressure or {},
-            floorMap
+            floorMap,
+            run.difficulty or (run.snapshot and run.snapshot.difficulty) or "NORMAL"
         )
 
         run.floor = floorNumber
