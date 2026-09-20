@@ -93,6 +93,16 @@ local RUN_ABILITY_IDS = {
     "bloodrage",
     "defensive_stance",
     "sunder_armor",
+    "overpower",
+    "shield_bash",
+    "demoralizing_shout",
+    "revenge",
+    "shield_block",
+    "disarm",
+    "retaliation",
+    "victory_rush",
+    "cleave",
+    "slam",
 }
 
 local CHEST_LOOT_TEMPLATES = {
@@ -1485,7 +1495,7 @@ function GA:CreateDungeonRunPage(parent)
     sacrificeDesc:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
     local abilityFrame = CreateFrame("Frame", nil, center, "BackdropTemplate")
-    abilityFrame:SetSize(548, 330)
+    abilityFrame:SetSize(558, 410)
     abilityFrame:SetPoint("CENTER", center, "CENTER", 0, 0)
     abilityFrame:SetFrameLevel(center:GetFrameLevel() + 55)
     abilityFrame:EnableMouse(true)
@@ -1503,11 +1513,11 @@ function GA:CreateDungeonRunPage(parent)
 
     self.DungeonAbilityButtons = {}
     for i = 1, #RUN_ABILITY_IDS do
-        local col = (i - 1) % 2
-        local row = math.floor((i - 1) / 2)
-        local hotkey = i == 10 and "0" or tostring(i)
-        local abilityButton = CreateFlatButton(abilityFrame, hotkey .. "  --", 248, 40)
-        abilityButton:SetPoint("TOPLEFT", 18 + col * 264, -70 - row * 48)
+        local col = (i - 1) % 3
+        local row = math.floor((i - 1) / 3)
+        local hotkey = i <= 9 and tostring(i) or (i == 10 and "0" or "•")
+        local abilityButton = CreateFlatButton(abilityFrame, hotkey .. "  --", 166, 34)
+        abilityButton:SetPoint("TOPLEFT", 16 + col * 174, -66 - row * 40)
         abilityButton.gaAbilityIndex = i
         abilityButton:SetScript("OnClick", function(button)
             GA:UseAbilityPanelIndex(button.gaAbilityIndex)
@@ -2339,7 +2349,7 @@ function GA:RefreshAbilityPanel()
         local unlocked = run and run.active and run.unlockedAbilities and run.unlockedAbilities[abilityId]
 
         if ability and unlocked then
-            local hotkey = i == 10 and "0" or tostring(i)
+            local hotkey = i <= 9 and tostring(i) or (i == 10 and "0" or "•")
             local cost = math.max(0, tonumber(ability.resourceCost) or 0)
             local cooldown = run.cooldowns and math.max(0, run.cooldowns[abilityId] or 0) or 0
             local enoughResource = (run.resource or 0) >= cost
@@ -2582,6 +2592,15 @@ local function GainRunResource(run, amount)
     run.resource = math.min(run.resourceMax, (run.resource or 0) + amount)
 end
 
+local function HasRunShield(run)
+    local offhand = run and run.equipment and run.equipment.offhand
+    if not offhand then return false end
+
+    local equipLoc = string.upper(tostring(offhand.equipLoc or ""))
+    local subtype = string.lower(tostring(offhand.itemSubType or offhand.subType or ""))
+    return equipLoc == "INVTYPE_SHIELD" or string.find(subtype, "shield", 1, true) ~= nil
+end
+
 local function GetAdjacentEnemies(run)
     local result = {}
     for _, enemy in ipairs(run and run.enemies or {}) do
@@ -2711,6 +2730,9 @@ function GA:HandleEnemyDefeat(enemy)
         "system"
     )
 
+    run.reactive = run.reactive or {}
+    run.reactive.victory_rush = { turns = 3 }
+
     local leveledUp, previousRunLevel, currentRunLevel = self:GrantRunExperience(xpValue)
     if leveledUp then
         local pending = run.justLeveledUp
@@ -2762,7 +2784,7 @@ function GA:DealRunDamage(enemy, ability, options)
         enemy.statuses = enemy.statuses or {}
         local duration = math.max(0, math.floor(tonumber(ability.durationTurns) or 0))
 
-        if ability.id == "charge" then
+        if ability.id == "charge" or ability.id == "shield_bash" then
             enemy.skipTurn = true
             enemy.intent = "STAGGERED"
         elseif ability.id == "rend" and duration > 0 then
@@ -2824,7 +2846,7 @@ function GA:AdvanceCombatEffects()
                 end
             end
 
-            for _, statusId in ipairs({ "hamstring", "weakened", "sunder" }) do
+            for _, statusId in ipairs({ "hamstring", "weakened", "sunder", "disarmed" }) do
                 local status = enemy.statuses[statusId]
                 if status then
                     status.turns = (status.turns or 1) - 1
@@ -2842,6 +2864,27 @@ function GA:AdvanceCombatEffects()
         if shout.turns <= 0 then
             run.buffs.battle_shout = nil
             self:AddCombatLog("Battle Shout fades.", "system")
+        end
+    end
+
+    for _, buffId in ipairs({ "shield_block", "retaliation" }) do
+        local buff = run.buffs and run.buffs[buffId]
+        if buff then
+            buff.turns = (buff.turns or 1) - 1
+            if buff.turns <= 0 then
+                run.buffs[buffId] = nil
+                self:AddCombatLog((buff.name or buffId) .. " fades.", "system")
+            end
+        end
+    end
+
+    for _, reactiveId in ipairs({ "overpower", "revenge", "victory_rush" }) do
+        local reactive = run.reactive and run.reactive[reactiveId]
+        if reactive then
+            reactive.turns = (reactive.turns or 1) - 1
+            if reactive.turns <= 0 then
+                run.reactive[reactiveId] = nil
+            end
         end
     end
 
@@ -3011,10 +3054,148 @@ function GA:UseRunAbility(abilityId)
         return true
     end
 
+    if abilityId == "overpower" or abilityId == "revenge" then
+        local reactive = run.reactive and run.reactive[abilityId]
+        if not reactive or (reactive.turns or 0) <= 0 then
+            self:AddCombatLog((ability.name or abilityId) .. " is not ready.", "warning")
+            return false
+        end
+        return self:PlayerAttackEnemy(nil, { ability = ability })
+    end
+
+    if abilityId == "shield_bash" then
+        if not HasRunShield(run) then
+            self:AddCombatLog("Shield Bash requires an equipped shield.", "warning")
+            return false
+        end
+        return self:PlayerAttackEnemy(nil, { ability = ability })
+    end
+
+    if abilityId == "demoralizing_shout" then
+        local targets = GetAdjacentEnemies(run)
+        if #targets == 0 then
+            self:AddCombatLog("No adjacent enemies for Demoralizing Shout.", "warning")
+            return false
+        end
+
+        SpendRunResource(run, resourceCost)
+        GainRunResource(run, ability.resourceGain)
+        SetRunAbilityCooldown(run, ability)
+        run.turns = run.turns + 1
+
+        local duration = math.max(1, math.floor(tonumber(ability.durationTurns) or 1))
+        local weaken = math.max(0, tonumber(ability.effectValue) or 0)
+        for _, enemy in ipairs(targets) do
+            enemy.statuses = enemy.statuses or {}
+            enemy.statuses.weakened = { turns = duration, percent = weaken }
+        end
+
+        self:AddCombatLog(
+            string.format("Demoralizing Shout: adjacent enemies deal -%d%% damage for %d turns.", weaken, duration),
+            "player"
+        )
+        self:UpdateRunResource()
+        self:RefreshRunCounters()
+        self:RenderDungeonGrid()
+        self:RunEnemyTurn()
+        return true
+    end
+
+    if abilityId == "shield_block" then
+        if not HasRunShield(run) then
+            self:AddCombatLog("Shield Block requires an equipped shield.", "warning")
+            return false
+        end
+
+        SpendRunResource(run, resourceCost)
+        GainRunResource(run, ability.resourceGain)
+        SetRunAbilityCooldown(run, ability)
+        run.buffs = run.buffs or {}
+        run.buffs.shield_block = {
+            turns = math.max(1, math.floor(tonumber(ability.durationTurns) or 1)),
+            percent = math.max(0, tonumber(ability.effectValue) or 0),
+            name = ability.name or "Shield Block",
+        }
+        run.turns = run.turns + 1
+        self:AddCombatLog(
+            string.format("Shield Block: +%d%% block chance for %d turns.",
+                run.buffs.shield_block.percent,
+                math.max(1, math.floor(tonumber(ability.durationTurns) or 1))),
+            "player"
+        )
+        self:UpdateRunResource()
+        self:RefreshRunCounters()
+        self:RenderDungeonGrid()
+        self:RunEnemyTurn()
+        return true
+    end
+
+    if abilityId == "disarm" then
+        local target = GetAdjacentEnemy(run)
+        if not target then
+            self:AddCombatLog("No adjacent enemy to Disarm.", "warning")
+            return false
+        end
+
+        SpendRunResource(run, resourceCost)
+        GainRunResource(run, ability.resourceGain)
+        SetRunAbilityCooldown(run, ability)
+        run.turns = run.turns + 1
+        target.statuses = target.statuses or {}
+        target.statuses.disarmed = {
+            turns = math.max(1, math.floor(tonumber(ability.durationTurns) or 1)),
+            percent = math.max(0, tonumber(ability.effectValue) or 0),
+        }
+        self:AddCombatLog(
+            string.format("Disarm: %s deals -%d%% damage for %d turns.",
+                GetEnemyDisplayName(target),
+                target.statuses.disarmed.percent,
+                target.statuses.disarmed.turns),
+            "player"
+        )
+        self:UpdateRunResource()
+        self:RefreshRunCounters()
+        self:RenderDungeonGrid()
+        self:RunEnemyTurn()
+        return true
+    end
+
+    if abilityId == "retaliation" then
+        SpendRunResource(run, resourceCost)
+        GainRunResource(run, ability.resourceGain)
+        SetRunAbilityCooldown(run, ability)
+        run.buffs = run.buffs or {}
+        run.buffs.retaliation = {
+            turns = math.max(1, math.floor(tonumber(ability.durationTurns) or 1)),
+            name = ability.name or "Retaliation",
+        }
+        run.turns = run.turns + 1
+        self:AddCombatLog(
+            string.format("Retaliation armed for %d turns.", math.max(1, math.floor(tonumber(ability.durationTurns) or 1))),
+            "player"
+        )
+        self:UpdateRunResource()
+        self:RefreshRunCounters()
+        self:RenderDungeonGrid()
+        self:RunEnemyTurn()
+        return true
+    end
+
+    if abilityId == "victory_rush" then
+        local reactive = run.reactive and run.reactive.victory_rush
+        if not reactive or (reactive.turns or 0) <= 0 then
+            self:AddCombatLog("Victory Rush is not ready. Defeat an enemy first.", "warning")
+            return false
+        end
+        return self:PlayerAttackEnemy(nil, { ability = ability })
+    end
+
     if abilityId == "heroic_strike"
         or abilityId == "rend"
         or abilityId == "hamstring"
-        or abilityId == "sunder_armor" then
+        or abilityId == "sunder_armor"
+        or abilityId == "cleave"
+        or abilityId == "slam" then
         return self:PlayerAttackEnemy(nil, { ability = ability })
     end
 
@@ -3066,7 +3247,39 @@ function GA:PlayerAttackEnemy(targetEnemy, attackOptions)
     run.turns = run.turns + 1
     self:UpdateRunResource()
 
+    if ability and run.reactive then
+        if ability.id == "overpower" then
+            run.reactive.overpower = nil
+        elseif ability.id == "revenge" then
+            run.reactive.revenge = nil
+        elseif ability.id == "victory_rush" then
+            run.reactive.victory_rush = nil
+        end
+    end
+
     local _, defeated, leveledUp, previousRunLevel, currentRunLevel = self:DealRunDamage(enemy, ability)
+
+    if ability and ability.id == "victory_rush" then
+        local healPercent = math.max(0, tonumber(ability.effectValue) or 0)
+        local healAmount = math.max(1, math.floor((run.playerMaxHealth or 1) * healPercent / 100 + 0.5))
+        local before = run.playerHealth or 0
+        run.playerHealth = math.min(run.playerMaxHealth or before, before + healAmount)
+        local restored = math.max(0, run.playerHealth - before)
+        self:AddCombatLog(string.format("Victory Rush restores %d HP.", restored), "player")
+        self:UpdateRunHealth()
+    elseif ability and ability.id == "cleave" then
+        local extraTarget
+        for _, candidate in ipairs(GetAdjacentEnemies(run)) do
+            if candidate.uid ~= enemy.uid then
+                extraTarget = candidate
+                break
+            end
+        end
+        if extraTarget then
+            self:AddCombatLog("Cleave catches " .. string.lower(GetEnemyDisplayName(extraTarget)) .. " as well.", "player")
+            self:DealRunDamage(extraTarget, ability, { allowWeaponTrait = false })
+        end
+    end
 
     if defeated and self.DungeonRunStateText then
         if leveledUp then
@@ -3589,6 +3802,7 @@ function GA:BeginDungeonRun()
         resource = 0,
         cooldowns = {},
         buffs = {},
+        reactive = {},
         stance = "battle",
         unlockedAbilities = GetClassAbilityIdSet(classId, level),
         playerX = startX,
@@ -4173,8 +4387,11 @@ function GA:RunEnemyTurn()
                         and math.random(1, 1000) <= math.floor(dodgeChance * 10)
 
                     if dodged then
+                        run.reactive = run.reactive or {}
+                        run.reactive.overpower = { turns = 2 }
+                        run.reactive.revenge = { turns = 2 }
                         self:AddCombatLog(
-                            "You dodge the " .. string.lower(GetEnemyDisplayName(enemy)) .. "'s attack.",
+                            "You dodge the " .. string.lower(GetEnemyDisplayName(enemy)) .. "'s attack. Overpower and Revenge are ready.",
                             "player"
                         )
                     else
@@ -4188,6 +4405,12 @@ function GA:RunEnemyTurn()
                         if weakened and (weakened.turns or 0) > 0 then
                             enemyDamageMultiplier = enemyDamageMultiplier
                                 * (1 - math.max(0, math.min(90, tonumber(weakened.percent) or 0)) / 100)
+                        end
+
+                        local disarmed = enemy.statuses and enemy.statuses.disarmed
+                        if disarmed and (disarmed.turns or 0) > 0 then
+                            enemyDamageMultiplier = enemyDamageMultiplier
+                                * (1 - math.max(0, math.min(90, tonumber(disarmed.percent) or 0)) / 100)
                         end
 
                         if run.stance == "defensive" then
@@ -4206,11 +4429,18 @@ function GA:RunEnemyTurn()
                         )
 
                         local blockChance = stats.block or 0
+                        local shieldBlock = run.buffs and run.buffs.shield_block
+                        if shieldBlock and (shieldBlock.turns or 0) > 0 then
+                            blockChance = math.min(100, blockChance + math.max(0, tonumber(shieldBlock.percent) or 0))
+                        end
+
                         local blocked = blockChance > 0
                             and math.random(1, 1000) <= math.floor(blockChance * 10)
 
                         if blocked then
                             damage = math.max(1, math.floor(damage * 0.5 + 0.5))
+                            run.reactive = run.reactive or {}
+                            run.reactive.revenge = { turns = 2 }
                         end
 
                         run.playerHealth = math.max(
@@ -4231,6 +4461,13 @@ function GA:RunEnemyTurn()
                         )
 
                         self:UpdateRunHealth()
+
+                        if run.playerHealth > 0 and run.buffs and run.buffs.retaliation and enemy.alive ~= false then
+                            local retaliationAbility = GetStudioAbilityById("retaliation")
+                            if retaliationAbility then
+                                self:DealRunDamage(enemy, retaliationAbility, { allowWeaponTrait = false })
+                            end
+                        end
 
                         if run.playerHealth <= 0 then
                             self:FailDungeonRun(

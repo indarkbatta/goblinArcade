@@ -3,9 +3,29 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.30.0**  
+Current addon version: **0.31.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.31.0 — Warrior level 12-20 combat package
+
+The shared Warrior combat engine now covers the complete level 1-20 band.
+
+New runtime-wired abilities:
+- Overpower: reactive for one player turn after a dodge; 1.6x weapon damage.
+- Shield Bash: requires a shield; 1.0x weapon damage plus one-turn stagger; 1 Rage, 2-turn cooldown.
+- Demoralizing Shout: adjacent enemies deal -20% damage for 4 turns; 1 Rage, 3-turn cooldown.
+- Revenge: reactive for one player turn after a dodge or block; 1.5x weapon damage, 1 Rage.
+- Shield Block: requires a shield; +50% block chance for 2 enemy phases; 1 Rage, 3-turn cooldown.
+- Disarm: one adjacent enemy deals -50% damage for 3 turns; 1 Rage, 4-turn cooldown.
+- Retaliation: melee attackers are counter-hit at 0.75x weapon damage for 3 enemy phases; 8-turn cooldown.
+- Victory Rush: available briefly after a kill; 1.25x weapon damage and restores 20% max HP.
+- Cleave: primary melee hit plus one additional adjacent enemy; 1.0x weapon damage, 2 Rage.
+- Slam: 1.75x single-target weapon damage, 2 Rage.
+
+Reactive combat state now includes Overpower, Revenge and Victory Rush windows. Shield-aware abilities inspect the run's equipped off-hand. The ability panel now contains all twenty supported abilities in a 3-column layout; the first ten retain numeric panel hotkeys and later abilities remain clickable.
+
+The user's published Warrior HP / Level = 3 remains preserved.
 
 ## 0.30.0 — Warrior level 1-10 combat package
 
@@ -128,7 +148,7 @@ Deployment is automatic through GitHub Actions.
 
 ### GoblinArcade Studio / Vercel
 
-Studio v0.7.0 keeps a **static-first** architecture for Vercel cost efficiency:
+Studio v0.8.0 keeps a **static-first** architecture for Vercel cost efficiency:
 
 - no npm build is required;
 - no database is used;
@@ -1504,7 +1524,7 @@ Recommended order:
    - EnemyGenerator v5 reads enemy archetypes and ranks from GA.StudioData
    - DungeonGenerator v7 reads room door limits and map markers from GA.StudioData
    - Shrine effects and Shrine UI values read from GA.StudioData
-   - Warrior spellbook data is populated; level 1-10 abilities are runtime-wired on the shared ability/status engine. Next batch should cover the level 12-20 Warrior abilities, then the later level bands
+   - Warrior spellbook data is populated; level 1-20 abilities are runtime-wired on the shared ability/status/reactive engine. Next batch should cover the level 22-50 Warrior abilities
 
 2. **Room-role gameplay polish**
    - test the stricter door rules, Shrine modal, Elite Cache and Floor 9 exit lock in-game
