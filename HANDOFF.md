@@ -3,9 +3,27 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.34.0**  
+Current addon version: **0.35.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.35.0 — right-rail navigation + action-bar slot swapping
+
+- The right-hand dungeon rail now includes a **QUICK ACCESS** section.
+- QUICK ACCESS contains two icon buttons:
+  - **CHARACTER** opens the GoblinArcade Character Sheet;
+  - **SPELLBOOK** opens the paged Spellbook.
+- Both quick-access entries use built-in WoW icon textures and tooltips.
+- Character Sheet and Spellbook are mutually exclusive overlays: opening one closes/hides the other.
+- The former text `B SPELLBOOK` button above the action bar was removed; `B` remains the keyboard shortcut while the right-rail icon is the visual entry point.
+- Action-bar spell slots now support true slot-to-slot drag-and-drop.
+- Dragging an occupied slot shows the same cursor-following spell icon used by Spellbook drag.
+- Dropping onto an empty slot moves the spell.
+- Dropping onto another occupied slot **swaps the two spells** rather than deleting/duplicating either one.
+- Dropping back on the source slot or outside the bar leaves the loadout unchanged.
+- The source slot dims during a drag and all valid destination slots remain highlighted.
+- Right-click-to-clear and per-character persistence remain unchanged.
+- Slot rearrangement does not consume a combat turn.
 
 ## 0.34.0 — WoW-style action bar + paged icon Spellbook
 
@@ -1626,7 +1644,8 @@ Recommended order:
 
 3. **Abilities / combat validation**
    - all 29 retained Warrior abilities are runtime-wired
-   - B opens the paged, icon-based Spellbook; learned abilities use true drag-and-drop onto configurable slots 2-9
+   - the right rail exposes icon buttons for Character Sheet and the paged Spellbook; B remains the Spellbook shortcut
+   - learned abilities use true drag-and-drop onto configurable slots 2-9, and occupied action slots can be dragged to move/swap
    - slot 1 is fixed Basic Attack; slot 0 is reserved for Potion
    - per-character action-bar loadouts persist in SavedVariables
    - next: in-game validation and balance pass, then finite potion handling
@@ -1751,6 +1770,8 @@ Before changing layout conventions, remember the user's current preferences:
 - do not modify or deploy the unrelated liminal-space Vercel project while working on GoblinArcade;
 - drag targets must visually highlight;
 - the run combat bar uses fixed Basic Attack on 1, eight configurable WoW-style icon spell slots on 2-9, Potion on 0, and B for the paged Spellbook;
+- the right dungeon rail provides icon-based Character Sheet and Spellbook quick access;
+- action-bar spell icons can be dragged between slots; occupied targets swap positions;
 - Spellbook/action-bar loadouts persist per character in GoblinArcadeDB;
 - Spellbook spells use WoW icons, with an optional Studio-driven icon override via texture shorthand/path/FileDataID.
 
