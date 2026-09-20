@@ -295,6 +295,30 @@ local function BuildFloorChestLoot(floorMap, floorNumber)
     return loot
 end
 
+local function GetDungeonLootIcon(run, key)
+    local item = run and run.chestLoot and run.chestLoot[key]
+    if not item or item.empty then
+        return nil
+    end
+
+    local icon = item.icon
+    if icon == nil or tostring(icon) == "" then
+        return "Interface\\Icons\\INV_Misc_QuestionMark"
+    end
+
+    local numeric = tonumber(icon)
+    if numeric then
+        return numeric
+    end
+
+    local path = tostring(icon)
+    if string.find(path, "\\", 1, true) then
+        return path
+    end
+
+    return "Interface\\Icons\\" .. path
+end
+
 local PATH_DIRECTIONS = {
     { 0, -1 },
     { 1, 0 },
@@ -1398,6 +1422,13 @@ local function CreateGrid(parent)
 
             ApplyBackdrop(cell, { 0.055, 0.048, 0.038, 1 }, { 0.09, 0.075, 0.055, 1 })
 
+            local lootIcon = spriteLayer:CreateTexture(nil, "OVERLAY", nil, 1)
+            lootIcon:SetSize(50, 50)
+            lootIcon:SetPoint("CENTER", cell, "CENTER", 0, 0)
+            lootIcon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+            lootIcon:SetTexCoord(0.06, 0.94, 0.06, 0.94)
+            lootIcon:Hide()
+
             local enemyIcon = spriteLayer:CreateTexture(nil, "OVERLAY", nil, 2)
             enemyIcon:SetSize(CREATURE_SPRITE_RENDER_SIZE, CREATURE_SPRITE_RENDER_SIZE)
             enemyIcon:SetPoint("CENTER", cell, "CENTER", 0, 0)
@@ -1432,6 +1463,7 @@ local function CreateGrid(parent)
             grid.cells[CellKey(col, row)] = {
                 frame = cell,
                 marker = marker,
+                lootIcon = lootIcon,
                 enemyIcon = enemyIcon,
                 enemyHealthBackdrop = enemyHealthBackdrop,
                 enemyHealthBar = enemyHealthBar,
@@ -6926,6 +6958,11 @@ function GA:RenderDungeonGrid()
                 entry.wall = wall
 
                 entry.marker:SetText("")
+                if entry.lootIcon then
+                    entry.lootIcon:Hide()
+                    entry.lootIcon:SetAlpha(1)
+                    entry.lootIcon:SetTexCoord(0.06, 0.94, 0.06, 0.94)
+                end
                 if entry.enemyIcon then
                     entry.enemyIcon:Hide()
                 end
@@ -6971,7 +7008,20 @@ function GA:RenderDungeonGrid()
                         and run.openedChests[worldKey]
 
                     if staticMarker and not (staticMarker.text == "$" and chestOpened) then
-                        if staticMarker.kind == "door" then
+                        local renderedLootIcon = false
+                        if staticMarker.kind == "chest" and entry.lootIcon then
+                            local lootIcon = GetDungeonLootIcon(run, worldKey)
+                            if lootIcon then
+                                entry.lootIcon:SetTexture(lootIcon)
+                                entry.lootIcon:SetAlpha(visible and 1 or 0.32)
+                                entry.lootIcon:Show()
+                                renderedLootIcon = true
+                            end
+                        end
+
+                        if renderedLootIcon then
+                            entry.marker:SetText("")
+                        elseif staticMarker.kind == "door" then
                             local doorOpen = run
                                 and run.openDoors
                                 and run.openDoors[worldKey]

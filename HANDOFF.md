@@ -3,9 +3,19 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.58.0**  
+Current addon version: **0.58.1**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.58.1 — dungeon loot item icons
+
+- Unopened dungeon loot/cache tiles now render the **actual rolled item's own icon** instead of the generic `$` glyph.
+- The icon is sourced from the item instance already rolled into `run.chestLoot`, so Studio item icons are used directly.
+- Discovered loot remains visible through Fog of War memory at reduced opacity.
+- Empty/fallback containers keep their existing marker behavior.
+- Opening the container still removes the dungeon marker/icon exactly as before.
+- Enemy sprites remain above loot icons when they occupy the same visible tile.
+- No loot tables, drop rates, inventory rules or chest interaction behavior changed.
 
 ## 0.58.0 — monster identity mechanics pass
 
