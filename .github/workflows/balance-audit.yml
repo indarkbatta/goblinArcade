@@ -223,6 +223,8 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
+          $env:PYTHONIOENCODING = "utf-8"
+          $env:PYTHONUTF8 = "1"
 
           $cases = @(
             @{ Name = "EASY";   Hp = "0.85"; Damage = "0.85" },
