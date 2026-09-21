@@ -7,6 +7,23 @@ Current addon version: **0.62.0**
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
+
+## Studio utility — Procedural wall autotile builder
+
+- Added a **Wall Autotile Builder** directly to each Studio **Ecosystem** editor.
+- The builder accepts one isolated **A1 wall source image** and treats it as material input only; tile topology and edge treatment are generated mathematically.
+- Default canonical geometry is **80 px / 62.5% wall thickness** in a 128×128 source tile, with a centered 24 px margin.
+- Generates all **47 normalized 8-neighbor blob masks** from the standard bit layout N=1, NE=2, E=4, SE=8, S=16, SW=32, W=64, NW=128; invalid diagonals are cleared unless both adjacent cardinal neighbors exist.
+- Wall silhouettes are exact binary masks. A padded continuation mask prevents false borders on tile edges where walls connect into neighboring tiles.
+- Edge presentation is procedural: configurable stone lip/bevel, dark outer edge and external AO shadow are derived from a chamfer distance field rather than painted into every source tile.
+- Edge wear changes shading only and deliberately does **not** perturb the binary wall silhouette, preserving exact seams.
+- The uploaded A1 artwork has its edge area inset/cropped and is mirrored into a reusable material field, so painted source borders do not get stretched into internal wall connections.
+- Live preview renders a power-of-two **8×8 / 1024×1024** atlas: 47 used slots in ascending normalized-mask order and 17 transparent reserved slots.
+- The editor can download both the atlas PNG and a JSON mapping containing mask → atlas index/coordinates and bit definitions.
+- If no source image is loaded, a deterministic debug-stone material is used so geometry can be inspected immediately.
+- This is currently an **editor asset-generation utility only**; existing runtime wallTexture behavior is unchanged until the atlas consumer is wired into DungeonRun.
+- No Studio schema or addon-version bump was required for this editor-only tool.
+
 ## 0.62.0 — Ecosystem floor & wall textures
 
 - Added optional **Floor Texture** and **Wall Texture** fields to Studio Ecosystems.

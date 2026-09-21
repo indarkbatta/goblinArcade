@@ -18,6 +18,7 @@ on:
       - "tools/ecosystem_runtime_audit.lua"
       - "tools/ecosystem_tile_audit.py"
       - "tools/ui_cleanup_audit.py"
+      - "tools/autotile_builder_audit.py"
       - "tools/event_runtime_audit.lua"
       - "tools/event_logic_audit.lua"
       - ".github/workflows/balance-audit.yml"
@@ -45,6 +46,7 @@ jobs:
           lua5.1 tools/ecosystem_runtime_audit.lua
           python3 tools/ecosystem_tile_audit.py
           python3 tools/ui_cleanup_audit.py
+          python3 tools/autotile_builder_audit.py
 
   studio-syntax:
     name: Studio syntax
