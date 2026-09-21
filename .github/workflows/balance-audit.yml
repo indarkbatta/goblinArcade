@@ -157,8 +157,13 @@ jobs:
           )) {
             & $luaparse -q -f $audit
             if ($LASTEXITCODE -ne 0) { throw "Lua syntax validation failed: $audit" }
-            & $fengari $audit
-            if ($LASTEXITCODE -ne 0) { throw "Lua runtime audit failed: $audit" }
+            $luaOutput = @(& $fengari $audit 2>&1)
+            $luaExit = $LASTEXITCODE
+            $luaOutput | ForEach-Object { Write-Host $_ }
+            $luaText = $luaOutput -join [Environment]::NewLine
+            if ($luaExit -ne 0 -or $luaText -match "stack traceback") {
+              throw "Lua runtime audit failed: $audit"
+            }
           }
 
           foreach ($audit in @(

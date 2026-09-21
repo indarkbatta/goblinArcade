@@ -39,7 +39,10 @@ assert "AUTOTILE_SOURCE_WALL-inset*2" in material_fn
 assert "settings.wall" not in material_fn, "A1 source crop must stay canonical when output wall thickness changes"
 
 workflow = (root / ".github" / "workflows" / "balance-audit.yml").read_text(encoding="utf-8")
-assert "tools/autotile_builder_audit.py" in workflow, "balance-audit.yml must run the autotile audit"\nassert "ubuntu-latest" not in workflow, "balance-audit.yml must not use GitHub-hosted Ubuntu runners"\nassert "self-hosted" in workflow and "- Windows" in workflow, "balance-audit.yml must target the Windows self-hosted runner"
+assert "tools/autotile_builder_audit.py" in workflow, "balance-audit.yml must run the autotile audit"
+assert "ubuntu-latest" not in workflow, "balance-audit.yml must not use GitHub-hosted Ubuntu runners"
+assert "windows-latest" not in workflow and "macos-latest" not in workflow, "balance-audit.yml must not use GitHub-hosted runners"
+assert "self-hosted" in workflow and "- Windows" in workflow, "balance-audit.yml must target the Windows self-hosted runner"
 
 def normalize(mask: int) -> int:
     if not ((mask & 1) and (mask & 4)):

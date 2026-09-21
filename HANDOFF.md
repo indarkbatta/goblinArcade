@@ -39,6 +39,7 @@ Default branch: `main`
 - Added `tools/forever_rules_audit.lua` for formula tests and `tools/forever_runtime_audit.py` for integration/schema/CI regression checks.
 - All CI/deploy workflows remain restricted to the user's **self-hosted Windows** runner; no GitHub-hosted runner label is introduced.
 - The self-hosted audit provisions `fengari-node-cli` + `luaparse` locally through Node, avoiding any dependency on GitHub-hosted runners or the desktop Visual Studio CRT libraries.
+- Runtime audit output is explicitly checked for Lua stack traces because Fengari's Windows wrapper may not propagate every script assertion as a non-zero process exit code; event placement tests validate portable cadence bounds rather than VM-specific seeded room ordering.
 - Current scope: the complete active **physical/Warrior combat path** is on the new engine. Resistance, Spell Power and Healing Power are represented in the engine/data model, while future playable caster classes still need their individual spell-resolution/coefficient logic wired when those classes are enabled.
 - Addon version **0.64.0**.
 
