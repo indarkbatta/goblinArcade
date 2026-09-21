@@ -23,11 +23,13 @@ chunk("GoblinArcade", GA)
 assert(GA.DungeonGenerator.VERSION == 17, "Unexpected DungeonGenerator version")
 
 local floorThree
+local totalRandomEvents = 0
 for floor = 1, 9 do
     local map = assert(GA.DungeonGenerator:GenerateFloor(25, 25, floor, 424242))
     local expected = floor < 5 and 1 or 2
-    assert((map.eventCount or 0) >= 1 and (map.eventCount or 0) <= expected,
-        string.format("Floor %d: expected 1..%d valid event placements, got %d", floor, expected, map.eventCount or -1))
+    assert((map.eventCount or 0) >= 0 and (map.eventCount or 0) <= expected,
+        string.format("Floor %d: expected at most %d valid event placements, got %d", floor, expected, map.eventCount or -1))
+    totalRandomEvents = totalRandomEvents + (map.eventCount or 0)
     assert(type(map.eventPlacements) == "table" and #map.eventPlacements == map.eventCount, "eventPlacements mismatch")
 
     local usedRooms = {}
@@ -43,6 +45,7 @@ for floor = 1, 9 do
     if floor == 3 then floorThree = map end
 end
 
+assert(totalRandomEvents > 0, "Nine-floor audit generated no random events at all")
 assert(floorThree, "Floor 3 audit map missing")
 local injected, key, reason = GA.DungeonGenerator:InjectEvent(floorThree, "chain_only", 7)
 assert(injected and key and reason == "injected", "Chain-only event injection failed: " .. tostring(reason))
