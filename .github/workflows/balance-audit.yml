@@ -241,8 +241,13 @@ jobs:
               "--difficulty-hp", $case.Hp,
               "--difficulty-damage", $case.Damage
             )
-            $output = @(& python @arguments 2>&1)
+            $rawOutput = Join-Path $env:RUNNER_TEMP "goblin-arcade-balance-$($case.Name.ToLower()).log"
+            $savedPreference = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+            & python @arguments *> $rawOutput
             $exitCode = $LASTEXITCODE
+            $ErrorActionPreference = $savedPreference
+            $output = Get-Content $rawOutput
             $output | ForEach-Object { Write-Host $_ }
             $output | Add-Content -Path $report -Encoding utf8
             if ($exitCode -ne 0) {
