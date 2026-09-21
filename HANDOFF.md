@@ -8,6 +8,15 @@ Repository: `indarkbatta/goblinArcade`
 Default branch: `main`
 
 
+## CI runner policy — Windows self-hosted only
+
+- The GoblinArcade audit workflow no longer uses GitHub-hosted `ubuntu-latest` runners.
+- `.github/workflows/balance-audit.yml` now targets the same `self-hosted` + `Windows` runner class used by the desktop WoW deployment.
+- Lua syntax/runtime audits, Studio JavaScript validation, content audits and all EASY/NORMAL/HARD balance simulations run on the local Windows runner.
+- The former multi-job Linux matrix was consolidated into one local audit job to avoid repeating checkout/tool setup and to prevent multiple local jobs from contending for the single desktop runner.
+- Python and Node are provisioned on the self-hosted machine through their setup actions; Lua 5.1.5 is built on that machine using the Windows MSVC environment.
+- GitHub still orchestrates the workflow and stores its logs/status, but no GitHub-hosted runner compute is requested by this audit workflow.
+
 ## 0.63.0 — Runtime Blob47 wall autotiling
 
 - Wired the Studio-generated **47-tile Blob47 wall atlas** into `DungeonRun`.

@@ -10,7 +10,6 @@ on:
       - "studio/index.html"
       - "GoblinArcade/index.html"
       - "GoblinArcade/Media/Tiles/**"
-      - "studio-data.json"
       - "api/publish.js"
       - "tools/balance_audit.py"
       - "tools/event_audit.py"
@@ -24,109 +23,136 @@ on:
       - "tools/event_logic_audit.lua"
       - ".github/workflows/balance-audit.yml"
 
+permissions:
+  contents: read
+
+concurrency:
+  group: goblinarcade-local-audit
+  cancel-in-progress: true
+
 jobs:
-  lua-syntax:
-    name: Lua syntax
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+  audit:
+    name: Local Windows audit
+    runs-on:
+      - self-hosted
+      - Windows
+    timeout-minutes: 30
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Parse addon Lua
-        shell: bash
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Set up MSVC environment
+        uses: step-security/msvc-dev-cmd@v1
+
+      - name: Set up Lua 5.1
+        uses: leafo/gh-actions-lua@v13
+        with:
+          luaVersion: "5.1.5"
+
+      - name: Parse addon Lua and run runtime audits
+        shell: powershell
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y lua5.1
-          find GoblinArcade -type f -name '*.lua' -print0 | xargs -0 -n1 luac5.1 -p
-          luac5.1 -p tools/event_runtime_audit.lua
-          luac5.1 -p tools/event_logic_audit.lua
-          luac5.1 -p tools/ecosystem_runtime_audit.lua
-          lua5.1 tools/event_runtime_audit.lua
-          lua5.1 tools/event_logic_audit.lua
-          lua5.1 tools/ecosystem_runtime_audit.lua
-          python3 tools/ecosystem_tile_audit.py
-          python3 tools/ui_cleanup_audit.py
-          python3 tools/autotile_builder_audit.py
+          $ErrorActionPreference = "Stop"
 
-  studio-syntax:
-    name: Studio syntax
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+          Get-ChildItem -Path "GoblinArcade" -Recurse -Filter "*.lua" | ForEach-Object {
+            & luac -p $_.FullName
+            if ($LASTEXITCODE -ne 0) {
+              throw "Lua syntax validation failed: $($_.FullName)"
+            }
+          }
+
+          foreach ($audit in @(
+            "tools/event_runtime_audit.lua",
+            "tools/event_logic_audit.lua",
+            "tools/ecosystem_runtime_audit.lua"
+          )) {
+            & luac -p $audit
+            if ($LASTEXITCODE -ne 0) { throw "Lua syntax validation failed: $audit" }
+            & lua $audit
+            if ($LASTEXITCODE -ne 0) { throw "Lua runtime audit failed: $audit" }
+          }
+
+          foreach ($audit in @(
+            "tools/ecosystem_tile_audit.py",
+            "tools/ui_cleanup_audit.py",
+            "tools/autotile_builder_audit.py"
+          )) {
+            & python $audit
+            if ($LASTEXITCODE -ne 0) { throw "Python audit failed: $audit" }
+          }
+
       - name: Validate Studio mirrors and JavaScript
-        shell: bash
+        shell: powershell
         run: |
-          cmp index.html studio/index.html
-          cmp index.html GoblinArcade/index.html
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          html = Path("index.html").read_text(encoding="utf-8")
-          scripts = re.findall(r"<script(?:\s[^>]*)?>(.*?)</script>", html, flags=re.S|re.I)
-          Path("/tmp/goblin-arcade-studio.js").write_text("\n".join(scripts), encoding="utf-8")
-          PY
-          node --check /tmp/goblin-arcade-studio.js
+          $ErrorActionPreference = "Stop"
 
-  monster-content:
-    name: Monster content
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Validate authored monster database
-        shell: bash
-        run: python3 tools/orc_content_audit.py
+          $rootHash = (Get-FileHash "index.html" -Algorithm SHA256).Hash
+          $studioHash = (Get-FileHash "studio/index.html" -Algorithm SHA256).Hash
+          $addonHash = (Get-FileHash "GoblinArcade/index.html" -Algorithm SHA256).Hash
 
-  ecosystem-data:
-    name: Ecosystem data
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Validate ecosystem coverage and references
-        shell: bash
-        run: python3 tools/ecosystem_audit.py
+          if ($rootHash -ne $studioHash -or $rootHash -ne $addonHash) {
+            throw "Studio HTML mirrors are not byte-identical."
+          }
 
-  event-data:
-    name: Event data
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Validate data-driven dungeon events
-        shell: bash
-        run: python3 tools/event_audit.py
+          $scriptPath = Join-Path $env:RUNNER_TEMP "goblin-arcade-studio.js"
+          @'
+from pathlib import Path
+import os
+import re
 
-  balance-audit:
-    name: Balance - ${{ matrix.difficulty }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - difficulty: EASY
-            hp: 0.85
-            damage: 0.85
-          - difficulty: NORMAL
-            hp: 1.00
-            damage: 1.00
-          - difficulty: HARD
-            hp: 1.12
-            damage: 1.10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+html = Path("index.html").read_text(encoding="utf-8")
+scripts = re.findall(r"<script(?:\s[^>]*)?>(.*?)</script>", html, flags=re.S | re.I)
+Path(os.environ["RUNNER_TEMP"], "goblin-arcade-studio.js").write_text("\n".join(scripts), encoding="utf-8")
+'@ | python -
 
-      - name: Run difficulty balance audit
-        shell: bash
+          & node --check $scriptPath
+          if ($LASTEXITCODE -ne 0) { throw "Studio JavaScript syntax validation failed." }
+
+      - name: Validate authored content
+        shell: powershell
         run: |
-          echo "# ${{ matrix.difficulty }} difficulty" | tee balance-audit.md
-          python3 tools/balance_audit.py --runs 2500 --seed 5602 --difficulty-hp ${{ matrix.hp }} --difficulty-damage ${{ matrix.damage }} | tee -a balance-audit.md
-          cat balance-audit.md >> "$GITHUB_STEP_SUMMARY"
+          $ErrorActionPreference = "Stop"
+          foreach ($audit in @(
+            "tools/orc_content_audit.py",
+            "tools/ecosystem_audit.py",
+            "tools/event_audit.py"
+          )) {
+            & python $audit
+            if ($LASTEXITCODE -ne 0) { throw "Content audit failed: $audit" }
+          }
+
+      - name: Run balance audits
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $cases = @(
+            @{ Name = "EASY";   Hp = "0.85"; Damage = "0.85" },
+            @{ Name = "NORMAL"; Hp = "1.00"; Damage = "1.00" },
+            @{ Name = "HARD";   Hp = "1.12"; Damage = "1.10" }
+          )
+
+          foreach ($case in $cases) {
+            $report = "balance-audit-$($case.Name.ToLower()).md"
+            "# $($case.Name) difficulty" | Set-Content -Path $report -Encoding utf8
+
+            & python tools/balance_audit.py --runs 2500 --seed 5602 --difficulty-hp $case.Hp --difficulty-damage $case.Damage 2>&1 |
+              Tee-Object -FilePath $report -Append
+            if ($LASTEXITCODE -ne 0) {
+              throw "Balance audit failed: $($case.Name)"
+            }
+
+            Get-Content $report | Add-Content -Path $env:GITHUB_STEP_SUMMARY -Encoding utf8
+            "" | Add-Content -Path $env:GITHUB_STEP_SUMMARY -Encoding utf8
+          }
