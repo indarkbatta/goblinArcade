@@ -14,7 +14,7 @@ Default branch: `main`
 - `.github/workflows/balance-audit.yml` now targets the same `self-hosted` + `Windows` runner class used by the desktop WoW deployment.
 - Lua syntax/runtime audits, Studio JavaScript validation, content audits and all EASY/NORMAL/HARD balance simulations run on the local Windows runner.
 - The former multi-job Linux matrix was consolidated into one local audit job to avoid repeating checkout/tool setup and to prevent multiple local jobs from contending for the single desktop runner.
-- Python and Node use the desktop runner itself: existing installations are preferred; if Python is absent, a portable official Python 3.12.10 embeddable build is cached locally without an installer, and Node can fall back to the runner's own embedded Node 24. Lua 5.1.5 is built on that machine using the Windows MSVC environment.
+- Python and Node use the desktop runner itself: existing installations are preferred; if Python is absent, a portable official Python 3.12.10 embeddable build is cached locally without an installer, and Node can fall back to the runner's own embedded Node 24. Lua 5.1.5 is built directly from the official Lua source with the desktop Visual Studio C++ toolchain and cached in the runner tool-cache; no Lua setup action or symlink is required.
 - GitHub still orchestrates the workflow and stores its logs/status, but no GitHub-hosted runner compute is requested by this audit workflow.
 
 ## 0.63.0 — Runtime Blob47 wall autotiling
