@@ -38,6 +38,7 @@ Default branch: `main`
 - Studio schema **14**, Studio **1.13.0**, browser draft key **v28**.
 - Added `tools/forever_rules_audit.lua` for formula tests and `tools/forever_runtime_audit.py` for integration/schema/CI regression checks.
 - All CI/deploy workflows remain restricted to the user's **self-hosted Windows** runner; no GitHub-hosted runner label is introduced.
+- The self-hosted Lua 5.1 bootstrap compiles with the Visual Studio static CRT (`/MT`) for compatibility with the desktop's VS 2026 toolchain.
 - Current scope: the complete active **physical/Warrior combat path** is on the new engine. Resistance, Spell Power and Healing Power are represented in the engine/data model, while future playable caster classes still need their individual spell-resolution/coefficient logic wired when those classes are enabled.
 - Addon version **0.64.0**.
 
