@@ -16,6 +16,7 @@ on:
       - "tools/orc_content_audit.py"
       - "tools/ecosystem_audit.py"
       - "tools/ecosystem_runtime_audit.lua"
+      - "tools/ecosystem_tile_audit.py"
       - "tools/ui_cleanup_audit.py"
       - "tools/event_runtime_audit.lua"
       - "tools/event_logic_audit.lua"
@@ -42,6 +43,7 @@ jobs:
           lua5.1 tools/event_runtime_audit.lua
           lua5.1 tools/event_logic_audit.lua
           lua5.1 tools/ecosystem_runtime_audit.lua
+          python3 tools/ecosystem_tile_audit.py
           python3 tools/ui_cleanup_audit.py
 
   studio-syntax:

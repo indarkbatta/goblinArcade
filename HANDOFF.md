@@ -3,9 +3,22 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-21  
-Current addon version: **0.61.1**  
+Current addon version: **0.62.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.62.0 — Ecosystem floor & wall textures
+
+- Added optional **Floor Texture** and **Wall Texture** fields to Studio Ecosystems.
+- Paths are addon-local, e.g. `Media/Tiles/orc_crypt_floor.png`; remote HTTP/Cloudflare URLs are rejected because WoW cannot load them at runtime.
+- Studio schema **12**, Studio **1.11.0**, browser draft key **v26**.
+- Existing ecosystems keep blank texture paths and therefore retain the current palette-only fallback until tile art is assigned.
+- DungeonGenerator **v16** propagates the selected ecosystem's floor/wall texture paths into every floor map for the full 9-floor run.
+- Dungeon grid cells now have a dedicated terrain texture layer below monsters, loot, events and markers.
+- Visible tiles render at full alpha; explored-memory tiles at reduced alpha; unseen tiles reveal no terrain art.
+- Existing ecosystem palettes remain as backdrop/border fallback.
+- Added Studio/publish validation for local texture paths and CI coverage via `tools/ecosystem_tile_audit.py`.
+- Addon version **0.62.0**.
 
 ## 0.61.1 — Run-end dungeon visual cleanup
 

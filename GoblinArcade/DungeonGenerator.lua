@@ -3,7 +3,7 @@ local _, GA = ...
 GA.DungeonGenerator = GA.DungeonGenerator or {}
 local DG = GA.DungeonGenerator
 
-DG.VERSION = 15
+DG.VERSION = 16
 
 local MODULUS = 2147483647
 local MULTIPLIER = 48271
@@ -1073,6 +1073,8 @@ function DG:GenerateFloor(width, height, floorNumber, runSeed, ecosystemId)
         ecosystemId = resolvedEcosystemId,
         ecosystemName = ecosystem and ecosystem.name or "Legacy Dungeon",
         stylePreset = ecosystem and ecosystem.stylePreset or "WARREN",
+        floorTexture = ecosystem and ecosystem.floorTexture or "",
+        wallTexture = ecosystem and ecosystem.wallTexture or "",
         name = ecosystem and ecosystem.dungeonName or "THE SHIFTING CELLAR",
         width = mapWidth,
         height = mapHeight,

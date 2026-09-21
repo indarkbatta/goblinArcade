@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 11,
-  "studioVersion": "1.10.0",
+  "schemaVersion": 12,
+  "studioVersion": "1.11.0",
   "classes": [
     {
       "id": "warrior",
@@ -10071,7 +10071,9 @@
       "enabled": "YES",
       "weight": 70,
       "stylePreset": "ORC_CRYPT",
-      "description": "A desecrated burial complex occupied by orc raiders and grave robbers. Shallow floors are scavenger-heavy; deeper floors shift toward hexers, sentinels, plague-corrupted orcs and champions."
+      "description": "A desecrated burial complex occupied by orc raiders and grave robbers. Shallow floors are scavenger-heavy; deeper floors shift toward hexers, sentinels, plague-corrupted orcs and champions.",
+      "floorTexture": "",
+      "wallTexture": ""
     },
     {
       "id": "kobold_warrens",
@@ -10080,7 +10082,9 @@
       "enabled": "YES",
       "weight": 30,
       "stylePreset": "WARREN",
-      "description": "Collapsed cellars and mining warrens dominated by kobolds, spiders and heavier brutes. The ecosystem remains consistent for the full nine-floor run."
+      "description": "Collapsed cellars and mining warrens dominated by kobolds, spiders and heavier brutes. The ecosystem remains consistent for the full nine-floor run.",
+      "floorTexture": "",
+      "wallTexture": ""
     },
     {
       "id": "haunted_catacombs",
@@ -10089,7 +10093,9 @@
       "enabled": "NO",
       "weight": 20,
       "stylePreset": "HAUNTED_CRYPT",
-      "description": "Cold undead catacombs. Defined now for skeleton and crypt fauna, but disabled until the undead roster is broad enough for a full nine-floor run."
+      "description": "Cold undead catacombs. Defined now for skeleton and crypt fauna, but disabled until the undead roster is broad enough for a full nine-floor run.",
+      "floorTexture": "",
+      "wallTexture": ""
     }
   ],
   "ecosystemEnemies": [

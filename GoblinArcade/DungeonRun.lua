@@ -229,6 +229,21 @@ local function GetActiveDungeonStyle()
     return DUNGEON_STYLE_PALETTES[preset] or DUNGEON_STYLE_PALETTES.WARREN
 end
 
+local function ResolveDungeonTileTexture(texturePath)
+    local raw = tostring(texturePath or "")
+    if raw == "" or string.find(raw, "^https?://") then return nil end
+    local resolved = raw:gsub("/", "\\")
+    if not string.find(resolved, "^Interface\\") then
+        resolved = "Interface\\AddOns\\GoblinArcade\\" .. resolved
+    end
+    return resolved
+end
+
+local function GetActiveDungeonTileTexture(isWall)
+    if not ACTIVE_FLOOR_MAP then return nil end
+    return ResolveDungeonTileTexture(isWall and ACTIVE_FLOOR_MAP.wallTexture or ACTIVE_FLOOR_MAP.floorTexture)
+end
+
 local function GetDungeonWalls()
     return ACTIVE_FLOOR_MAP and ACTIVE_FLOOR_MAP.walls or STATIC_WALLS
 end
@@ -1612,6 +1627,11 @@ local function CreateGrid(parent)
 
             ApplyBackdrop(cell, { 0.055, 0.048, 0.038, 1 }, { 0.09, 0.075, 0.055, 1 })
 
+            local terrainTexture = cell:CreateTexture(nil, "ARTWORK", nil, -8)
+            terrainTexture:SetAllPoints(cell)
+            terrainTexture:SetTexCoord(0, 1, 0, 1)
+            terrainTexture:Hide()
+
             local lootIcon = spriteLayer:CreateTexture(nil, "OVERLAY", nil, 1)
             lootIcon:SetSize(50, 50)
             lootIcon:SetPoint("CENTER", cell, "CENTER", 0, 0)
@@ -1659,6 +1679,7 @@ local function CreateGrid(parent)
 
             grid.cells[CellKey(col, row)] = {
                 frame = cell,
+                terrainTexture = terrainTexture,
                 marker = marker,
                 lootIcon = lootIcon,
                 eventIcon = eventIcon,
@@ -7279,6 +7300,11 @@ function GA:RenderDungeonGrid()
                 entry.wall = wall
 
                 entry.marker:SetText("")
+                if entry.terrainTexture then
+                    entry.terrainTexture:Hide()
+                    entry.terrainTexture:SetAlpha(1)
+                    entry.terrainTexture:SetTexCoord(0, 1, 0, 1)
+                end
                 if entry.lootIcon then
                     entry.lootIcon:Hide()
                     entry.lootIcon:SetAlpha(1)
@@ -7323,6 +7349,15 @@ function GA:RenderDungeonGrid()
                     else
                         entry.frame:SetBackdropColor(palette.floorVisible[1], palette.floorVisible[2], palette.floorVisible[3], palette.floorVisible[4])
                         entry.frame:SetBackdropBorderColor(palette.floorBorder[1], palette.floorBorder[2], palette.floorBorder[3], palette.floorBorder[4])
+                    end
+                end
+
+                if entry.terrainTexture and explored then
+                    local terrainPath = GetActiveDungeonTileTexture(wall)
+                    if terrainPath then
+                        entry.terrainTexture:SetTexture(terrainPath)
+                        entry.terrainTexture:SetAlpha(visible and 1 or 0.24)
+                        entry.terrainTexture:Show()
                     end
                 end
 
