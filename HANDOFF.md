@@ -18,7 +18,7 @@ Default branch: `main`
 - Edge presentation is procedural: configurable stone lip/bevel, dark outer edge and external AO shadow are derived from a chamfer distance field rather than painted into every source tile.
 - Edge wear changes shading only and deliberately does **not** perturb the binary wall silhouette, preserving exact seams.
 - The uploaded A1 artwork has its edge area inset/cropped and is mirrored into a reusable material field, so painted source borders do not get stretched into internal wall connections.
-- Live preview renders a power-of-two **8×8 / 1024×1024** atlas: 47 used slots in ascending normalized-mask order and 17 transparent reserved slots.
+- The A1 material crop is now permanently anchored to the canonical **80×80** source region at **x/y 24..104**; changing output Wall Thickness no longer moves or enlarges the source crop.\n- Source upload now enforces an exact **128×128 PNG** at load time instead of silently rescaling arbitrary dimensions/formats.\n- Mapping JSON now includes explicit atlas/source/generator metadata (47 used + 17 reserved slots, ordering, source footprint and edge settings) in addition to per-mask coordinates.\n- Live preview renders a power-of-two **8×8 / 1024×1024** atlas: 47 used slots in ascending normalized-mask order and 17 transparent reserved slots.
 - The editor can download both the atlas PNG and a JSON mapping containing mask → atlas index/coordinates and bit definitions.
 - If no source image is loaded, a deterministic debug-stone material is used so geometry can be inspected immediately.
 - This is currently an **editor asset-generation utility only**; existing runtime wallTexture behavior is unchanged until the atlas consumer is wired into DungeonRun.
