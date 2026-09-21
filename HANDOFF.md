@@ -2,10 +2,32 @@
 
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
-Last updated: 2026-09-20  
-Current addon version: **0.60.0**  
+Last updated: 2026-09-21  
+Current addon version: **0.60.1**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.60.1 — Orc monster pack
+
+- Added the ten uploaded crypt-orc sprites as first-class Studio **Enemies**:
+  - Orc Raider
+  - Orc Berserker
+  - Orc Bonebreaker
+  - Orc Bonepicker
+  - Orc Grave Champion
+  - Orc Gravedigger
+  - Orc Hexer
+  - Orc Plague Eater
+  - Orc Tomb Sentinel
+  - Orc Warcaller
+- Every orc has an individual three-skill kit (30 new Monster Skills total) built only from the already-supported, headless-tested monster effect system.
+- Roles are intentionally differentiated: skirmisher, frenzy melee, heavy control, scavenger, miniboss champion, space-control bruiser, ranged hexer, disease attrition, defensive sentinel and warcaller.
+- Uploaded PNG files remain the canonical sprite assets; enemy records point directly at their exact `Media/Monsters/*_128x128.png` paths.
+- Dungeon enemy visuals are now **data-driven** for non-hardcoded enemies: `DungeonRun.lua` resolves the Studio Enemy `sprite` path for both grid sprite and target portrait. Kobold / Spider / Skeleton keep their existing visual overrides.
+- Studio stays on schema **10**, advances to version **1.9.1**, and local draft key is now **v24** so existing browser drafts cannot hide the newly published enemy/skill defaults.
+- Addon version is **0.60.1**.
+- Added `tools/orc_content_audit.py` plus a CI **Monster content** job. It verifies all ten enemy records, all 30 assignments, supported skill effects/conditions and the physical sprite files.
+- This release deliberately does **not** add the orcs to the current floor spawn mix yet. They are data/runtime-ready for the upcoming dungeon-biome population pass, avoiding an accidental balance change before biome rules are authored.
 
 ## 0.60.0 — Event Conditions, Costs, Run Flags & Chains
 

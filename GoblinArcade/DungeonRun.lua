@@ -82,6 +82,30 @@ local ENEMY_VISUALS = {
     },
 }
 
+local function ResolveEnemyVisual(archetype)
+    local hardcoded = ENEMY_VISUALS[archetype]
+    if hardcoded then
+        return hardcoded
+    end
+
+    for _, record in ipairs(GA.StudioData and GA.StudioData.enemies or {}) do
+        if record.id == archetype and record.sprite and record.sprite ~= "" then
+            local texturePath = tostring(record.sprite):gsub("/", "\\")
+            if not string.find(texturePath, "^Interface\\") then
+                texturePath = "Interface\\AddOns\\GoblinArcade\\" .. texturePath
+            end
+            return {
+                gridTexture = texturePath,
+                portraitIcon = texturePath,
+                gridTexCoord = { 0, 1, 0, 1 },
+                portraitTexCoord = { 0, 1, 0, 1 },
+            }
+        end
+    end
+
+    return ENEMY_VISUALS.kobold
+end
+
 local RUN_ABILITY_IDS = {
     "battle_stance",
     "heroic_strike",
@@ -611,7 +635,7 @@ local function CreateFloorEnemies(enemyGenerator, playerLevel, floor, gearPressu
         local rank = candidate.forceRank
             or (rankPlan and rankPlan[nextIndex])
             or "normal"
-        local visual = ENEMY_VISUALS[archetype] or ENEMY_VISUALS.kobold
+        local visual = ResolveEnemyVisual(archetype)
 
         local enemy = enemyGenerator:CreateEnemy({
             archetype = archetype,

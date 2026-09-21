@@ -13,6 +13,7 @@ on:
       - "api/publish.js"
       - "tools/balance_audit.py"
       - "tools/event_audit.py"
+      - "tools/orc_content_audit.py"
       - "tools/event_runtime_audit.lua"
       - "tools/event_logic_audit.lua"
       - ".github/workflows/balance-audit.yml"
@@ -57,6 +58,17 @@ jobs:
           Path("/tmp/goblin-arcade-studio.js").write_text("\n".join(scripts), encoding="utf-8")
           PY
           node --check /tmp/goblin-arcade-studio.js
+
+  monster-content:
+    name: Monster content
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate authored monster database
+        shell: bash
+        run: python3 tools/orc_content_audit.py
 
   event-data:
     name: Event data
