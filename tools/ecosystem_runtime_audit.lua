@@ -32,7 +32,7 @@ dungeonChunk("GoblinArcade", GA)
 local floorChunk = assert(loadfile("GoblinArcade/FloorGenerator.lua"))
 floorChunk("GoblinArcade", GA)
 
-assert(GA.DungeonGenerator.VERSION == 16, "Unexpected DungeonGenerator version")
+assert(GA.DungeonGenerator.VERSION == 17, "Unexpected DungeonGenerator version")
 assert(GA.FloorGenerator.VERSION == 5, "Unexpected FloorGenerator version")
 
 local selectedA = assert(GA.DungeonGenerator:SelectEcosystem(424242))
@@ -52,6 +52,7 @@ for floor = 1, 9 do
     assert(map.stylePreset == selectedA.stylePreset, "Style preset did not follow ecosystem")
     assert(map.floorTexture == (selectedA.floorTexture or ""), "Floor texture did not follow ecosystem")
     assert(map.wallTexture == (selectedA.wallTexture or ""), "Wall texture did not follow ecosystem")
+    assert(map.wallAutotileTexture == (selectedA.wallAutotileTexture or ""), "Wall autotile texture did not follow ecosystem")
     for _, placement in ipairs(map.eventPlacements or {}) do
         if selectedA.id == "orc" then
             assert(placement.eventId == "orc_event", "Foreign event entered orc ecosystem")

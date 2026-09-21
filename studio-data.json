@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 12,
-  "studioVersion": "1.11.0",
+  "schemaVersion": 13,
+  "studioVersion": "1.12.0",
   "classes": [
     {
       "id": "warrior",
@@ -10073,7 +10073,8 @@
       "stylePreset": "ORC_CRYPT",
       "description": "A desecrated burial complex occupied by orc raiders and grave robbers. Shallow floors are scavenger-heavy; deeper floors shift toward hexers, sentinels, plague-corrupted orcs and champions.",
       "floorTexture": "",
-      "wallTexture": ""
+      "wallTexture": "",
+      "wallAutotileTexture": "Media/Tiles/Autotiles/orc_occupied_crypt/orc_occupied_crypt_wall_autotile_47.png"
     },
     {
       "id": "kobold_warrens",
@@ -10084,7 +10085,8 @@
       "stylePreset": "WARREN",
       "description": "Collapsed cellars and mining warrens dominated by kobolds, spiders and heavier brutes. The ecosystem remains consistent for the full nine-floor run.",
       "floorTexture": "",
-      "wallTexture": ""
+      "wallTexture": "",
+      "wallAutotileTexture": ""
     },
     {
       "id": "haunted_catacombs",
@@ -10095,7 +10097,8 @@
       "stylePreset": "HAUNTED_CRYPT",
       "description": "Cold undead catacombs. Defined now for skeleton and crypt fauna, but disabled until the undead roster is broad enough for a full nine-floor run.",
       "floorTexture": "",
-      "wallTexture": ""
+      "wallTexture": "",
+      "wallAutotileTexture": ""
     }
   ],
   "ecosystemEnemies": [

@@ -41,7 +41,7 @@ function assertStudioData(data) {
     if (!(Number(ecosystem.weight) > 0)) throw new Error("Ecosystem " + ecosystem.id + " needs a positive Run Weight.");
     if (!validStyles.has(String(ecosystem.stylePreset || ""))) throw new Error("Ecosystem " + ecosystem.id + " has invalid Style Preset.");
     if (!String(ecosystem.dungeonName || "").trim()) throw new Error("Ecosystem " + ecosystem.id + " needs a Dungeon Title.");
-    for (const textureKey of ["floorTexture", "wallTexture"]) {
+    for (const textureKey of ["floorTexture", "wallTexture", "wallAutotileTexture"]) {
       const texturePath = String(ecosystem[textureKey] || "").trim();
       if (/^https?:\/\//i.test(texturePath)) throw new Error("Ecosystem " + ecosystem.id + " " + textureKey + " must be an addon-local texture path.");
     }

@@ -9,6 +9,7 @@ on:
       - "index.html"
       - "studio/index.html"
       - "GoblinArcade/index.html"
+      - "GoblinArcade/Media/Tiles/**"
       - "studio-data.json"
       - "api/publish.js"
       - "tools/balance_audit.py"

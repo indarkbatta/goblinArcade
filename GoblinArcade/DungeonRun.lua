@@ -244,6 +244,61 @@ local function GetActiveDungeonTileTexture(isWall)
     return ResolveDungeonTileTexture(isWall and ACTIVE_FLOOR_MAP.wallTexture or ACTIVE_FLOOR_MAP.floorTexture)
 end
 
+local function GetActiveDungeonWallAutotileTexture()
+    if not ACTIVE_FLOOR_MAP then return nil end
+    return ResolveDungeonTileTexture(ACTIVE_FLOOR_MAP.wallAutotileTexture)
+end
+
+local WALL_AUTOTILE_MASKS = {
+    0, 1, 4, 5, 7, 16, 17, 20, 21, 23, 28, 29, 31, 64, 65, 68,
+    69, 71, 80, 81, 84, 85, 87, 92, 93, 95, 112, 113, 116, 117, 119,
+    124, 125, 127, 193, 197, 199, 209, 213, 215, 221, 223, 241, 245,
+    247, 253, 255,
+}
+local WALL_AUTOTILE_INDEX_BY_MASK = {}
+for index, mask in ipairs(WALL_AUTOTILE_MASKS) do
+    WALL_AUTOTILE_INDEX_BY_MASK[mask] = index - 1
+end
+
+local WALL_AUTOTILE_COLUMNS = 8
+local WALL_AUTOTILE_PIXEL_SIZE = 1024
+local WALL_AUTOTILE_CELL_SIZE = 128
+local WALL_AUTOTILE_TEXEL_INSET = 0.5 / WALL_AUTOTILE_PIXEL_SIZE
+
+local function HasWallAutotileBit(mask, bitValue)
+    return math.floor((tonumber(mask) or 0) / bitValue) % 2 == 1
+end
+
+local function NormalizeWallAutotileMask(mask)
+    local value = tonumber(mask) or 0
+    if not (HasWallAutotileBit(value, 1) and HasWallAutotileBit(value, 4)) and HasWallAutotileBit(value, 2) then
+        value = value - 2
+    end
+    if not (HasWallAutotileBit(value, 4) and HasWallAutotileBit(value, 16)) and HasWallAutotileBit(value, 8) then
+        value = value - 8
+    end
+    if not (HasWallAutotileBit(value, 16) and HasWallAutotileBit(value, 64)) and HasWallAutotileBit(value, 32) then
+        value = value - 32
+    end
+    if not (HasWallAutotileBit(value, 64) and HasWallAutotileBit(value, 1)) and HasWallAutotileBit(value, 128) then
+        value = value - 128
+    end
+    return value
+end
+
+local function GetWallAutotileTexCoord(mask)
+    local normalized = NormalizeWallAutotileMask(mask)
+    local atlasIndex = WALL_AUTOTILE_INDEX_BY_MASK[normalized]
+    if atlasIndex == nil then atlasIndex = 0 end
+    local column = atlasIndex % WALL_AUTOTILE_COLUMNS
+    local row = math.floor(atlasIndex / WALL_AUTOTILE_COLUMNS)
+    local left = (column * WALL_AUTOTILE_CELL_SIZE) / WALL_AUTOTILE_PIXEL_SIZE + WALL_AUTOTILE_TEXEL_INSET
+    local right = ((column + 1) * WALL_AUTOTILE_CELL_SIZE) / WALL_AUTOTILE_PIXEL_SIZE - WALL_AUTOTILE_TEXEL_INSET
+    local top = (row * WALL_AUTOTILE_CELL_SIZE) / WALL_AUTOTILE_PIXEL_SIZE + WALL_AUTOTILE_TEXEL_INSET
+    local bottom = ((row + 1) * WALL_AUTOTILE_CELL_SIZE) / WALL_AUTOTILE_PIXEL_SIZE - WALL_AUTOTILE_TEXEL_INSET
+    return left, right, top, bottom
+end
+
 local function GetDungeonWalls()
     return ACTIVE_FLOOR_MAP and ACTIVE_FLOOR_MAP.walls or STATIC_WALLS
 end
@@ -294,6 +349,25 @@ local function IsDungeonWall(x, y)
     end
 
     return GetDungeonWalls()[CellKey(x, y)] == true
+end
+
+local function GetDungeonWallAutotileMask(x, y)
+    local mask = 0
+    local north = IsDungeonWall(x, y - 1)
+    local east = IsDungeonWall(x + 1, y)
+    local south = IsDungeonWall(x, y + 1)
+    local west = IsDungeonWall(x - 1, y)
+
+    if north then mask = mask + 1 end
+    if IsDungeonWall(x + 1, y - 1) then mask = mask + 2 end
+    if east then mask = mask + 4 end
+    if IsDungeonWall(x + 1, y + 1) then mask = mask + 8 end
+    if south then mask = mask + 16 end
+    if IsDungeonWall(x - 1, y + 1) then mask = mask + 32 end
+    if west then mask = mask + 64 end
+    if IsDungeonWall(x - 1, y - 1) then mask = mask + 128 end
+
+    return NormalizeWallAutotileMask(mask)
 end
 
 local function HasLineOfSight(fromX, fromY, toX, toY)
@@ -7353,9 +7427,28 @@ function GA:RenderDungeonGrid()
                 end
 
                 if entry.terrainTexture and explored then
-                    local terrainPath = GetActiveDungeonTileTexture(wall)
+                    local terrainPath
+                    local texLeft, texRight, texTop, texBottom
+
+                    if wall then
+                        terrainPath = GetActiveDungeonWallAutotileTexture()
+                        if terrainPath then
+                            local wallMask = GetDungeonWallAutotileMask(worldX, worldY)
+                            texLeft, texRight, texTop, texBottom = GetWallAutotileTexCoord(wallMask)
+                        else
+                            terrainPath = GetActiveDungeonTileTexture(true)
+                        end
+                    else
+                        terrainPath = GetActiveDungeonTileTexture(false)
+                    end
+
                     if terrainPath then
                         entry.terrainTexture:SetTexture(terrainPath)
+                        if texLeft then
+                            entry.terrainTexture:SetTexCoord(texLeft, texRight, texTop, texBottom)
+                        else
+                            entry.terrainTexture:SetTexCoord(0, 1, 0, 1)
+                        end
                         entry.terrainTexture:SetAlpha(visible and 1 or 0.24)
                         entry.terrainTexture:Show()
                     end

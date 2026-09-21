@@ -3,10 +3,25 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-21  
-Current addon version: **0.62.0**  
+Current addon version: **0.63.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
+
+## 0.63.0 — Runtime Blob47 wall autotiling
+
+- Wired the Studio-generated **47-tile Blob47 wall atlas** into `DungeonRun`.
+- Orc-Occupied Crypt now uses `Media/Tiles/Autotiles/orc_occupied_crypt/orc_occupied_crypt_wall_autotile_47.png`.
+- The uploaded atlas + mapping were moved into `GoblinArcade/Media/Tiles/Autotiles/orc_occupied_crypt/` for a stable per-ecosystem asset layout.
+- Each rendered wall tile computes an **8-neighbor N/NE/E/SE/S/SW/W/NW mask** from the full dungeon map, applies the same diagonal filtering used by the Studio builder, then selects the matching atlas slot.
+- Runtime atlas order is the builder's deterministic **ascending normalized mask** order (47 used cells in the 8×8 / 1024×1024 atlas).
+- `SetTexCoord` selects the appropriate 128×128 atlas cell with a half-texel inset to reduce sampling bleed.
+- Existing `wallTexture` remains a fallback when `wallAutotileTexture` is empty; floor texture/palette fallback is unchanged.
+- Added Studio ecosystem field **Wall Autotile Atlas** and publish validation.
+- Studio schema **13**, Studio **1.12.0**, browser draft key **v27**.
+- DungeonGenerator **v17** propagates the wall autotile path into every floor map.
+- Expanded ecosystem tile CI to validate the physical 1024×1024 PNG, the 47-entry mapping JSON, normalized mask order, runtime hooks and fallback contract.
+- Addon version **0.63.0**.
 
 ## Studio utility — Procedural wall autotile builder
 
@@ -18,7 +33,9 @@ Default branch: `main`
 - Edge presentation is procedural: configurable stone lip/bevel, dark outer edge and external AO shadow are derived from a chamfer distance field rather than painted into every source tile.
 - Edge wear changes shading only and deliberately does **not** perturb the binary wall silhouette, preserving exact seams.
 - The uploaded A1 artwork has its edge area inset/cropped and is mirrored into a reusable material field, so painted source borders do not get stretched into internal wall connections.
-- The A1 material crop is now permanently anchored to the canonical **80×80** source region at **x/y 24..104**; changing output Wall Thickness no longer moves or enlarges the source crop.\n- Source upload now enforces an exact **128×128 PNG** at load time instead of silently rescaling arbitrary dimensions/formats.\n- Mapping JSON now includes explicit atlas/source/generator metadata (47 used + 17 reserved slots, ordering, source footprint and edge settings) in addition to per-mask coordinates.\n- Live preview renders a power-of-two **8×8 / 1024×1024** atlas: 47 used slots in ascending normalized-mask order and 17 transparent reserved slots.
+- The A1 material crop is now permanently anchored to the canonical **80×80** source region at **x/y 24..104**; changing output Wall Thickness no longer moves or enlarges the source crop.
+- Source upload now enforces an exact **128×128 PNG** at load time instead of silently rescaling arbitrary dimensions/formats.
+- Mapping JSON now includes explicit atlas/source/generator metadata (47 used + 17 reserved slots, ordering, source footprint and edge settings) in addition to per-mask coordinates.\n- Live preview renders a power-of-two **8×8 / 1024×1024** atlas: 47 used slots in ascending normalized-mask order and 17 transparent reserved slots.
 - The editor can download both the atlas PNG and a JSON mapping containing mask → atlas index/coordinates and bit definitions.
 - If no source image is loaded, a deterministic debug-stone material is used so geometry can be inspected immediately.
 - This is currently an **editor asset-generation utility only**; existing runtime wallTexture behavior is unchanged until the atlas consumer is wired into DungeonRun.
