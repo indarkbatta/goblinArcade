@@ -14,7 +14,7 @@ Two combat envelopes are reported:
 - HEAVY_PRESSURE: doubles that extra pressure envelope to expose how quickly a
   build collapses when several enemies converge.
 
-The audit never edits Studio data. It reports evidence for a later balance pass.
+The audit never edits Studio data. It reports evidence for a later balance pass. Each simulated run selects one enabled ecosystem and keeps it for all nine floors.
 """
 
 from __future__ import annotations
@@ -99,8 +99,11 @@ def make_plan(rng: random.Random, count: int, weights: dict[str, int], order: li
     counts: dict[str, int] = {}
     remainders: list[tuple[float, int, str]] = []
     assigned = 0
+    total_weight = sum(max(0, weights.get(key, 0)) for key in order)
+    if total_weight <= 0:
+        return []
     for order_index, key in enumerate(order):
-        raw = count * (weights.get(key, 0) / 100)
+        raw = count * (max(0, weights.get(key, 0)) / total_weight)
         whole = math.floor(raw)
         counts[key] = whole
         assigned += whole
@@ -208,10 +211,45 @@ class Audit:
         self.ranks = {x["id"]: x for x in self.data.get("ranks", [])}
         self.enemies = {x["id"]: x for x in self.data.get("enemies", [])}
         self.monster_skills = {x["id"]: x for x in self.data.get("monsterSkills", [])}
+        self.ecosystems = [
+            x for x in self.data.get("ecosystems", [])
+            if str(x.get("enabled", "YES")).upper() == "YES" and float(x.get("weight", 0) or 0) > 0
+        ]
+        self.ecosystem_enemy_rows = list(self.data.get("ecosystemEnemies", []))
+        self._active_ecosystem_id: str | None = None
         self.progression = next(x for x in self.data["progression"] if x["id"] == "run_xp")
         self.warrior = next(x for x in self.data["classes"] if x["id"] == "warrior")
         self.xp_curve = [int(x.strip()) for x in str(self.progression["xpCurve"]).split(",") if x.strip()]
         self._loot_cache: dict[tuple[str, int], list[dict[str, Any]]] = {}
+
+    def select_ecosystem(self) -> str | None:
+        if not self.ecosystems:
+            return None
+        total = sum(max(0.0, float(x.get("weight", 0) or 0)) for x in self.ecosystems)
+        if total <= 0:
+            return None
+        roll = self.rng.random() * total
+        cursor = 0.0
+        for ecosystem in self.ecosystems:
+            cursor += max(0.0, float(ecosystem.get("weight", 0) or 0))
+            if roll <= cursor:
+                return str(ecosystem.get("id", ""))
+        return str(self.ecosystems[-1].get("id", ""))
+
+    def ecosystem_mix(self, floor: int) -> dict[str, int]:
+        if not self._active_ecosystem_id:
+            return dict(ARCHETYPE_MIX[floor])
+        weights: dict[str, int] = {}
+        for row in self.ecosystem_enemy_rows:
+            if str(row.get("ecosystemId", "")) != self._active_ecosystem_id:
+                continue
+            if floor < int(row.get("minFloor", 1)) or floor > int(row.get("maxFloor", 9)):
+                continue
+            weight = max(0, int(row.get("weight", 0) or 0))
+            enemy_id = str(row.get("enemyId", ""))
+            if enemy_id and weight > 0 and enemy_id in self.enemies:
+                weights[enemy_id] = weights.get(enemy_id, 0) + weight
+        return weights or dict(ARCHETYPE_MIX[floor])
 
     def xp_needed(self, levels_gained: int) -> int:
         if levels_gained < len(self.xp_curve):
@@ -274,7 +312,8 @@ class Audit:
 
     def floor_enemies(self, player_level: int, floor: int) -> list[Enemy]:
         count = max(1, round_lua(FLOOR_BASE[floor] * density_multiplier(self.rng)))
-        archetypes = make_plan(self.rng, count, ARCHETYPE_MIX[floor], ["kobold", "spider", "skeleton"])
+        mix = self.ecosystem_mix(floor)
+        archetypes = make_plan(self.rng, count, mix, sorted(mix))
         ranks = make_plan(self.rng, count, RANK_MIX[floor], ["normal", "veteran", "elite"])
 
         # Mirrors the current special-room anchors: one forced Elite from F5,
@@ -775,6 +814,7 @@ class Audit:
                 self.maybe_equip(player, item)
 
     def run_once(self, profile: str, pressure_scale: float) -> dict[str, Any]:
+        self._active_ecosystem_id = self.select_ecosystem()
         player = self.initial_player(profile)
         floor_rows: list[dict[str, Any]] = []
         shop_snapshot: dict[str, Any] | None = None

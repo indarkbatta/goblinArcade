@@ -3,9 +3,45 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-21  
-Current addon version: **0.60.1**  
+Current addon version: **0.61.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.61.0 — Single-ecosystem dungeon runs
+
+- Added a first-class, Studio-authored **Ecosystem** system. A dungeon run selects exactly **one ecosystem at BEGIN RUN and keeps it for all nine floors**; ecosystems never change between floors.
+- Studio schema is now **11**, Studio version **1.10.0**, local draft key **v25**.
+- Added Studio sections:
+  - **Ecosystems** — dungeon title, enabled state, run-selection weight and visual style preset;
+  - **Ecosystem Monsters** — ecosystem/enemy relationship, floor band and relative spawn weight.
+- Added three initial ecosystem definitions:
+  - **Orc-Occupied Crypt** — enabled, 70 run weight, `ORC_CRYPT` style;
+  - **Kobold Warrens** — enabled, 30 run weight, `WARREN` style;
+  - **Haunted Catacombs** — authored but disabled until the undead roster is broad enough for a full 9-floor run.
+- Orc-Occupied Crypt has four depth bands. Early floors favor Raiders, Bonepickers and Gravediggers; mid floors introduce Berserkers, Bonebreakers, Hexers, Warcallers and Tomb Sentinels; deep floors introduce Plague Eaters and Grave Champions; Floor 9 strongly favors the high-tier crypt orcs.
+- The existing Spider and Skeleton can appear as low-weight native crypt fauna where appropriate instead of every monster pool being an unrelated global mix.
+- Kobold Warrens retains Kobold + Spider ecology and introduces Brutes from Floor 4 onward, with Brutes becoming more common at depth.
+- Events now have **Allowed Ecosystems**. Random event selection filters by the run ecosystem, and chained event injection rejects cross-ecosystem events.
+- Existing events are mapped coherently:
+  - Abandoned Camp → Orc Crypt / Kobold Warrens;
+  - Bloodstained Altar → Orc Crypt / Haunted Catacombs;
+  - Forgotten Cache → all currently authored ecosystems;
+  - Wounded Goblin → Orc Crypt / Kobold Warrens;
+  - Goblin Smugglers → Orc Crypt / Kobold Warrens.
+- DungeonGenerator is now **v15**. It deterministically selects the run ecosystem from the dungeon seed, exposes ecosystem metadata on every floor map, and uses the ecosystem dungeon title instead of the old universal `THE SHIFTING CELLAR` title.
+- FloorGenerator is now **v5**. Enemy composition comes from the selected ecosystem's depth-band records; the old Kobold/Spider/Skeleton mix remains only as a compatibility fallback for old/malformed data.
+- DungeonRun persists `ecosystemId`, `ecosystemName` and style for the run and passes the same ecosystem to every newly generated floor, including after backtracking.
+- Added ecosystem-specific dungeon palettes. The main grid now uses a warm rust/bone crypt palette for Orc Crypt, earthy warren palette for Kobolds, and has cold haunted / plague presets ready for future ecosystems.
+- The headless balance simulator now selects one enabled ecosystem per simulated run and holds it across all nine floors instead of using the old global archetype mix.
+- Added `tools/ecosystem_audit.py` and `tools/ecosystem_runtime_audit.lua`. CI verifies:
+  - every enabled ecosystem has a non-empty monster pool on Floors 1–9;
+  - every enabled ecosystem has enough eligible random event definitions for the configured event cadence;
+  - monster/event references are valid;
+  - ecosystem choice is deterministic per run seed;
+  - an explicit ecosystem remains unchanged across all nine generated floors;
+  - enemy plans contain only ecosystem-legal monsters;
+  - cross-ecosystem chained events are rejected.
+- Addon version is **0.61.0**.
 
 ## 0.60.1 — Orc monster pack
 

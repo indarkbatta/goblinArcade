@@ -3,7 +3,7 @@ local _, GA = ...
 GA.FloorGenerator = GA.FloorGenerator or {}
 local FG = GA.FloorGenerator
 
-FG.VERSION = 4
+FG.VERSION = 5
 
 local DENSITY_PROFILES = {
     {
@@ -145,9 +145,45 @@ local function Shuffle(values)
     end
 end
 
-local function GetMixForFloor(floor)
-    local floorNumber = math.max(1, tonumber(floor) or 1)
+local function GetEcosystemMixForFloor(ecosystemId, floor)
+    if not ecosystemId or ecosystemId == "" then
+        return nil
+    end
 
+    local floorNumber = math.max(1, math.floor(tonumber(floor) or 1))
+    local weights = {}
+    local totalWeight = 0
+
+    for _, row in ipairs(GA.StudioData and GA.StudioData.ecosystemEnemies or {}) do
+        local minFloor = math.max(1, math.floor(tonumber(row.minFloor) or 1))
+        local maxFloor = math.max(minFloor, math.floor(tonumber(row.maxFloor) or 9))
+        local weight = math.max(0, tonumber(row.weight) or 0)
+
+        if tostring(row.ecosystemId or "") == tostring(ecosystemId)
+            and floorNumber >= minFloor
+            and floorNumber <= maxFloor
+            and tostring(row.enemyId or "") ~= ""
+            and weight > 0 then
+            local enemyId = tostring(row.enemyId)
+            weights[enemyId] = (weights[enemyId] or 0) + weight
+            totalWeight = totalWeight + weight
+        end
+    end
+
+    if totalWeight <= 0 then
+        return nil
+    end
+
+    return weights
+end
+
+local function GetMixForFloor(floor, ecosystemId)
+    local ecosystemMix = GetEcosystemMixForFloor(ecosystemId, floor)
+    if ecosystemMix then
+        return ecosystemMix
+    end
+
+    local floorNumber = math.max(1, tonumber(floor) or 1)
     for _, mix in ipairs(ARCHETYPE_MIXES) do
         if floorNumber >= mix.minFloor and floorNumber <= mix.maxFloor then
             return mix.weights
@@ -155,6 +191,17 @@ local function GetMixForFloor(floor)
     end
 
     return ARCHETYPE_MIXES[#ARCHETYPE_MIXES].weights
+end
+
+local function GetArchetypeOrder(weights)
+    local order = {}
+    for archetype, weight in pairs(weights or {}) do
+        if (tonumber(weight) or 0) > 0 then
+            order[#order + 1] = archetype
+        end
+    end
+    table.sort(order)
+    return order
 end
 
 local function GetRankMixForFloor(floor)
@@ -221,59 +268,71 @@ function FG:CalculateEnemyCount(walkableTiles, floor, densityProfile)
 end
 
 
-function FG:GetArchetypeWeights(floor)
-    local weights = GetMixForFloor(floor)
+function FG:GetArchetypeWeights(floor, ecosystemId)
+    local weights = GetMixForFloor(floor, ecosystemId)
+    local result = {}
 
-    return {
-        kobold = weights.kobold or 0,
-        spider = weights.spider or 0,
-        skeleton = weights.skeleton or 0,
-    }
+    for archetype, weight in pairs(weights or {}) do
+        result[archetype] = tonumber(weight) or 0
+    end
+
+    return result
 end
 
-function FG:CreateArchetypePlan(enemyCount, floor)
+function FG:CreateArchetypePlan(enemyCount, floor, ecosystemId)
     local count = math.max(1, tonumber(enemyCount) or 1)
-    local weights = GetMixForFloor(floor)
+    local weights = GetMixForFloor(floor, ecosystemId)
+    local order = GetArchetypeOrder(weights)
+
+    if #order == 0 then
+        weights = GetMixForFloor(floor, nil)
+        order = GetArchetypeOrder(weights)
+    end
+
+    local totalWeight = 0
+    for _, archetype in ipairs(order) do
+        totalWeight = totalWeight + math.max(0, tonumber(weights[archetype]) or 0)
+    end
+    if totalWeight <= 0 then
+        return { "kobold" }, { kobold = 1 }
+    end
+
     local counts = {}
     local remainders = {}
     local assigned = 0
 
-    for _, archetype in ipairs(ARCHETYPE_ORDER) do
-        local raw = count * ((weights[archetype] or 0) / 100)
+    for orderIndex, archetype in ipairs(order) do
+        local raw = count * ((math.max(0, tonumber(weights[archetype]) or 0)) / totalWeight)
         local whole = math.floor(raw)
 
         counts[archetype] = whole
         assigned = assigned + whole
         remainders[#remainders + 1] = {
             archetype = archetype,
+            orderIndex = orderIndex,
             remainder = raw - whole,
         }
     end
 
     table.sort(remainders, function(a, b)
         if a.remainder == b.remainder then
-            return a.archetype < b.archetype
+            return a.orderIndex < b.orderIndex
         end
         return a.remainder > b.remainder
     end)
 
     local remaining = count - assigned
     local index = 1
-
-    while remaining > 0 do
+    while remaining > 0 and #remainders > 0 do
         local target = remainders[index]
         counts[target.archetype] = (counts[target.archetype] or 0) + 1
         remaining = remaining - 1
         index = index + 1
-
-        if index > #remainders then
-            index = 1
-        end
+        if index > #remainders then index = 1 end
     end
 
     local plan = {}
-
-    for _, archetype in ipairs(ARCHETYPE_ORDER) do
+    for _, archetype in ipairs(order) do
         for _ = 1, counts[archetype] or 0 do
             plan[#plan + 1] = archetype
         end
@@ -282,7 +341,6 @@ function FG:CreateArchetypePlan(enemyCount, floor)
     Shuffle(plan)
     return plan, counts
 end
-
 
 function FG:GetRankWeights(floor)
     local weights = GetRankMixForFloor(floor)

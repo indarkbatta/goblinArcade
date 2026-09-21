@@ -12,7 +12,7 @@ function safeEqual(left, right) {
 
 function assertStudioData(data) {
   if (!data || typeof data !== "object") throw new Error("Missing Studio data.");
-  const arrays = ["classes", "races", "abilities", "monsterSkills", "items", "lootTables", "loot", "objects", "eventRules", "events", "eventFlags", "eventOptions", "enemies", "ranks", "progression", "rooms", "shrines"];
+  const arrays = ["classes", "races", "abilities", "monsterSkills", "items", "lootTables", "loot", "objects", "ecosystems", "ecosystemEnemies", "eventRules", "events", "eventFlags", "eventOptions", "enemies", "ranks", "progression", "rooms", "shrines"];
   for (const key of arrays) {
     if (!Array.isArray(data[key])) throw new Error("Missing array: " + key);
     const ids = new Set();
@@ -25,12 +25,48 @@ function assertStudioData(data) {
     }
   }
 
+  const ecosystemIds = new Set(data.ecosystems.map(x => String(x.id || "")));
+  const enemyIds = new Set(data.enemies.map(x => String(x.id || "")));
   const eventIds = new Set(data.events.map(x => String(x.id || "")));
   const flagIds = new Set(data.eventFlags.map(x => String(x.id || "")));
   const roomIds = new Set(data.rooms.map(x => String(x.id || "")));
   const lootTableIds = new Set(data.lootTables.map(x => String(x.id || "")));
   const itemIds = new Set(data.items.map(x => String(x.id || "")));
   const classIds = new Set(data.classes.map(x => String(x.id || "")));
+
+  const validStyles = new Set(["ORC_CRYPT","WARREN","HAUNTED_CRYPT","PLAGUE_CRYPT"]);
+  for (const ecosystem of data.ecosystems) {
+    const enabled = String(ecosystem.enabled || "YES").toUpperCase();
+    if (!["YES","NO"].includes(enabled)) throw new Error("Ecosystem " + ecosystem.id + " has invalid Enabled value.");
+    if (!(Number(ecosystem.weight) > 0)) throw new Error("Ecosystem " + ecosystem.id + " needs a positive Run Weight.");
+    if (!validStyles.has(String(ecosystem.stylePreset || ""))) throw new Error("Ecosystem " + ecosystem.id + " has invalid Style Preset.");
+    if (!String(ecosystem.dungeonName || "").trim()) throw new Error("Ecosystem " + ecosystem.id + " needs a Dungeon Title.");
+  }
+
+  for (const membership of data.ecosystemEnemies) {
+    if (!ecosystemIds.has(String(membership.ecosystemId || ""))) throw new Error("Ecosystem Monster " + membership.id + " references unknown ecosystem.");
+    if (!enemyIds.has(String(membership.enemyId || ""))) throw new Error("Ecosystem Monster " + membership.id + " references unknown enemy.");
+    const minFloor = Number(membership.minFloor);
+    const maxFloor = Number(membership.maxFloor);
+    if (!Number.isFinite(minFloor) || minFloor < 1 || !Number.isFinite(maxFloor) || maxFloor < minFloor || maxFloor > 9) {
+      throw new Error("Ecosystem Monster " + membership.id + " has invalid floor range.");
+    }
+    if (!(Number(membership.weight) > 0)) throw new Error("Ecosystem Monster " + membership.id + " needs positive Spawn Weight.");
+  }
+
+  for (const ecosystem of data.ecosystems) {
+    if (String(ecosystem.enabled || "YES").toUpperCase() !== "YES") continue;
+    for (let floor = 1; floor <= 9; floor++) {
+      const available = data.ecosystemEnemies.some(row =>
+        String(row.ecosystemId || "") === String(ecosystem.id || "")
+        && floor >= Number(row.minFloor)
+        && floor <= Number(row.maxFloor)
+        && Number(row.weight) > 0
+      );
+      if (!available) throw new Error("Enabled ecosystem " + ecosystem.id + " has no monsters for Floor " + floor + ".");
+    }
+  }
+
   const validEventEffects = new Set([
     "NONE", "HEAL_PERCENT", "DAMAGE_PERCENT", "HP_FOR_SCORE",
     "DAMAGE_BONUS", "MAX_HP_PERCENT", "COPPER", "SCORE", "LOOT_TABLE",
@@ -52,6 +88,9 @@ function assertStudioData(data) {
   const optionCount = new Map();
   const fallbackCount = new Map();
   for (const event of data.events) {
+    for (const ecosystemId of (Array.isArray(event.ecosystemIds) ? event.ecosystemIds : [])) {
+      if (!ecosystemIds.has(String(ecosystemId))) throw new Error("Event " + event.id + " references unknown ecosystem: " + ecosystemId);
+    }
     const icon = String(event.icon || "").trim();
     if (/^https?:\/\//i.test(icon)) throw new Error("Event " + event.id + " icon cannot be a web URL.");
     const randomSpawn = String(event.randomSpawn || "YES").toUpperCase();
@@ -258,6 +297,8 @@ module.exports = async function handler(req, res) {
       lootTables: data.lootTables,
       loot: data.loot,
       objects: data.objects,
+      ecosystems: data.ecosystems,
+      ecosystemEnemies: data.ecosystemEnemies,
       eventRules: data.eventRules,
       events: data.events,
       eventFlags: data.eventFlags,

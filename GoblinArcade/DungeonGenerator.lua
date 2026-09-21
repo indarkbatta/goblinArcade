@@ -3,7 +3,7 @@ local _, GA = ...
 GA.DungeonGenerator = GA.DungeonGenerator or {}
 local DG = GA.DungeonGenerator
 
-DG.VERSION = 14
+DG.VERSION = 15
 
 local MODULUS = 2147483647
 local MULTIPLIER = 48271
@@ -515,6 +515,58 @@ local function IsStudioYes(value)
     return normalized == "YES" or normalized == "TRUE" or normalized == "1"
 end
 
+local function GetStudioEcosystem(ecosystemId)
+    if not ecosystemId then return nil end
+    for _, ecosystem in ipairs(GA.StudioData and GA.StudioData.ecosystems or {}) do
+        if tostring(ecosystem.id or "") == tostring(ecosystemId) then
+            return ecosystem
+        end
+    end
+    return nil
+end
+
+local function EventAllowsEcosystem(event, ecosystemId)
+    local ids = type(event and event.ecosystemIds) == "table" and event.ecosystemIds or {}
+    if #ids == 0 or not ecosystemId then
+        return true
+    end
+    for _, allowed in ipairs(ids) do
+        if tostring(allowed) == tostring(ecosystemId) then
+            return true
+        end
+    end
+    return false
+end
+
+function DG:SelectEcosystem(runSeed)
+    local eligible = {}
+    local totalWeight = 0
+
+    for _, ecosystem in ipairs(GA.StudioData and GA.StudioData.ecosystems or {}) do
+        local weight = math.max(0, tonumber(ecosystem.weight) or 0)
+        if IsStudioYes(ecosystem.enabled) and weight > 0 then
+            eligible[#eligible + 1] = { ecosystem = ecosystem, weight = weight }
+            totalWeight = totalWeight + weight
+        end
+    end
+
+    if #eligible == 0 or totalWeight <= 0 then
+        return nil
+    end
+
+    local rng = CreateRng(NormalizeSeed((tonumber(runSeed) or 1) + 32452843))
+    local roll = rng() * totalWeight
+    local cursor = 0
+    for _, entry in ipairs(eligible) do
+        cursor = cursor + entry.weight
+        if roll <= cursor then
+            return entry.ecosystem
+        end
+    end
+
+    return eligible[#eligible].ecosystem
+end
+
 local function GetStudioEventRule()
     local rules = GA.StudioData and GA.StudioData.eventRules or {}
     for _, record in ipairs(rules) do
@@ -539,7 +591,7 @@ local function GetEventTargetCount(floor)
     return math.min(maximum, base + extra)
 end
 
-local function GetEligibleStudioEvents(floor)
+local function GetEligibleStudioEvents(floor, ecosystemId)
     local result = {}
     for _, event in ipairs(GA.StudioData and GA.StudioData.events or {}) do
         local minFloor = math.max(1, math.floor(tonumber(event.minFloor) or 1))
@@ -547,6 +599,7 @@ local function GetEligibleStudioEvents(floor)
         local roles = type(event.roomRoleIds) == "table" and event.roomRoleIds or {}
         if IsStudioYes(event.enabled)
             and string.upper(tostring(event.randomSpawn or "YES")) ~= "NO"
+            and EventAllowsEcosystem(event, ecosystemId)
             and floor >= minFloor
             and floor <= maxFloor
             and (tonumber(event.weight) or 0) > 0
@@ -651,10 +704,10 @@ local function PickWeightedEvent(events, rooms, markers, usedRooms, rng)
     return selected.event, selected.candidates
 end
 
-local function AddDungeonEvents(markers, rooms, floor, rng)
+local function AddDungeonEvents(markers, rooms, floor, rng, ecosystemId)
     local eventKeys = {}
     local eventPlacements = {}
-    local available = GetEligibleStudioEvents(floor)
+    local available = GetEligibleStudioEvents(floor, ecosystemId)
     local usedRooms = {}
     local targetCount = GetEventTargetCount(floor)
 
@@ -712,6 +765,9 @@ function DG:InjectEvent(floorMap, eventId, salt)
     end
     if not event or not IsStudioYes(event.enabled) then
         return false, nil, "missing"
+    end
+    if not EventAllowsEcosystem(event, floorMap.ecosystemId) then
+        return false, nil, "ecosystem"
     end
 
     local floor = math.max(1, math.floor(tonumber(floorMap.floor) or 1))
@@ -819,13 +875,15 @@ local function AddTreasureChests(markers, chestKeys, room, maximumChests, marker
     end
 end
 
-function DG:GenerateFloor(width, height, floorNumber, runSeed)
+function DG:GenerateFloor(width, height, floorNumber, runSeed, ecosystemId)
     local mapWidth = math.max(15, tonumber(width) or 25)
     local mapHeight = math.max(15, tonumber(height) or 25)
     local floor = math.max(1, tonumber(floorNumber) or 1)
     local baseSeed = NormalizeSeed(runSeed or math.random(1, MODULUS - 1))
     local floorSeed = NormalizeSeed(baseSeed + floor * 104729)
     local rng = CreateRng(floorSeed)
+    local ecosystem = GetStudioEcosystem(ecosystemId) or self:SelectEcosystem(baseSeed)
+    local resolvedEcosystemId = ecosystem and ecosystem.id or nil
 
     local walls = InitializeWalls(mapWidth, mapHeight)
     local walkable = {}
@@ -1008,11 +1066,14 @@ function DG:GenerateFloor(width, height, floorNumber, runSeed)
     AddRoomRoleMarker(markers, roleData.eliteRoom, GetStudioRoomMarker("ELITE", "!"), "red", "elite")
     AddRoomRoleMarker(markers, roleData.bossRoom, GetStudioRoomMarker("BOSS", "B"), "red", "boss")
 
-    local eventKeys, eventPlacements = AddDungeonEvents(markers, rooms, floor, rng)
+    local eventKeys, eventPlacements = AddDungeonEvents(markers, rooms, floor, rng, resolvedEcosystemId)
 
     return {
         generatorVersion = self.VERSION,
-        name = "THE SHIFTING CELLAR",
+        ecosystemId = resolvedEcosystemId,
+        ecosystemName = ecosystem and ecosystem.name or "Legacy Dungeon",
+        stylePreset = ecosystem and ecosystem.stylePreset or "WARREN",
+        name = ecosystem and ecosystem.dungeonName or "THE SHIFTING CELLAR",
         width = mapWidth,
         height = mapHeight,
         floor = floor,

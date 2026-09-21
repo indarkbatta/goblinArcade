@@ -177,8 +177,56 @@ end
 
 local ACTIVE_FLOOR_MAP = nil
 
+local DUNGEON_STYLE_PALETTES = {
+    ORC_CRYPT = {
+        wallVisible = { 0.145, 0.082, 0.044, 1 },
+        wallBorder = { 0.235, 0.135, 0.065, 1 },
+        floorVisible = { 0.066, 0.046, 0.029, 1 },
+        floorBorder = { 0.115, 0.076, 0.043, 1 },
+        wallMemory = { 0.052, 0.031, 0.022, 1 },
+        wallMemoryBorder = { 0.078, 0.047, 0.031, 1 },
+        floorMemory = { 0.024, 0.019, 0.015, 1 },
+        floorMemoryBorder = { 0.034, 0.027, 0.020, 0.55 },
+    },
+    WARREN = {
+        wallVisible = { 0.12, 0.095, 0.06, 1 },
+        wallBorder = { 0.20, 0.16, 0.09, 1 },
+        floorVisible = { 0.055, 0.048, 0.038, 1 },
+        floorBorder = { 0.09, 0.075, 0.055, 1 },
+        wallMemory = { 0.045, 0.038, 0.028, 1 },
+        wallMemoryBorder = { 0.070, 0.058, 0.040, 1 },
+        floorMemory = { 0.020, 0.018, 0.015, 1 },
+        floorMemoryBorder = { 0.026, 0.023, 0.019, 0.55 },
+    },
+    HAUNTED_CRYPT = {
+        wallVisible = { 0.075, 0.090, 0.115, 1 },
+        wallBorder = { 0.125, 0.155, 0.195, 1 },
+        floorVisible = { 0.034, 0.043, 0.055, 1 },
+        floorBorder = { 0.060, 0.078, 0.100, 1 },
+        wallMemory = { 0.030, 0.038, 0.052, 1 },
+        wallMemoryBorder = { 0.046, 0.058, 0.078, 1 },
+        floorMemory = { 0.015, 0.020, 0.028, 1 },
+        floorMemoryBorder = { 0.022, 0.029, 0.040, 0.55 },
+    },
+    PLAGUE_CRYPT = {
+        wallVisible = { 0.090, 0.105, 0.050, 1 },
+        wallBorder = { 0.145, 0.165, 0.072, 1 },
+        floorVisible = { 0.042, 0.050, 0.027, 1 },
+        floorBorder = { 0.070, 0.085, 0.040, 1 },
+        wallMemory = { 0.036, 0.043, 0.024, 1 },
+        wallMemoryBorder = { 0.052, 0.062, 0.032, 1 },
+        floorMemory = { 0.018, 0.023, 0.014, 1 },
+        floorMemoryBorder = { 0.025, 0.032, 0.018, 0.55 },
+    },
+}
+
 local function SetActiveFloorMap(floorMap)
     ACTIVE_FLOOR_MAP = floorMap
+end
+
+local function GetActiveDungeonStyle()
+    local preset = ACTIVE_FLOOR_MAP and ACTIVE_FLOOR_MAP.stylePreset or "WARREN"
+    return DUNGEON_STYLE_PALETTES[preset] or DUNGEON_STYLE_PALETTES.WARREN
 end
 
 local function GetDungeonWalls()
@@ -1453,7 +1501,8 @@ local function GenerateFloorSetup(floorGenerator, enemyGenerator, playerLevel, f
 
     local archetypePlan, archetypeCounts = floorGenerator:CreateArchetypePlan(
         enemyCount,
-        floorNumber
+        floorNumber,
+        floorMap and floorMap.ecosystemId
     )
     local rankPlan, rankCounts = floorGenerator:CreateRankPlan(
         enemyCount,
@@ -7177,6 +7226,7 @@ function GA:RenderDungeonGrid()
 
     local cameraX = self.DungeonCameraX or 1
     local cameraY = self.DungeonCameraY or 1
+    local palette = GetActiveDungeonStyle()
 
     for viewY = 1, VIEWPORT_HEIGHT do
         for viewX = 1, VIEWPORT_WIDTH do
@@ -7219,22 +7269,24 @@ function GA:RenderDungeonGrid()
                     entry.frame:SetBackdropColor(0.008, 0.007, 0.006, 1)
                     entry.frame:SetBackdropBorderColor(0, 0, 0, 0)
                 elseif not visible then
-                    -- Explored memory: preserve terrain shape, but strongly dim it.
+                    -- Explored memory keeps the selected ecosystem palette,
+                    -- but dims it heavily.
                     if wall then
-                        entry.frame:SetBackdropColor(0.045, 0.038, 0.028, 1)
-                        entry.frame:SetBackdropBorderColor(0.070, 0.058, 0.040, 1)
+                        entry.frame:SetBackdropColor(palette.wallMemory[1], palette.wallMemory[2], palette.wallMemory[3], palette.wallMemory[4])
+                        entry.frame:SetBackdropBorderColor(palette.wallMemoryBorder[1], palette.wallMemoryBorder[2], palette.wallMemoryBorder[3], palette.wallMemoryBorder[4])
                     else
-                        entry.frame:SetBackdropColor(0.020, 0.018, 0.015, 1)
-                        entry.frame:SetBackdropBorderColor(0.026, 0.023, 0.019, 0.55)
+                        entry.frame:SetBackdropColor(palette.floorMemory[1], palette.floorMemory[2], palette.floorMemory[3], palette.floorMemory[4])
+                        entry.frame:SetBackdropBorderColor(palette.floorMemoryBorder[1], palette.floorMemoryBorder[2], palette.floorMemoryBorder[3], palette.floorMemoryBorder[4])
                     end
                 else
-                    -- Currently visible.
+                    -- Currently visible: biome style is consistent for the
+                    -- entire nine-floor run.
                     if wall then
-                        entry.frame:SetBackdropColor(0.12, 0.095, 0.06, 1)
-                        entry.frame:SetBackdropBorderColor(0.20, 0.16, 0.09, 1)
+                        entry.frame:SetBackdropColor(palette.wallVisible[1], palette.wallVisible[2], palette.wallVisible[3], palette.wallVisible[4])
+                        entry.frame:SetBackdropBorderColor(palette.wallBorder[1], palette.wallBorder[2], palette.wallBorder[3], palette.wallBorder[4])
                     else
-                        entry.frame:SetBackdropColor(0.055, 0.048, 0.038, 1)
-                        entry.frame:SetBackdropBorderColor(0.09, 0.075, 0.055, 1)
+                        entry.frame:SetBackdropColor(palette.floorVisible[1], palette.floorVisible[2], palette.floorVisible[3], palette.floorVisible[4])
+                        entry.frame:SetBackdropBorderColor(palette.floorBorder[1], palette.floorBorder[2], palette.floorBorder[3], palette.floorBorder[4])
                     end
                 end
 
@@ -7505,11 +7557,16 @@ function GA:BeginDungeonRun()
     )
 
     local dungeonSeed = math.random(1, 2147483646)
+    local selectedEcosystem = self.DungeonGenerator.SelectEcosystem
+        and self.DungeonGenerator:SelectEcosystem(dungeonSeed)
+        or nil
+    local ecosystemId = selectedEcosystem and selectedEcosystem.id or nil
     local floorMap = self.DungeonGenerator:GenerateFloor(
         GRID_WIDTH,
         GRID_HEIGHT,
         floor,
-        dungeonSeed
+        dungeonSeed,
+        ecosystemId
     )
 
     if not floorMap then
@@ -7621,6 +7678,9 @@ function GA:BeginDungeonRun()
         visible = {},
         gearPressure = CopyTable(gearPressure),
         dungeonSeed = dungeonSeed,
+        ecosystemId = floorMap.ecosystemId,
+        ecosystemName = floorMap.ecosystemName,
+        ecosystemStyle = floorMap.stylePreset,
         floorMap = floorMap,
         floorStates = {},
         roomRoleCounts = CopyTable(roomRoleCounts),
@@ -7742,6 +7802,13 @@ function GA:BeginDungeonRun()
             floorMap.roomCount or 0,
             floorMap.doorCount or 0,
             floorMap.seed or 0
+        ),
+        "system"
+    )
+    self:AddCombatLog(
+        string.format(
+            "Ecosystem: %s. This ecosystem remains active for all 9 floors.",
+            floorMap.ecosystemName or self.RunState.ecosystemName or "Legacy Dungeon"
         ),
         "system"
     )
@@ -8124,11 +8191,19 @@ function GA:ApplyDungeonFloor(floorNumber, entryDirection)
         EnsureDungeonEventStates(run)
         floorMap = run.floorMap
     else
+        if not run.ecosystemId and self.DungeonGenerator and self.DungeonGenerator.SelectEcosystem then
+            local selectedEcosystem = self.DungeonGenerator:SelectEcosystem(run.dungeonSeed)
+            run.ecosystemId = selectedEcosystem and selectedEcosystem.id or nil
+            run.ecosystemName = selectedEcosystem and selectedEcosystem.name or run.ecosystemName
+            run.ecosystemStyle = selectedEcosystem and selectedEcosystem.stylePreset or run.ecosystemStyle
+        end
+
         floorMap = self.DungeonGenerator and self.DungeonGenerator:GenerateFloor(
             GRID_WIDTH,
             GRID_HEIGHT,
             floorNumber,
-            run.dungeonSeed
+            run.dungeonSeed,
+            run.ecosystemId
         )
 
         if not floorMap then
@@ -8151,6 +8226,9 @@ function GA:ApplyDungeonFloor(floorNumber, entryDirection)
         )
 
         run.floor = floorNumber
+        run.ecosystemId = floorMap.ecosystemId or run.ecosystemId
+        run.ecosystemName = floorMap.ecosystemName or run.ecosystemName
+        run.ecosystemStyle = floorMap.stylePreset or run.ecosystemStyle
         run.floorMap = floorMap
         run.roomRoleCounts = CopyTable(floorMap.roomRoleCounts or {})
         run.roomStates = BuildInitialRoomStates(floorMap)
