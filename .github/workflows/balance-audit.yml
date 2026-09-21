@@ -118,139 +118,34 @@ jobs:
           & $nodePath --version
           if ($LASTEXITCODE -ne 0) { throw "Node.js failed to start." }
 
-      - name: Locate or build local Lua 5.1
+      - name: Provision local Lua audit runtime
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
+          & npm install --no-save --package-lock=false --ignore-scripts fengari-node-cli@0.1.0 luaparse@0.3.1
+          if ($LASTEXITCODE -ne 0) { throw "Could not provision Fengari/luaparse on the self-hosted runner." }
 
-          $toolRoot = if ($env:RUNNER_TOOL_CACHE) { $env:RUNNER_TOOL_CACHE } else { $env:RUNNER_TEMP }
-          $luaHome = Join-Path $toolRoot "GoblinArcadeLua\5.1.5"
-          $luaBin = Join-Path $luaHome "bin"
-          $cachedLua = Join-Path $luaBin "lua.exe"
-          $cachedLuac = Join-Path $luaBin "luac.exe"
+          $fengari = Join-Path $PWD "node_modules\.bin\fengari.cmd"
+          $luaparse = Join-Path $PWD "node_modules\.bin\luaparse.cmd"
+          if (-not (Test-Path $fengari)) { throw "Fengari CLI is missing." }
+          if (-not (Test-Path $luaparse)) { throw "luaparse CLI is missing." }
 
-          $luaPath = $null
-          $luacPath = $null
-
-          $systemLua = Get-Command lua.exe -ErrorAction SilentlyContinue
-          $systemLuac = Get-Command luac.exe -ErrorAction SilentlyContinue
-          if ($systemLua -and $systemLuac) {
-            & $systemLua.Source -e "if _VERSION ~= 'Lua 5.1' then os.exit(1) end"
-            if ($LASTEXITCODE -eq 0) {
-              $luaPath = $systemLua.Source
-              $luacPath = $systemLuac.Source
-            }
-          }
-
-          if (-not $luaPath -and (Test-Path $cachedLua) -and (Test-Path $cachedLuac)) {
-            & $cachedLua -e "if _VERSION ~= 'Lua 5.1' then os.exit(1) end"
-            if ($LASTEXITCODE -eq 0) {
-              $luaPath = $cachedLua
-              $luacPath = $cachedLuac
-            }
-          }
-
-          if (-not $luaPath) {
-            Write-Host "Lua 5.1 not found; building Lua 5.1.5 locally with the desktop Visual Studio toolchain."
-
-            $programFilesX86 = [Environment]::GetFolderPath("ProgramFilesX86")
-            $vswhere = Join-Path $programFilesX86 "Microsoft Visual Studio\Installer\vswhere.exe"
-            if (-not (Test-Path $vswhere)) {
-              throw "Visual Studio vswhere.exe was not found."
-            }
-
-            $vsInstall = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath | Select-Object -Last 1)
-            if (-not $vsInstall) {
-              throw "Visual Studio C++ build tools were not found."
-            }
-
-            $vcvars = Join-Path $vsInstall "VC\Auxiliary\Build\vcvars64.bat"
-            if (-not (Test-Path $vcvars)) {
-              throw "vcvars64.bat was not found: $vcvars"
-            }
-
-            $buildRoot = Join-Path $env:RUNNER_TEMP "goblinarcade-lua-build"
-            if (Test-Path $buildRoot) { Remove-Item $buildRoot -Recurse -Force }
-            New-Item -ItemType Directory -Force -Path $buildRoot | Out-Null
-
-            $archive = Join-Path $buildRoot "lua-5.1.5.tar.gz"
-            Invoke-WebRequest -Uri "https://www.lua.org/ftp/lua-5.1.5.tar.gz" -OutFile $archive
-
-            $env:GA_LUA_ARCHIVE = $archive
-            $env:GA_LUA_BUILD_ROOT = $buildRoot
-            & python -c "import os, tarfile; tarfile.open(os.environ['GA_LUA_ARCHIVE'], 'r:gz').extractall(os.environ['GA_LUA_BUILD_ROOT'])"
-            if ($LASTEXITCODE -ne 0) { throw "Could not extract Lua source." }
-
-            $src = Join-Path $buildRoot "lua-5.1.5\src"
-            if (-not (Test-Path $src)) { throw "Lua source directory was not extracted." }
-
-            $buildCmd = Join-Path $buildRoot "build-lua.cmd"
-            $buildLines = @(
-              "@echo off",
-              "setlocal",
-              "call `"$vcvars`"",
-              "if errorlevel 1 exit /b 1",
-              "cd /d `"$src`"",
-              "set CORE=lapi.obj lcode.obj ldebug.obj ldo.obj ldump.obj lfunc.obj lgc.obj llex.obj lmem.obj lobject.obj lopcodes.obj lparser.obj lstate.obj lstring.obj ltable.obj ltm.obj lundump.obj lvm.obj lzio.obj",
-              "set LIB=lauxlib.obj lbaselib.obj ldblib.obj liolib.obj lmathlib.obj loslib.obj ltablib.obj lstrlib.obj loadlib.obj linit.obj",
-              "for %%f in (lapi.c lcode.c ldebug.c ldo.c ldump.c lfunc.c lgc.c llex.c lmem.c lobject.c lopcodes.c lparser.c lstate.c lstring.c ltable.c ltm.c lundump.c lvm.c lzio.c lauxlib.c lbaselib.c ldblib.c liolib.c lmathlib.c loslib.c ltablib.c lstrlib.c loadlib.c linit.c lua.c luac.c print.c) do (",
-              "  cl /nologo /O2 /MT /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_WARNINGS /c %%f",
-              "  if errorlevel 1 exit /b 1",
-              ")",
-              "lib /nologo /out:lua51.lib %CORE% %LIB%",
-              "if errorlevel 1 exit /b 1",
-              "cl /nologo /O2 /MT lua.obj lua51.lib /Fe:lua.exe",
-              "if errorlevel 1 exit /b 1",
-              "cl /nologo /O2 /MT luac.obj print.obj lua51.lib /Fe:luac.exe",
-              "if errorlevel 1 exit /b 1",
-              "exit /b 0"
-            )
-            $buildLines | Set-Content -Path $buildCmd -Encoding ascii
-
-            & cmd.exe /d /c $buildCmd
-            if ($LASTEXITCODE -ne 0) { throw "Lua 5.1.5 local build failed." }
-
-            New-Item -ItemType Directory -Force -Path $luaBin | Out-Null
-            Copy-Item (Join-Path $src "lua.exe") $cachedLua -Force
-            Copy-Item (Join-Path $src "luac.exe") $cachedLuac -Force
-
-            $luaPath = $cachedLua
-            $luacPath = $cachedLuac
-          }
-
-          $luaDir = Split-Path -Parent $luaPath
-          $luaDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
-          Write-Host "Using Lua: $luaPath"
-          & $luaPath -v
-          if ($LASTEXITCODE -ne 0) { throw "Lua failed to start." }
-
-          Write-Host "Using luac: $luacPath"
-          & $luacPath -v
-          if ($LASTEXITCODE -ne 0) { throw "luac failed to start." }
-
-      - name: Verify local audit toolchain
-        shell: powershell
-        run: |
-          $ErrorActionPreference = "Stop"
-          & python --version
-          if ($LASTEXITCODE -ne 0) { throw "Python is not usable." }
-          & node --version
-          if ($LASTEXITCODE -ne 0) { throw "Node.js is not usable." }
-          & lua -v
-          if ($LASTEXITCODE -ne 0) { throw "Lua is not usable." }
-          & luac -v
-          if ($LASTEXITCODE -ne 0) { throw "luac is not usable." }
+          & $fengari -v
+          if ($LASTEXITCODE -ne 0) { throw "Fengari failed to start." }
+          & $luaparse -v
+          if ($LASTEXITCODE -ne 0) { throw "luaparse failed to start." }
 
       - name: Parse addon Lua and run runtime audits
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
+          $fengari = Join-Path $PWD "node_modules\.bin\fengari.cmd"
+          $luaparse = Join-Path $PWD "node_modules\.bin\luaparse.cmd"
 
           Get-ChildItem -Path "GoblinArcade" -Recurse -Filter "*.lua" | ForEach-Object {
-            & luac -p $_.FullName
+            & $luaparse -q -f $_.FullName
             if ($LASTEXITCODE -ne 0) {
-              throw "Lua syntax validation failed: $($_.FullName)"
+              throw "Lua 5.1-compatible syntax validation failed: $($_.FullName)"
             }
           }
 
@@ -260,9 +155,9 @@ jobs:
             "tools/ecosystem_runtime_audit.lua",
             "tools/forever_rules_audit.lua"
           )) {
-            & luac -p $audit
+            & $luaparse -q -f $audit
             if ($LASTEXITCODE -ne 0) { throw "Lua syntax validation failed: $audit" }
-            & lua $audit
+            & $fengari $audit
             if ($LASTEXITCODE -ne 0) { throw "Lua runtime audit failed: $audit" }
           }
 
