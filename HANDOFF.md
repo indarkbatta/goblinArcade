@@ -18,6 +18,7 @@ Default branch: `main`
 - Visible tiles render at full alpha; explored-memory tiles at reduced alpha; unseen tiles reveal no terrain art.
 - Existing ecosystem palettes remain as backdrop/border fallback.
 - Added Studio/publish validation for local texture paths and CI coverage via `tools/ecosystem_tile_audit.py`.
+- Updated the legacy event runtime audit to expect DungeonGenerator v16 so the ecosystem tile release remains fully green in CI.
 - Addon version **0.62.0**.
 
 ## 0.61.1 — Run-end dungeon visual cleanup
