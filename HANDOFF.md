@@ -3,9 +3,20 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-21  
-Current addon version: **0.61.0**  
+Current addon version: **0.61.1**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.61.1 — Run-end dungeon visual cleanup
+
+- Fixed stale dungeon enemy sprites / HP bars remaining visible over the character-selection screen after a run ended in death.
+- Added `GA:ClearDungeonGridVisuals()`, which explicitly hides all rendered enemy sprites, enemy HP bars, monster skill telegraphs, loot/event icons and the adjacent-enemy combat card.
+- `FailDungeonRun()` and `CompleteDungeonRun()` now clear rendered dungeon entities as soon as the run becomes inactive.
+- `ReturnToDungeonCharacters()` also clears the render state before restoring setup mode.
+- Setup mode now hides the **entire DungeonGrid and spriteLayer**, preventing high-frame-level creature textures from bleeding through the setup overlay. Leaving setup mode restores both layers before the run renders.
+- This also hardens abandon / killswitch / suspend return paths because they all converge on setup mode or the direct character-selection helper.
+- Added `tools/ui_cleanup_audit.py` to CI to verify the cleanup hooks and setup/run layer visibility contract.
+- Addon version is **0.61.1**.
 
 ## 0.61.0 — Single-ecosystem dungeon runs
 

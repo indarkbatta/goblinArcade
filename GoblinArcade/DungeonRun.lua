@@ -4072,12 +4072,40 @@ function GA:ChangeCentralStashPage(delta)
     self:RefreshCentralStash()
 end
 
+function GA:ClearDungeonGridVisuals()
+    local grid = self.DungeonGrid
+    if not grid or not grid.cells then
+        if self.DungeonEnemyCard then self.DungeonEnemyCard:Hide() end
+        return
+    end
+
+    for _, entry in pairs(grid.cells) do
+        if entry.enemyIcon then entry.enemyIcon:Hide() end
+        if entry.enemyHealthBackdrop then entry.enemyHealthBackdrop:Hide() end
+        if entry.enemySkillIcon then entry.enemySkillIcon:Hide() end
+        if entry.lootIcon then entry.lootIcon:Hide() end
+        if entry.eventIcon then entry.eventIcon:Hide() end
+        if entry.marker then entry.marker:SetText("") end
+    end
+
+    if self.DungeonEnemyCard then
+        self.DungeonEnemyCard:Hide()
+    end
+end
+
 function GA:SetDungeonSetupMode(active)
     if not self.DungeonSetupFrame then
         return
     end
 
     if active then
+        self:ClearDungeonGridVisuals()
+        if self.DungeonGrid then
+            self.DungeonGrid:Hide()
+        end
+        if self.DungeonGrid and self.DungeonGrid.spriteLayer then
+            self.DungeonGrid.spriteLayer:Hide()
+        end
         self:CloseCharacterGeneratorModal()
         self:CloseCentralStash()
         self.DungeonSetupFrame:Show()
@@ -4091,6 +4119,12 @@ function GA:SetDungeonSetupMode(active)
         self:CloseCharacterGeneratorModal()
         self:CloseCentralStash()
         self.DungeonSetupFrame:Hide()
+        if self.DungeonGrid then
+            self.DungeonGrid:Show()
+        end
+        if self.DungeonGrid and self.DungeonGrid.spriteLayer then
+            self.DungeonGrid.spriteLayer:Show()
+        end
     end
 end
 
@@ -5783,6 +5817,7 @@ end
 
 function GA:ReturnToDungeonCharacters()
     self:HideDungeonRunSummary()
+    self:ClearDungeonGridVisuals()
     if self.CharacterSheetFrame then
         self.CharacterSheetFrame:Hide()
     end
@@ -5802,6 +5837,7 @@ function GA:FailDungeonRun(reason)
 
     run.active = false
     run.failed = true
+    self:ClearDungeonGridVisuals()
     self:CloseRunControlMenu()
     self:CloseShrineChoice()
     self:CloseDungeonEvent()
@@ -8368,6 +8404,7 @@ function GA:CompleteDungeonRun()
     end
     run.active = false
     run.completed = true
+    self:ClearDungeonGridVisuals()
     self:CloseRunControlMenu()
     self:CloseShrineChoice()
     self:CloseDungeonEvent()
