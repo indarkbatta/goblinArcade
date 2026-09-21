@@ -3,9 +3,45 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-20  
-Current addon version: **0.59.1**  
+Current addon version: **0.60.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+## 0.60.0 — Event Conditions, Costs, Run Flags & Chains
+
+- Added a dedicated pure-Lua **EventEngine v1** so event decision logic is data-driven and headless-testable instead of being hardcoded into the dungeon UI.
+- Studio schema is now **10**, Studio version **1.9.0**, local draft key **v23**.
+- Added a first-class **Event Flags** editor. Event Options can require, forbid, set and clear run-scoped flags through relation-list controls.
+- Event Options now support availability requirements for:
+  - current HP percentage;
+  - minimum / maximum dungeon floor;
+  - one or more classes;
+  - equipped gear type (shield, 2H, 1H, weapon, armor or armor family);
+  - minimum Copper;
+  - one or more backpack items and quantities;
+  - required and forbidden run flags.
+- Unavailable choices can be authored as **DISABLE** (visible with the reason in the tooltip) or **HIDE**.
+- Event Options now support transactional costs:
+  - HP percentage;
+  - run Copper;
+  - backpack items / quantities.
+- Costs are paid only once when a choice is committed. A loot reward blocked by a full backpack keeps the exact pinned reward and does not charge the cost again on retry.
+- Every authored Event must keep at least one unconditional fallback choice, preventing a data-authored event from soft-locking the run.
+- Added follow-up Event queues. An option can queue one or more future Events with a floor delay; queued encounters are run-level state and survive backtracking and suspend/resume.
+- Events now have **Random Spawn = YES/NO**. NO makes an event chain-only while still allowing deterministic injection by a queued consequence.
+- DungeonGenerator is now **v14** and exposes deterministic chain-event injection while preserving one-event-per-room and START / EXIT / SHOP / BOSS protection.
+- Added the first authored chain:
+  - **Wounded Goblin** can be helped for a 10% max-HP cost;
+  - helping sets `helped_griznak` and queues **Goblin Smugglers** two floors later;
+  - Goblin Smugglers is chain-only, and **Griznak Sent Me** is hidden unless the required run flag exists;
+  - resolving that response clears the flag and awards run Copper.
+- Added server-side publish validation for all new references/ranges and self-queue prevention.
+- CI now includes:
+  - Event data/reference audit;
+  - DungeonGenerator random-vs-chain injection audit;
+  - EventEngine headless requirement/cost/flag/queue audit;
+  - existing Lua syntax, Studio mirror/JS syntax and Easy/Normal/Hard balance audits.
+- Baseline combat balance formulas, loot tables, item stats and difficulty multipliers are unchanged by this release.
 
 ## 0.59.1 — dungeon event hardening
 

@@ -12,7 +12,7 @@ function safeEqual(left, right) {
 
 function assertStudioData(data) {
   if (!data || typeof data !== "object") throw new Error("Missing Studio data.");
-  const arrays = ["classes", "races", "abilities", "monsterSkills", "items", "lootTables", "loot", "objects", "eventRules", "events", "eventOptions", "enemies", "ranks", "progression", "rooms", "shrines"];
+  const arrays = ["classes", "races", "abilities", "monsterSkills", "items", "lootTables", "loot", "objects", "eventRules", "events", "eventFlags", "eventOptions", "enemies", "ranks", "progression", "rooms", "shrines"];
   for (const key of arrays) {
     if (!Array.isArray(data[key])) throw new Error("Missing array: " + key);
     const ids = new Set();
@@ -25,13 +25,18 @@ function assertStudioData(data) {
     }
   }
 
-  const eventIds = new Set(data.events.map(event => String(event.id || "")));
-  const roomIds = new Set(data.rooms.map(room => String(room.id || "")));
-  const lootTableIds = new Set(data.lootTables.map(table => String(table.id || "")));
+  const eventIds = new Set(data.events.map(x => String(x.id || "")));
+  const flagIds = new Set(data.eventFlags.map(x => String(x.id || "")));
+  const roomIds = new Set(data.rooms.map(x => String(x.id || "")));
+  const lootTableIds = new Set(data.lootTables.map(x => String(x.id || "")));
+  const itemIds = new Set(data.items.map(x => String(x.id || "")));
+  const classIds = new Set(data.classes.map(x => String(x.id || "")));
   const validEventEffects = new Set([
     "NONE", "HEAL_PERCENT", "DAMAGE_PERCENT", "HP_FOR_SCORE",
     "DAMAGE_BONUS", "MAX_HP_PERCENT", "COPPER", "SCORE", "LOOT_TABLE",
   ]);
+  const validGear = new Set(["NONE","SHIELD","TWO_HAND","ONE_HAND","WEAPON","ARMOR","PLATE","MAIL","LEATHER","CLOTH"]);
+  const validUnavailable = new Set(["DISABLE","HIDE"]);
 
   const eventRule = data.eventRules.find(rule => String(rule.id || "") === "dungeon_events");
   if (!eventRule) throw new Error("Missing dungeon_events Event Rule.");
@@ -45,9 +50,12 @@ function assertStudioData(data) {
   }
 
   const optionCount = new Map();
+  const fallbackCount = new Map();
   for (const event of data.events) {
     const icon = String(event.icon || "").trim();
     if (/^https?:\/\//i.test(icon)) throw new Error("Event " + event.id + " icon cannot be a web URL.");
+    const randomSpawn = String(event.randomSpawn || "YES").toUpperCase();
+    if (!["YES","NO"].includes(randomSpawn)) throw new Error("Event " + event.id + " has invalid Random Spawn.");
     const minFloor = Number(event.minFloor);
     const maxFloor = Number(event.maxFloor);
     if (!Number.isFinite(minFloor) || minFloor < 1 || !Number.isFinite(maxFloor) || maxFloor < minFloor) {
@@ -60,34 +68,82 @@ function assertStudioData(data) {
       if (!roomIds.has(String(roleId))) throw new Error("Event " + event.id + " references unknown room role: " + roleId);
     }
   }
+
   for (const option of data.eventOptions) {
+    const id = String(option.id || "");
     const eventId = String(option.eventId || "");
-    if (!eventIds.has(eventId)) throw new Error("Event Option " + option.id + " references unknown event: " + eventId);
-    const sortOrder = Number(option.sortOrder);
-    if (!Number.isFinite(sortOrder) || sortOrder < 0) {
-      throw new Error("Event Option " + option.id + " has an invalid Sort Order.");
-    }
+    if (!eventIds.has(eventId)) throw new Error("Event Option " + id + " references unknown event: " + eventId);
+    if (!(Number(option.sortOrder) >= 0)) throw new Error("Event Option " + id + " has invalid Sort Order.");
     optionCount.set(eventId, (optionCount.get(eventId) || 0) + 1);
+
     const effect = String(option.effect || "NONE").toUpperCase();
-    if (!validEventEffects.has(effect)) {
-      throw new Error("Event Option " + option.id + " uses unsupported effect: " + effect);
-    }
+    if (!validEventEffects.has(effect)) throw new Error("Event Option " + id + " uses unsupported effect: " + effect);
     if (effect === "LOOT_TABLE" && !lootTableIds.has(String(option.lootTableId || ""))) {
-      throw new Error("Event Option " + option.id + " references unknown loot table: " + option.lootTableId);
+      throw new Error("Event Option " + id + " references unknown loot table: " + option.lootTableId);
     }
+
+    const minHp = Number(option.minHpPercent || 0);
+    const minFloor = Number(option.requiredMinFloor || 0);
+    const maxFloor = Number(option.requiredMaxFloor || 0);
+    const requiredCopper = Number(option.requiredCopper || 0);
+    const costHp = Number(option.costHpPercent || 0);
+    const costCopper = Number(option.costCopper || 0);
+    const requiredQty = Number(option.requiredItemQuantity || 1);
+    const costQty = Number(option.costItemQuantity || 1);
+    const queueDelay = Number(option.queueAfterFloors || 1);
+    if (!Number.isFinite(minHp) || minHp < 0 || minHp > 100) throw new Error(id + ": Min Current HP % must be 0-100.");
+    if (!Number.isFinite(minFloor) || minFloor < 0 || !Number.isFinite(maxFloor) || maxFloor < 0
+        || (minFloor > 0 && maxFloor > 0 && maxFloor < minFloor)) throw new Error(id + ": invalid floor requirement.");
+    if (!Number.isFinite(requiredCopper) || requiredCopper < 0 || !Number.isFinite(costCopper) || costCopper < 0) throw new Error(id + ": Copper values cannot be negative.");
+    if (!Number.isFinite(costHp) || costHp < 0 || costHp >= 100) throw new Error(id + ": HP Cost % must be 0-99.");
+    if (!Number.isFinite(requiredQty) || requiredQty < 1 || !Number.isFinite(costQty) || costQty < 1) throw new Error(id + ": item quantities must be at least 1.");
+    if (!Number.isFinite(queueDelay) || queueDelay < 1) throw new Error(id + ": Follow-up Delay must be at least 1 floor.");
+    if (!validGear.has(String(option.requiredGearType || "NONE").toUpperCase())) throw new Error(id + ": invalid Required Equipped Gear.");
+    if (!validUnavailable.has(String(option.unavailableMode || "DISABLE").toUpperCase())) throw new Error(id + ": invalid unavailable mode.");
+
+    for (const classId of (Array.isArray(option.requiredClassIds) ? option.requiredClassIds : [])) {
+      if (!classIds.has(String(classId))) throw new Error(id + ": unknown required Class " + classId);
+    }
+    for (const itemId of [
+      ...(Array.isArray(option.requiredItemIds) ? option.requiredItemIds : []),
+      ...(Array.isArray(option.costItemIds) ? option.costItemIds : []),
+    ]) {
+      if (!itemIds.has(String(itemId))) throw new Error(id + ": unknown Item " + itemId);
+    }
+    for (const flagId of [
+      ...(Array.isArray(option.requiredFlagIds) ? option.requiredFlagIds : []),
+      ...(Array.isArray(option.forbiddenFlagIds) ? option.forbiddenFlagIds : []),
+      ...(Array.isArray(option.setFlagIds) ? option.setFlagIds : []),
+      ...(Array.isArray(option.clearFlagIds) ? option.clearFlagIds : []),
+    ]) {
+      if (!flagIds.has(String(flagId))) throw new Error(id + ": unknown Event Flag " + flagId);
+    }
+    for (const followupId of (Array.isArray(option.queueEventIds) ? option.queueEventIds : [])) {
+      if (!eventIds.has(String(followupId))) throw new Error(id + ": unknown follow-up Event " + followupId);
+      if (String(followupId) === eventId) throw new Error(id + ": cannot queue its own parent Event.");
+    }
+
+    const fallback = minHp <= 0 && minFloor <= 0 && maxFloor <= 0
+      && !(option.requiredClassIds || []).length
+      && String(option.requiredGearType || "NONE").toUpperCase() === "NONE"
+      && requiredCopper <= 0
+      && !(option.requiredItemIds || []).length
+      && !(option.requiredFlagIds || []).length
+      && !(option.forbiddenFlagIds || []).length
+      && costHp <= 0 && costCopper <= 0 && !(option.costItemIds || []).length;
+    if (fallback) fallbackCount.set(eventId, (fallbackCount.get(eventId) || 0) + 1);
   }
+
   for (const eventId of eventIds) {
     const count = optionCount.get(eventId) || 0;
     if (count < 1 || count > 4) throw new Error("Event " + eventId + " must have 1-4 options.");
+    if ((fallbackCount.get(eventId) || 0) < 1) throw new Error("Event " + eventId + " needs an unconditional fallback option.");
   }
 
   const monsterSkillIds = new Set(data.monsterSkills.map(skill => String(skill.id || "")));
   for (const enemy of data.enemies) {
-    const skillIds = Array.isArray(enemy.skillIds) ? enemy.skillIds : [];
-    for (const skillId of skillIds) {
-      if (!monsterSkillIds.has(String(skillId))) {
-        throw new Error("Enemy " + enemy.id + " references unknown Monster Skill: " + skillId);
-      }
+    for (const skillId of (Array.isArray(enemy.skillIds) ? enemy.skillIds : [])) {
+      if (!monsterSkillIds.has(String(skillId))) throw new Error("Enemy " + enemy.id + " references unknown Monster Skill: " + skillId);
     }
   }
 }
@@ -204,6 +260,7 @@ module.exports = async function handler(req, res) {
       objects: data.objects,
       eventRules: data.eventRules,
       events: data.events,
+      eventFlags: data.eventFlags,
       eventOptions: data.eventOptions,
       enemies: data.enemies,
       ranks: data.ranks,

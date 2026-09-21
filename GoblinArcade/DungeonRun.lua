@@ -2128,6 +2128,12 @@ function GA:CreateDungeonRunPage(parent)
                     hint = GetDungeonEventOptionHint(option)
                 end
                 GameTooltip:AddLine(tostring(hint), 0.85, 0.82, 0.75, true)
+                if selfButton.gaEventCostText and selfButton.gaEventCostText ~= "" then
+                    GameTooltip:AddLine(selfButton.gaEventCostText, 1.00, 0.82, 0.20, true)
+                end
+                if selfButton.gaEventUnavailableReason and selfButton.gaEventUnavailableReason ~= "" then
+                    GameTooltip:AddLine(selfButton.gaEventUnavailableReason, 1.00, 0.30, 0.25, true)
+                end
                 GameTooltip:Show()
             end
         end)
@@ -7598,6 +7604,8 @@ function GA:BeginDungeonRun()
         shrineDamageBonus = 0,
         eventDamageBonus = 0,
         eventStates = BuildInitialEventStates(floorMap),
+        eventFlags = {},
+        eventQueue = {},
         eventHistory = {},
         chestLoot = BuildFloorChestLoot(floorMap, 1),
         densityProfile = CopyTable(densityProfile),
@@ -7887,6 +7895,7 @@ function GA:ResumeDungeonRun(characterKey)
     run.snapshot.difficulty = run.snapshot.difficulty or run.difficulty
     run.eventDamageBonus = math.max(0, tonumber(run.eventDamageBonus) or 0)
     run.eventHistory = run.eventHistory or {}
+    if self.EventEngine then self.EventEngine:EnsureRunState(run) end
     EnsureRunTracking(run)
     EnsureDungeonEventStates(run)
     SetActiveFloorMap(run.floorMap)
@@ -7983,6 +7992,52 @@ function GA:KillSwitchDungeonRun()
     return true
 end
 
+function GA:ApplyQueuedDungeonEvents(floorMap, floorNumber)
+    local run = self.RunState
+    local engine = self.EventEngine or GA.EventEngine
+    if not run or not floorMap or not engine or not self.DungeonGenerator
+        or not self.DungeonGenerator.InjectEvent then
+        return 0
+    end
+
+    engine:EnsureRunState(run)
+    local floor = math.max(1, math.floor(tonumber(floorNumber) or 1))
+    local index = 1
+
+    while index <= #run.eventQueue do
+        local entry = run.eventQueue[index]
+        local event = entry and GetStudioDungeonEvent(entry.eventId)
+        if not event then
+            table.remove(run.eventQueue, index)
+        else
+            local maxFloor = math.max(1, math.floor(tonumber(event.maxFloor) or 9))
+            if floor > maxFloor then
+                table.remove(run.eventQueue, index)
+            elseif floor >= math.max(1, math.floor(tonumber(entry.earliestFloor) or 1)) then
+                local ok, key = self.DungeonGenerator:InjectEvent(
+                    floorMap,
+                    entry.eventId,
+                    (#run.eventHistory or 0) + index
+                )
+                if ok then
+                    table.remove(run.eventQueue, index)
+                    self:AddCombatLog(
+                        "EVENT CHAIN - " .. tostring(event.name or event.id)
+                            .. " has surfaced on Floor " .. tostring(floor) .. ".",
+                        "system"
+                    )
+                    return 1, key, event.id
+                end
+                index = index + 1
+            else
+                index = index + 1
+            end
+        end
+    end
+
+    return 0
+end
+
 local function ApplyStoredFloorState(run, floorNumber, stored, entryDirection)
     run.floor = floorNumber
     run.floorMap = CopyTable(stored.floorMap)
@@ -8041,6 +8096,8 @@ function GA:ApplyDungeonFloor(floorNumber, entryDirection)
 
     if stored then
         ApplyStoredFloorState(run, floorNumber, stored, entryDirection)
+        self:ApplyQueuedDungeonEvents(run.floorMap, floorNumber)
+        EnsureDungeonEventStates(run)
         floorMap = run.floorMap
     else
         floorMap = self.DungeonGenerator and self.DungeonGenerator:GenerateFloor(
@@ -8055,6 +8112,7 @@ function GA:ApplyDungeonFloor(floorNumber, entryDirection)
             return false
         end
 
+        self:ApplyQueuedDungeonEvents(floorMap, floorNumber)
         SetActiveFloorMap(floorMap)
         local startX, startY = GetDungeonStart()
 
@@ -9411,15 +9469,47 @@ function GA:OpenDungeonEvent(marker, eventKey)
         self.DungeonEventIcon:SetTexture(GetDungeonEventIcon(event))
     end
 
+    local visibleOptions = {}
+    local engine = self.EventEngine or GA.EventEngine
+    for _, option in ipairs(options) do
+        local pendingRewardOptionId = eventState.pendingRewardOptionId
+        local committedReward = pendingRewardOptionId and pendingRewardOptionId == option.id
+        local available, reasons
+        if engine then
+            available, reasons = engine:EvaluateOption(run, option, committedReward)
+        else
+            available, reasons = true, {}
+        end
+        local mode = string.upper(tostring(option.unavailableMode or "DISABLE"))
+        if available or mode ~= "HIDE" or committedReward then
+            visibleOptions[#visibleOptions + 1] = {
+                option = option,
+                available = available or committedReward,
+                reasons = reasons or {},
+            }
+        end
+    end
+
+    self.PendingDungeonEvent.optionIds = {}
     for index = 1, 4 do
         local button = self.DungeonEventOptionButtons and self.DungeonEventOptionButtons[index]
-        local option = options[index]
+        local entry = visibleOptions[index]
         if button then
+            local option = entry and entry.option
             button.gaEventOption = option
+            button.gaEventUnavailableReason = entry and not entry.available
+                and table.concat(entry.reasons or {}, " ")
+                or ""
+            button.gaEventCostText = option and engine and engine:DescribeCosts(run, option) or ""
             if option then
+                self.PendingDungeonEvent.optionIds[index] = option.id
                 button.label:SetText(string.format("%d  %s", index, string.upper(option.name or option.id or "OPTION")))
-                local pendingRewardOptionId = eventState.pendingRewardOptionId
-                button:SetEnabled(not pendingRewardOptionId or pendingRewardOptionId == option.id)
+                button:SetEnabled(entry.available == true)
+                button.label:SetTextColor(
+                    entry.available and COLORS.text[1] or COLORS.muted[1],
+                    entry.available and COLORS.text[2] or COLORS.muted[2],
+                    entry.available and COLORS.text[3] or COLORS.muted[3]
+                )
                 button:Show()
             else
                 button:Hide()
@@ -9462,6 +9552,30 @@ function GA:ResolveDungeonEventOption(optionId)
         and eventState.pendingRewardOptionId ~= option.id then
         self:AddCombatLog("Collect the pending event reward before choosing another option.", "warning")
         return false
+    end
+
+    local engine = self.EventEngine or GA.EventEngine
+    local committedReward = eventState.pendingRewardOptionId == option.id
+    if engine and not eventState.costsApplied then
+        local available, reasons = engine:EvaluateOption(run, option, committedReward)
+        if not available then
+            self:AddCombatLog(
+                "EVENT OPTION LOCKED - " .. table.concat(reasons or {}, " "),
+                "warning"
+            )
+            return false
+        end
+
+        local paid, costResult, costReasons = engine:ApplyCosts(run, option)
+        if not paid then
+            self:AddCombatLog(
+                "EVENT COST FAILED - " .. table.concat(costReasons or {}, " "),
+                "warning"
+            )
+            return false
+        end
+        eventState.costsApplied = true
+        eventState.costResult = costResult
     end
 
     local effect = string.upper(tostring(option.effect or "NONE"))
@@ -9576,6 +9690,22 @@ function GA:ResolveDungeonEventOption(optionId)
         self:AddCombatLog("EVENT RESULT - " .. effectMessage, "system")
     end
 
+    if eventState.costResult then
+        resultMetadata.costs = CopyTable(eventState.costResult)
+    end
+    if engine then
+        local flagResult = engine:ApplyFlagChanges(run, option)
+        local queuedEvents = engine:QueueFollowups(run, option, event.id)
+        resultMetadata.flags = CopyTable(flagResult)
+        resultMetadata.queuedEvents = CopyTable(queuedEvents)
+        if #queuedEvents > 0 then
+            self:AddCombatLog(
+                "EVENT CHAIN - A future encounter has been set in motion.",
+                "system"
+            )
+        end
+    end
+
     resultMetadata.message = effectMessage
     resultMetadata.resultText = resultText
     eventState.resolved = true
@@ -9627,10 +9757,9 @@ function GA:ChooseDungeonEventOption(index)
     index = math.floor(tonumber(index) or 0)
     if not run or not run.active or not pending or index < 1 or index > 4 then return false end
 
-    local options = GetStudioDungeonEventOptions(pending.eventId)
-    local option = options[index]
-    if not option then return false end
-    return self:ResolveDungeonEventOption(option.id)
+    local optionId = pending.optionIds and pending.optionIds[index]
+    if not optionId then return false end
+    return self:ResolveDungeonEventOption(optionId)
 end
 
 function GA:CloseShrineChoice()

@@ -3,7 +3,7 @@ local _, GA = ...
 GA.DungeonGenerator = GA.DungeonGenerator or {}
 local DG = GA.DungeonGenerator
 
-DG.VERSION = 13
+DG.VERSION = 14
 
 local MODULUS = 2147483647
 local MULTIPLIER = 48271
@@ -546,6 +546,7 @@ local function GetEligibleStudioEvents(floor)
         local maxFloor = math.max(minFloor, math.floor(tonumber(event.maxFloor) or 9))
         local roles = type(event.roomRoleIds) == "table" and event.roomRoleIds or {}
         if IsStudioYes(event.enabled)
+            and string.upper(tostring(event.randomSpawn or "YES")) ~= "NO"
             and floor >= minFloor
             and floor <= maxFloor
             and (tonumber(event.weight) or 0) > 0
@@ -698,6 +699,81 @@ local function AddDungeonEvents(markers, rooms, floor, rng)
     end
 
     return eventKeys, eventPlacements
+end
+
+function DG:InjectEvent(floorMap, eventId, salt)
+    if not floorMap or not eventId then
+        return false, nil, "invalid"
+    end
+
+    local event
+    for _, record in ipairs(GA.StudioData and GA.StudioData.events or {}) do
+        if record.id == eventId then event = record break end
+    end
+    if not event or not IsStudioYes(event.enabled) then
+        return false, nil, "missing"
+    end
+
+    local floor = math.max(1, math.floor(tonumber(floorMap.floor) or 1))
+    local minFloor = math.max(1, math.floor(tonumber(event.minFloor) or 1))
+    local maxFloor = math.max(minFloor, math.floor(tonumber(event.maxFloor) or 9))
+    if floor < minFloor or floor > maxFloor then
+        return false, nil, "floor"
+    end
+
+    floorMap.eventKeys = floorMap.eventKeys or {}
+    floorMap.eventPlacements = floorMap.eventPlacements or {}
+    floorMap.markers = floorMap.markers or {}
+
+    local usedRooms = {}
+    for _, placement in ipairs(floorMap.eventPlacements) do
+        if placement.eventId == eventId then
+            return true, placement.key, "already_placed"
+        end
+        if placement.roomIndex then usedRooms[placement.roomIndex] = true end
+    end
+    for _, marker in pairs(floorMap.markers) do
+        if marker.kind == "event" and marker.roomIndex then
+            usedRooms[marker.roomIndex] = true
+        end
+    end
+
+    local candidates = BuildEventPlacementCandidates(event, floorMap.rooms, floorMap.markers, usedRooms)
+    if #candidates == 0 then
+        return false, nil, "no_room"
+    end
+
+    local hash = 0
+    for index = 1, #tostring(eventId) do
+        hash = (hash * 33 + string.byte(tostring(eventId), index)) % MODULUS
+    end
+    local rng = CreateRng(NormalizeSeed((tonumber(floorMap.seed) or 1) + hash + (tonumber(salt) or 0) * 7919))
+    local tile = candidates[rng(1, #candidates)]
+    local color = string.lower(tostring(event.mapColor or "GOLD"))
+    if color ~= "gold" and color ~= "green" and color ~= "red" and color ~= "muted" then
+        color = "gold"
+    end
+
+    floorMap.markers[tile.key] = {
+        text = tostring(event.marker or "?"),
+        color = color,
+        kind = "event",
+        eventId = event.id,
+        roomIndex = tile.roomIndex,
+        chained = true,
+    }
+    floorMap.eventKeys[#floorMap.eventKeys + 1] = tile.key
+    floorMap.eventPlacements[#floorMap.eventPlacements + 1] = {
+        key = tile.key,
+        x = tile.x,
+        y = tile.y,
+        eventId = event.id,
+        roomIndex = tile.roomIndex,
+        roomRole = tile.roomRole,
+        chained = true,
+    }
+    floorMap.eventCount = #floorMap.eventKeys
+    return true, tile.key, "injected"
 end
 
 local function AddTreasureChests(markers, chestKeys, room, maximumChests, markerText)
