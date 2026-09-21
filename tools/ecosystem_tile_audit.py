@@ -10,8 +10,8 @@ generator = (root / "GoblinArcade" / "DungeonGenerator.lua").read_text(encoding=
 studio = (root / "index.html").read_text(encoding="utf-8")
 api = (root / "api" / "publish.js").read_text(encoding="utf-8")
 
-assert data.get("schemaVersion") == 13
-assert data.get("studioVersion") == "1.12.0"
+assert data.get("schemaVersion") == 14
+assert data.get("studioVersion") == "1.13.0"
 
 for eco in data.get("ecosystems", []):
     for key in ("floorTexture", "wallTexture", "wallAutotileTexture"):
@@ -52,7 +52,7 @@ for token in (
     '["floorTexture","Floor Texture"',
     '["wallTexture","Wall Texture"',
     '["wallAutotileTexture","Wall Autotile Atlas"',
-    "goblinArcadeStudio.v27",
+    "goblinArcadeStudio.v28",
 ):
     assert token in studio, f"Studio hook missing: {token}"
 

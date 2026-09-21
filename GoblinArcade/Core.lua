@@ -4,7 +4,7 @@ GA = GA or {}
 _G.GoblinArcade = GA
 
 GA.name = "GoblinArcade"
-GA.version = "0.63.0"
+GA.version = "0.64.0"
 
 GA.COMBAT_NUMBER_DIVISOR = 10
 GA.ATTACK_POWER_PER_DPS = 14
@@ -56,12 +56,19 @@ function GA:GetDifficultyLabel(value)
     return definition.label or definition.id or "Normal"
 end
 
-function GA:CalculateAttackPowerDamageBonus(attackPower, weaponSpeed)
+function GA:CalculateAttackPowerDamageBonus(attackPower, weapon)
+    if self.ForeverRules and self.ForeverRules.CalculateAttackPowerDamageBonus then
+        if type(weapon) ~= "table" then
+            weapon = { speed = weapon }
+        end
+        return self.ForeverRules:CalculateAttackPowerDamageBonus(attackPower, weapon)
+    end
     local ap = math.max(0, tonumber(attackPower) or 0)
     if ap <= 0 then return 0 end
-    local speed = self.WEAPON_SPEED_SECONDS[string.upper(tostring(weaponSpeed or "NORMAL"))]
+    local key = type(weapon) == "table" and weapon.speed or weapon
+    local speed = self.WEAPON_SPEED_SECONDS[string.upper(tostring(key or "NORMAL"))]
         or self.WEAPON_SPEED_SECONDS.NORMAL
-    return math.max(0, math.floor(((ap / math.max(1, tonumber(self.ATTACK_POWER_PER_DPS) or 14)) * speed) + 0.5))
+    return math.max(0, math.floor((((ap / math.max(1, tonumber(self.ATTACK_POWER_PER_DPS) or 14)) * speed) / math.max(1, tonumber(self.COMBAT_NUMBER_DIVISOR) or 10)) + 0.5))
 end
 
 function GA:ScaleCombatValue(value, preservePositive)

@@ -6049,6 +6049,7 @@ function GA:GrantRunExperience(amount)
 
     local leveledUp = run.runLevel > initialLevel
     if leveledUp then
+        if self.RecalculateRunGearStats then self:RecalculateRunGearStats() end
         self:UpdateRunHealth()
     end
     if leveledUp and self.DungeonRunStateText then
@@ -6207,7 +6208,6 @@ local function RollRunWeaponDamage(self, run, enemy, ability)
     local abilityMultiplier = ability and math.max(0.01, tonumber(ability.damageMultiplier) or 1) or 1
     damage = math.max(1, math.floor(damage * abilityMultiplier + 0.5))
     damage = math.max(1, math.floor(damage * GetRunDamageDoneMultiplier(run, enemy) + 0.5))
-    damage = math.max(1, math.floor(damage * GetEnemyIncomingDamageMultiplier(enemy) + 0.5))
 
     local runDamageBonus = math.max(0, tonumber(run.shrineDamageBonus) or 0)
         + math.max(0, tonumber(run.eventDamageBonus) or 0)
@@ -6215,24 +6215,50 @@ local function RollRunWeaponDamage(self, run, enemy, ability)
         damage = math.max(1, math.floor(damage * (1 + runDamageBonus) + 0.5))
     end
 
-    local critChance = run.arcadeStats and run.arcadeStats.crit or 0
+    local stats = run.arcadeStats or {}
+    stats.level = math.max(1, tonumber(run.runLevel) or 1)
+    local critBonus = 0
     if run.stance == "berserker" then
         local berserker = GetStudioAbilityById("berserker_stance") or {}
-        critChance = critChance + math.max(0, tonumber(berserker.effectValue) or 0)
+        critBonus = critBonus + math.max(0, tonumber(berserker.effectValue) or 0)
     end
     local recklessness = run.buffs and run.buffs.recklessness
     if recklessness and (recklessness.turns or 0) > 0 then
-        critChance = critChance + math.max(0, tonumber(recklessness.critBonus) or 0)
-    end
-    critChance = math.min(100, critChance)
-    local critical = critChance > 0 and math.random(1, 1000) <= math.floor(critChance * 10)
-    if critical then
-        damage = math.max(1, math.floor(damage * 1.5 + 0.5))
+        critBonus = critBonus + math.max(0, tonumber(recklessness.critBonus) or 0)
     end
 
-    return damage, critical, weapon
+    local combatStats = {}
+    for key, value in pairs(stats) do combatStats[key] = value end
+    combatStats.crit = math.min(100, (tonumber(stats.crit) or 0) + critBonus)
+
+    local outcome
+    if GA.ForeverRules and GA.ForeverRules.ResolvePlayerMeleeAttack then
+        outcome = GA.ForeverRules:ResolvePlayerMeleeAttack(combatStats, enemy, weapon, ability)
+    else
+        outcome = { kind = "HIT", multiplier = 1 }
+    end
+
+    if (tonumber(outcome.multiplier) or 0) <= 0 then
+        return 0, outcome, weapon
+    end
+
+    local enemyStats = GA.ForeverRules and GA.ForeverRules:BuildEnemyCombatStats(enemy) or enemy
+    local enemyArmor = math.max(0, tonumber(enemyStats and enemyStats.armor) or 0)
+    local sunder = enemy and enemy.statuses and enemy.statuses.sunder
+    if sunder and (sunder.turns or 0) > 0 then
+        local percent = math.max(0, tonumber(sunder.percent) or 0)
+        local stacks = math.max(1, tonumber(sunder.stacks) or 1)
+        enemyArmor = enemyArmor * (1 - math.min(90, percent * stacks) / 100)
+    end
+
+    if GA.ForeverRules and GA.ForeverRules.ApplyPhysicalMitigation then
+        damage = GA.ForeverRules:ApplyPhysicalMitigation(damage, enemyArmor, stats.level, outcome)
+    else
+        damage = math.max(1, math.floor(damage * (tonumber(outcome.multiplier) or 1) + 0.5))
+    end
+
+    return damage, outcome, weapon
 end
-
 function GA:HandleEnemyDefeat(enemy)
     local run = self.RunState
     if not run or not enemy or enemy.alive == false then
@@ -6321,15 +6347,35 @@ function GA:DealRunDamage(enemy, ability, options)
     end
 
     options = type(options) == "table" and options or {}
-    local damage, critical, weapon = RollRunWeaponDamage(self, run, enemy, ability)
-    enemy.hp = math.max(0, (enemy.hp or enemy.maxHp or 1) - damage)
-
+    local damage, outcome, weapon = RollRunWeaponDamage(self, run, enemy, ability)
+    outcome = outcome or { kind = "HIT", multiplier = 1 }
     local sourceName = ability and (ability.name or ability.id) or "You"
+    local kind = tostring(outcome.kind or "HIT")
+
+    if damage <= 0 and (kind == "MISS" or kind == "DODGE" or kind == "PARRY") then
+        local text
+        if kind == "MISS" then
+            text = string.format("%s misses the %s.", sourceName, string.lower(GetEnemyDisplayName(enemy)))
+        elseif kind == "DODGE" then
+            text = string.format("The %s dodges %s.", string.lower(GetEnemyDisplayName(enemy)), sourceName)
+        else
+            text = string.format("The %s parries %s.", string.lower(GetEnemyDisplayName(enemy)), sourceName)
+        end
+        self:AddCombatLog(text, "player")
+        return true, false, false, nil, nil, outcome, weapon
+    end
+
+    enemy.hp = math.max(0, (enemy.hp or enemy.maxHp or 1) - damage)
+    local prefix = ""
+    if kind == "CRIT" then prefix = "CRITICAL! "
+    elseif kind == "GLANCING" then prefix = "GLANCING! "
+    elseif kind == "BLOCK" then prefix = "BLOCKED! " end
+
     self:AddCombatLog(
         string.format("%s%s %s the %s for %d damage. (%d/%d HP)",
-            critical and "CRITICAL! " or "",
+            prefix,
             sourceName,
-            ability and "hits" or "hit",
+            ability and "hits" or "hits",
             string.lower(GetEnemyDisplayName(enemy)),
             damage,
             enemy.hp,
@@ -6337,7 +6383,7 @@ function GA:DealRunDamage(enemy, ability, options)
         "player"
     )
 
-    if options.allowWeaponTrait ~= false and weapon and weapon.traitName then
+    if damage > 0 and options.allowWeaponTrait ~= false and weapon and weapon.traitName then
         local traitName = string.upper(tostring(weapon.traitName))
         local traitValue = math.max(0, tonumber(weapon.traitValue) or 0)
 
@@ -6351,18 +6397,12 @@ function GA:DealRunDamage(enemy, ability, options)
                     local cleaveDamage = math.max(1, math.floor(damage * (traitValue / 100) + 0.5))
                     secondary.hp = math.max(0, (secondary.hp or secondary.maxHp or 1) - cleaveDamage)
                     self:AddCombatLog(
-                        string.format(
-                            "CLEAVE! %s takes %d damage. (%d/%d HP)",
-                            GetEnemyDisplayName(secondary),
-                            cleaveDamage,
-                            secondary.hp,
-                            secondary.maxHp or secondary.hp
-                        ),
+                        string.format("CLEAVE! %s takes %d damage. (%d/%d HP)",
+                            GetEnemyDisplayName(secondary), cleaveDamage,
+                            secondary.hp, secondary.maxHp or secondary.hp),
                         "player"
                     )
-                    if secondary.hp <= 0 then
-                        self:HandleEnemyDefeat(secondary)
-                    end
+                    if secondary.hp <= 0 then self:HandleEnemyDefeat(secondary) end
                     break
                 end
             end
@@ -6377,7 +6417,7 @@ function GA:DealRunDamage(enemy, ability, options)
         end
     end
 
-    if enemy.hp > 0 and ability then
+    if enemy.hp > 0 and ability and damage > 0 then
         enemy.statuses = enemy.statuses or {}
         local duration = math.max(0, math.floor(tonumber(ability.durationTurns) or 0))
 
@@ -6390,7 +6430,8 @@ function GA:DealRunDamage(enemy, ability, options)
         elseif ability.id == "rend" and duration > 0 then
             enemy.statuses.rend = {
                 turns = duration,
-                damage = damage,
+                damage = math.max(1, math.floor(damage / math.max(1, duration) + 0.5)),
+                canCrit = true,
             }
         elseif ability.id == "hamstring" and duration > 0 then
             enemy.statuses.hamstring = {
@@ -6414,12 +6455,11 @@ function GA:DealRunDamage(enemy, ability, options)
 
     if enemy.hp <= 0 then
         local leveledUp, previousRunLevel, currentRunLevel = self:HandleEnemyDefeat(enemy)
-        return true, true, leveledUp, previousRunLevel, currentRunLevel
+        return true, true, leveledUp, previousRunLevel, currentRunLevel, outcome, weapon
     end
 
-    return true, false
+    return true, false, false, nil, nil, outcome, weapon
 end
-
 function GA:AdvanceCombatEffects()
     local run = self.RunState
     if not run or not run.active then return end
@@ -6429,13 +6469,20 @@ function GA:AdvanceCombatEffects()
             local rend = enemy.statuses.rend
             if rend and (rend.turns or 0) > 0 then
                 local tick = math.max(1, math.floor(tonumber(rend.damage) or 1))
+                local critical = false
+                if rend.canCrit and run.arcadeStats then
+                    local chance = math.max(0, math.min(100, tonumber(run.arcadeStats.crit) or 0))
+                    critical = chance > 0 and math.random(1, 10000) <= math.floor(chance * 100)
+                    if critical then
+                        tick = math.max(1, math.floor(tick * 2 + 0.5))
+                    end
+                end
                 enemy.hp = math.max(0, (enemy.hp or 1) - tick)
                 self:AddCombatLog(
-                    string.format("Rend bleeds %s for %d damage. (%d/%d HP)",
+                    string.format("%sRend bleeds %s for %d damage. (%d/%d HP)",
+                        critical and "CRITICAL! " or "",
                         string.lower(GetEnemyDisplayName(enemy)),
-                        tick,
-                        enemy.hp,
-                        enemy.maxHp or enemy.hp),
+                        tick, enemy.hp, enemy.maxHp or enemy.hp),
                     "player"
                 )
                 rend.turns = rend.turns - 1
@@ -6450,9 +6497,7 @@ function GA:AdvanceCombatEffects()
                 local status = enemy.statuses[statusId]
                 if status then
                     status.turns = (status.turns or 1) - 1
-                    if status.turns <= 0 then
-                        enemy.statuses[statusId] = nil
-                    end
+                    if status.turns <= 0 then enemy.statuses[statusId] = nil end
                 end
             end
         end
@@ -6482,25 +6527,18 @@ function GA:AdvanceCombatEffects()
         local reactive = run.reactive and run.reactive[reactiveId]
         if reactive then
             reactive.turns = (reactive.turns or 1) - 1
-            if reactive.turns <= 0 then
-                run.reactive[reactiveId] = nil
-            end
+            if reactive.turns <= 0 then run.reactive[reactiveId] = nil end
         end
     end
 
     for abilityId, turns in pairs(run.cooldowns or {}) do
         turns = math.max(0, (tonumber(turns) or 0) - 1)
-        if turns <= 0 then
-            run.cooldowns[abilityId] = nil
-        else
-            run.cooldowns[abilityId] = turns
-        end
+        if turns <= 0 then run.cooldowns[abilityId] = nil else run.cooldowns[abilityId] = turns end
     end
 
     self:UpdateRunResource()
     self:RefreshActionButtons()
 end
-
 function GA:UseRunAbility(abilityId)
     local run = self.RunState
     if not run or not run.active then
@@ -6964,9 +7002,7 @@ end
 
 function GA:PlayerAttackEnemy(targetEnemy, attackOptions)
     local run = self.RunState
-    if not run or not run.active then
-        return false
-    end
+    if not run or not run.active then return false end
 
     local enemy = targetEnemy or GetAdjacentEnemy(run)
     if not enemy or enemy.alive == false
@@ -6999,12 +7035,9 @@ function GA:PlayerAttackEnemy(targetEnemy, attackOptions)
         end
         GainRunResource(run, ability.resourceGain)
         SetRunAbilityCooldown(run, ability)
-    else
-        GainRunResource(run, run.classGrowth and run.classGrowth.basicAttackResourceGain or 0)
     end
 
     run.turns = run.turns + 1
-    self:UpdateRunResource()
 
     if ability and run.reactive then
         if ability.id == "overpower" then
@@ -7016,9 +7049,22 @@ function GA:PlayerAttackEnemy(targetEnemy, attackOptions)
         end
     end
 
-    local _, defeated, leveledUp, previousRunLevel, currentRunLevel = self:DealRunDamage(enemy, ability)
+    local _, defeated, leveledUp, previousRunLevel, currentRunLevel, outcome, weapon =
+        self:DealRunDamage(enemy, ability)
 
-    if ability and ability.id == "victory_rush" then
+    if not ability and string.upper(tostring(run.resourceType or "")) == "RAGE"
+        and self.ForeverRules and self.ForeverRules.CalculateRageFromSwing then
+        local rage = self.ForeverRules:CalculateRageFromSwing(weapon, outcome)
+        if rage > 0 then
+            GainRunResource(run, rage)
+            self:AddCombatLog(string.format("+%d Rage from the weapon swing.", rage), "system")
+        end
+    elseif not ability then
+        GainRunResource(run, run.classGrowth and run.classGrowth.basicAttackResourceGain or 0)
+    end
+    self:UpdateRunResource()
+
+    if ability and ability.id == "victory_rush" and outcome and (outcome.multiplier or 0) > 0 then
         local healPercent = math.max(0, tonumber(ability.effectValue) or 0)
         local healAmount = math.max(1, math.floor((run.playerMaxHealth or 1) * healPercent / 100 + 0.5))
         local before = run.playerHealth or 0
@@ -7026,13 +7072,10 @@ function GA:PlayerAttackEnemy(targetEnemy, attackOptions)
         local restored = math.max(0, run.playerHealth - before)
         self:AddCombatLog(string.format("Victory Rush restores %d HP.", restored), "player")
         self:UpdateRunHealth()
-    elseif ability and ability.id == "cleave" then
+    elseif ability and ability.id == "cleave" and outcome and (outcome.multiplier or 0) > 0 then
         local extraTarget
         for _, candidate in ipairs(GetAdjacentEnemies(run)) do
-            if candidate.uid ~= enemy.uid then
-                extraTarget = candidate
-                break
-            end
+            if candidate.uid ~= enemy.uid then extraTarget = candidate break end
         end
         if extraTarget then
             self:AddCombatLog("Cleave catches " .. string.lower(GetEnemyDisplayName(extraTarget)) .. " as well.", "player")
@@ -7053,14 +7096,9 @@ function GA:PlayerAttackEnemy(targetEnemy, attackOptions)
     self:RefreshRunCounters()
     self:RenderDungeonGrid()
     self:RefreshActionButtons()
-
-    -- Every valid attack, including a killing blow, consumes the player's action.
-    if run.active then
-        self:RunEnemyTurn()
-    end
+    if run.active then self:RunEnemyTurn() end
     return true
 end
-
 function GA:UpdateDungeonVisibility()
     local run = self.RunState
     if not run or not run.active then
@@ -7775,6 +7813,7 @@ function GA:BeginDungeonRun()
     self.RunState = {
         active = true,
         completed = false,
+        ruleset = self.ForeverRules and self.ForeverRules.ID or "LEGACY",
         floor = floor,
         runId = tostring(dungeonSeed) .. ":" .. tostring(time and time() or 0),
         score = 0,
@@ -7832,6 +7871,7 @@ function GA:BeginDungeonRun()
         playerHealth = maxHealth,
         playerMaxHealth = maxHealth,
         baseMaxHealth = maxHealth,
+        rulesBaseHealth = maxHealth,
         equipment = CopyTable(effectiveEquipment or {}),
         backpack = startingBackpack,
         preRunSupplyCount = #preparedSupplies,
@@ -8005,14 +8045,7 @@ function GA:BeginDungeonRun()
         "system"
     )
     self:AddCombatLog(
-        string.format(
-            "Class growth: +%d HP / level, +%d %s cap / level. Basic attack: +%d %s.",
-            classGrowth.hpPerLevel or 0,
-            classGrowth.resourcePerLevel or 0,
-            classGrowth.resourceType or "RESOURCE",
-            classGrowth.basicAttackResourceGain or 0,
-            classGrowth.resourceType or "RESOURCE"
-        ),
+        "Forever rules active: STR/AGI/STA derived stats, Weapon Skill vs Defense, Hit/Crit/Expertise, Classic armor, Block Value and normalized Rage.",
         "system"
     )
     if sampleEnemy then
@@ -8148,6 +8181,16 @@ function GA:ResumeDungeonRun(characterKey)
         or tonumber(resumedDifficulty.scoreMultiplier)
         or 1
     run.snapshot.difficulty = run.snapshot.difficulty or run.difficulty
+    if self.ForeverRules then
+        if run.ruleset ~= self.ForeverRules.ID and string.upper(tostring(run.resourceType or "")) == "RAGE"
+            and (tonumber(run.resourceMax) or 0) <= 10 then
+            run.resource = math.min(100, math.max(0, (tonumber(run.resource) or 0) * 20))
+            run.resourceMax = 100
+            run.baseResourceMax = 100
+        end
+        run.ruleset = self.ForeverRules.ID
+    end
+    run.rulesBaseHealth = run.rulesBaseHealth or run.baseMaxHealth or run.playerMaxHealth
     run.eventDamageBonus = math.max(0, tonumber(run.eventDamageBonus) or 0)
     run.eventHistory = run.eventHistory or {}
     if self.EventEngine then self.EventEngine:EnsureRunState(run) end
@@ -8777,128 +8820,119 @@ local function ChooseMonsterSkill(enemy, run, enemyPhase)
     return candidates[#candidates].skill
 end
 
-function GA:ApplyMonsterSkillDamage(enemy, rawDamage, skillName)
-    local run = self.RunState
-    if not run or not run.active or not enemy then
-        return false
-    end
-
-    local stats = run.arcadeStats or {}
-    local guardChance = math.max(0, tonumber(run.weaponGuardChance) or 0)
-    local parried = guardChance > 0
-        and math.random(1, 1000) <= math.floor(guardChance * 10)
-    local dodgeChance = stats.dodge or 0
-    local dodged = not parried and dodgeChance > 0
-        and math.random(1, 1000) <= math.floor(dodgeChance * 10)
-
-    if parried then
-        run.reactive = run.reactive or {}
-        run.reactive.revenge = { turns = 2 }
-        self:AddCombatLog(
-            "PARRY! You deflect " .. tostring(skillName or "the enemy ability") .. ". Revenge is ready.",
-            "player"
-        )
-        return true
-    elseif dodged then
-        run.reactive = run.reactive or {}
-        run.reactive.overpower = { turns = 2 }
-        run.reactive.revenge = { turns = 2 }
-        self:AddCombatLog(
-            "You dodge " .. tostring(skillName or "the enemy ability") .. ".",
-            "player"
-        )
-        return true
-    end
-
+local function GetEnemyDamageMultiplier(run, enemy)
     local multiplier = 1
     local weakened = enemy.statuses and enemy.statuses.weakened
     if weakened and (weakened.turns or 0) > 0 then
-        multiplier = multiplier
-            * (1 - math.max(0, math.min(90, tonumber(weakened.percent) or 0)) / 100)
+        multiplier = multiplier * (1 - math.max(0, math.min(90, tonumber(weakened.percent) or 0)) / 100)
     end
     local disarmed = enemy.statuses and enemy.statuses.disarmed
     if disarmed and (disarmed.turns or 0) > 0 then
-        multiplier = multiplier
-            * (1 - math.max(0, math.min(90, tonumber(disarmed.percent) or 0)) / 100)
+        multiplier = multiplier * (1 - math.max(0, math.min(90, tonumber(disarmed.percent) or 0)) / 100)
     end
     local monsterDamageBuff = enemy.statuses and enemy.statuses.monsterDamageBuff
     if monsterDamageBuff and (monsterDamageBuff.turns or 0) > 0 then
-        multiplier = multiplier
-            * (1 + math.max(0, tonumber(monsterDamageBuff.percent) or 0) / 100)
+        multiplier = multiplier * (1 + math.max(0, tonumber(monsterDamageBuff.percent) or 0) / 100)
     end
-
     if run.stance == "defensive" then
         local defensive = GetStudioAbilityById("defensive_stance") or {}
-        multiplier = multiplier
-            * (1 - math.max(0, math.min(90, tonumber(defensive.effectValue) or 0)) / 100)
+        multiplier = multiplier * (1 - math.max(0, math.min(90, tonumber(defensive.effectValue) or 0)) / 100)
     elseif run.stance == "berserker" then
         local berserker = GetStudioAbilityById("berserker_stance") or {}
-        multiplier = multiplier
-            * (1 + math.max(0, tonumber(berserker.secondaryValue) or 0) / 100)
+        multiplier = multiplier * (1 + math.max(0, tonumber(berserker.secondaryValue) or 0) / 100)
     end
-
     local shieldWall = run.buffs and run.buffs.shield_wall
     if shieldWall and (shieldWall.turns or 0) > 0 then
-        multiplier = multiplier
-            * (1 - math.max(0, math.min(90, tonumber(shieldWall.reduction) or 0)) / 100)
+        multiplier = multiplier * (1 - math.max(0, math.min(90, tonumber(shieldWall.reduction) or 0)) / 100)
     end
     local recklessness = run.buffs and run.buffs.recklessness
     if recklessness and (recklessness.turns or 0) > 0 then
-        multiplier = multiplier
-            * (1 + math.max(0, tonumber(recklessness.damageTaken) or 0) / 100)
+        multiplier = multiplier * (1 + math.max(0, tonumber(recklessness.damageTaken) or 0) / 100)
+    end
+    return multiplier
+end
+
+local function ResolveEnemyPhysicalAttack(self, run, enemy, rawDamage, attackName)
+    local baseStats = run.arcadeStats or {}
+    local stats = {}
+    for key, value in pairs(baseStats) do stats[key] = value end
+    stats.level = math.max(1, tonumber(run.runLevel) or 1)
+    stats.parry = (tonumber(stats.parry) or 0) + math.max(0, tonumber(run.weaponGuardChance) or 0)
+
+    local shieldBlock = run.buffs and run.buffs.shield_block
+    if shieldBlock and (shieldBlock.turns or 0) > 0 then
+        stats.block = math.min(100, (tonumber(stats.block) or 0) + math.max(0, tonumber(shieldBlock.percent) or 0))
     end
 
-    rawDamage = math.max(1, math.floor((tonumber(rawDamage) or 1) * multiplier + 0.5))
-
-    local armor = stats.armor or 0
     local lastStand = run.arcadeTraits and (run.arcadeTraits.LAST_STAND or 0) or 0
     if lastStand > 0 and (run.playerMaxHealth or 0) > 0
         and (run.playerHealth or 0) / run.playerMaxHealth <= 0.35 then
-        armor = armor * (1 + lastStand / 100)
+        stats.armor = (tonumber(stats.armor) or 0) * (1 + lastStand / 100)
     end
-    local mitigation = math.min(0.55, armor / (armor + 100))
-    local damage = math.max(1, math.floor(rawDamage * (1 - mitigation) + 0.5))
 
-    local blockChance = stats.block or 0
-    local shieldBlock = run.buffs and run.buffs.shield_block
-    if shieldBlock and (shieldBlock.turns or 0) > 0 then
-        blockChance = math.min(100, blockChance + math.max(0, tonumber(shieldBlock.percent) or 0))
-    end
-    local blocked = blockChance > 0
-        and math.random(1, 1000) <= math.floor(blockChance * 10)
-    if blocked then
-        damage = math.max(1, math.floor(damage * 0.5 + 0.5))
-        run.reactive = run.reactive or {}
+    local outcome = self.ForeverRules and self.ForeverRules.ResolveEnemyMeleeAttack
+        and self.ForeverRules:ResolveEnemyMeleeAttack(enemy, stats)
+        or { kind = "HIT", multiplier = 1 }
+
+    local kind = tostring(outcome.kind or "HIT")
+    run.reactive = run.reactive or {}
+    if kind == "DODGE" then
+        run.reactive.overpower = { turns = 2 }
         run.reactive.revenge = { turns = 2 }
+        self:AddCombatLog("DODGE! You avoid " .. tostring(attackName) .. ". Overpower and Revenge are ready.", "player")
+        return true, outcome, 0
+    elseif kind == "PARRY" then
+        run.reactive.revenge = { turns = 2 }
+        self:AddCombatLog("PARRY! You deflect " .. tostring(attackName) .. ". Revenge is ready.", "player")
+        return true, outcome, 0
+    elseif kind == "MISS" then
+        self:AddCombatLog("MISS! " .. tostring(attackName) .. " misses you.", "enemy")
+        return true, outcome, 0
     end
+
+    rawDamage = math.max(1, math.floor((tonumber(rawDamage) or 1) * GetEnemyDamageMultiplier(run, enemy) + 0.5))
+    local damage
+    if self.ForeverRules and self.ForeverRules.ApplyPhysicalMitigation then
+        damage = self.ForeverRules:ApplyPhysicalMitigation(
+            rawDamage, stats.armor or 0, enemy.level or run.runLevel or 1, outcome)
+    else
+        damage = math.max(1, math.floor(rawDamage * (tonumber(outcome.multiplier) or 1) + 0.5))
+    end
+
+    if kind == "BLOCK" then run.reactive.revenge = { turns = 2 } end
+    local prefix = kind == "BLOCK" and "BLOCK! "
+        or kind == "CRIT" and "CRITICAL! "
+        or kind == "CRUSHING" and "CRUSHING! "
+        or ""
 
     run.playerHealth = math.max(0, (run.playerHealth or run.playerMaxHealth or 1) - damage)
     self:AddCombatLog(
-        string.format(
-            "%s%s hits you for %d damage. (%d/%d HP)",
-            blocked and "BLOCK! " or "",
-            tostring(skillName or GetEnemyDisplayName(enemy)),
-            damage,
-            run.playerHealth,
-            run.playerMaxHealth or run.playerHealth
-        ),
+        string.format("%s%s hits you for %d damage. (%d/%d HP)",
+            prefix, tostring(attackName), damage,
+            run.playerHealth, run.playerMaxHealth or run.playerHealth),
         "enemy"
     )
     self:UpdateRunHealth()
 
-    if run.playerHealth <= 0 then
-        self:FailDungeonRun(
-            tostring(skillName or GetEnemyDisplayName(enemy))
-            .. " killed "
-            .. (run.snapshot.name or "your hero")
-            .. "."
-        )
-        return false
+    local berserkerRage = run.buffs and run.buffs.berserker_rage
+    if damage > 0 and run.playerHealth > 0 and berserkerRage and (berserkerRage.turns or 0) > 0 then
+        GainRunResource(run, berserkerRage.resourcePerHit or 0)
+        self:UpdateRunResource()
     end
 
-    return true
+    if run.playerHealth <= 0 then
+        self:FailDungeonRun(tostring(attackName) .. " killed " .. (run.snapshot.name or "your hero") .. ".")
+        return false, outcome, damage
+    end
+    return true, outcome, damage
 end
 
+function GA:ApplyMonsterSkillDamage(enemy, rawDamage, skillName)
+    local run = self.RunState
+    if not run or not run.active or not enemy then return false end
+    local alive = ResolveEnemyPhysicalAttack(self, run, enemy, rawDamage, skillName or GetEnemyDisplayName(enemy))
+    return alive
+end
 function GA:ResolveMonsterSkill(enemy, skill)
     local run = self.RunState
     if not run or not run.active or not enemy or not skill then
@@ -9116,12 +9150,8 @@ function GA:RunEnemyTurn()
         self:RefreshActionButtons()
         return
     end
+    if not self:AdvanceMonsterPlayerStatuses() then return end
 
-    if not self:AdvanceMonsterPlayerStatuses() then
-        return
-    end
-
-    local stats = run.arcadeStats or {}
     run.enemyPhase = (run.enemyPhase or 0) + 1
     local enemyPhase = run.enemyPhase
 
@@ -9131,192 +9161,41 @@ function GA:RunEnemyTurn()
             if feared and (feared.turns or 0) > 0 then
                 enemy.intent = "FEARED"
                 if self:IsDungeonCellVisible(enemy.x, enemy.y) then
-                    self:AddCombatLog(
-                        "The feared " .. string.lower(GetEnemyDisplayName(enemy)) .. " loses its action.",
-                        "enemy"
-                    )
+                    self:AddCombatLog("The feared " .. string.lower(GetEnemyDisplayName(enemy)) .. " loses its action.", "enemy")
                 end
             elseif enemy.skipTurn then
                 enemy.intent = "STAGGERED"
                 enemy.skipTurn = false
-
                 if self:IsDungeonCellVisible(enemy.x, enemy.y) then
-                    self:AddCombatLog(
-                        "The staggered " .. string.lower(GetEnemyDisplayName(enemy)) .. " loses its turn.",
-                        "enemy"
-                    )
+                    self:AddCombatLog("The staggered " .. string.lower(GetEnemyDisplayName(enemy)) .. " loses its turn.", "enemy")
                 end
             else
-                local seesPlayer = IsWithinRadius(
-                    enemy.x,
-                    enemy.y,
-                    run.playerX,
-                    run.playerY,
-                    enemy.visionRadius or 6
-                ) and HasLineOfSight(enemy.x, enemy.y, run.playerX, run.playerY)
+                local seesPlayer = IsWithinRadius(enemy.x, enemy.y, run.playerX, run.playerY, enemy.visionRadius or 6)
+                    and HasLineOfSight(enemy.x, enemy.y, run.playerX, run.playerY)
 
                 if seesPlayer and not enemy.alerted then
                     enemy.alerted = true
                     enemy.intent = "ALERTED"
-
                     if self:IsDungeonCellVisible(enemy.x, enemy.y) then
-                        self:AddCombatLog(
-                            "The " .. string.lower(GetEnemyDisplayName(enemy)) .. " spots you!",
-                            "enemy"
-                        )
+                        self:AddCombatLog("The " .. string.lower(GetEnemyDisplayName(enemy)) .. " spots you!", "enemy")
                     end
                 end
 
                 local usedMonsterSkill = false
-                if enemy.alerted and seesPlayer then
-                    usedMonsterSkill = self:TryUseMonsterSkill(enemy, enemyPhase)
-                end
+                if enemy.alerted and seesPlayer then usedMonsterSkill = self:TryUseMonsterSkill(enemy, enemyPhase) end
 
                 if usedMonsterSkill then
                     enemy.intent = "SKILL"
                 elseif IsAdjacent(enemy.x, enemy.y, run.playerX, run.playerY) then
                     enemy.intent = "ATTACKING"
                     run.activeEnemyId = run.activeEnemyId or enemy.uid
+                    local rawDamage = math.random(enemy.damageMin or 1, enemy.damageMax or enemy.damageMin or 1)
+                    local survived = ResolveEnemyPhysicalAttack(self, run, enemy, rawDamage, GetEnemyDisplayName(enemy))
+                    if not survived then return end
 
-                    local guardChance = math.max(0, tonumber(run.weaponGuardChance) or 0)
-                    local parried = guardChance > 0
-                        and math.random(1, 1000) <= math.floor(guardChance * 10)
-                    local dodgeChance = stats.dodge or 0
-                    local dodged = not parried and dodgeChance > 0
-                        and math.random(1, 1000) <= math.floor(dodgeChance * 10)
-
-                    if parried then
-                        run.reactive = run.reactive or {}
-                        run.reactive.revenge = { turns = 2 }
-                        self:AddCombatLog(
-                            "PARRY! Your weapon guard deflects the " .. string.lower(GetEnemyDisplayName(enemy)) .. "'s attack. Revenge is ready.",
-                            "player"
-                        )
-                    elseif dodged then
-                        run.reactive = run.reactive or {}
-                        run.reactive.overpower = { turns = 2 }
-                        run.reactive.revenge = { turns = 2 }
-                        self:AddCombatLog(
-                            "You dodge the " .. string.lower(GetEnemyDisplayName(enemy)) .. "'s attack. Overpower and Revenge are ready.",
-                            "player"
-                        )
-                    else
-                        local rawDamage = math.random(
-                            enemy.damageMin or 1,
-                            enemy.damageMax or enemy.damageMin or 1
-                        )
-
-                        local enemyDamageMultiplier = 1
-                        local weakened = enemy.statuses and enemy.statuses.weakened
-                        if weakened and (weakened.turns or 0) > 0 then
-                            enemyDamageMultiplier = enemyDamageMultiplier
-                                * (1 - math.max(0, math.min(90, tonumber(weakened.percent) or 0)) / 100)
-                        end
-
-                        local disarmed = enemy.statuses and enemy.statuses.disarmed
-                        if disarmed and (disarmed.turns or 0) > 0 then
-                            enemyDamageMultiplier = enemyDamageMultiplier
-                                * (1 - math.max(0, math.min(90, tonumber(disarmed.percent) or 0)) / 100)
-                        end
-
-                        local monsterDamageBuff = enemy.statuses and enemy.statuses.monsterDamageBuff
-                        if monsterDamageBuff and (monsterDamageBuff.turns or 0) > 0 then
-                            enemyDamageMultiplier = enemyDamageMultiplier
-                                * (1 + math.max(0, tonumber(monsterDamageBuff.percent) or 0) / 100)
-                        end
-
-                        if run.stance == "defensive" then
-                            local defensive = GetStudioAbilityById("defensive_stance") or {}
-                            local reduction = math.max(0, math.min(90, tonumber(defensive.effectValue) or 0))
-                            enemyDamageMultiplier = enemyDamageMultiplier * (1 - reduction / 100)
-                        elseif run.stance == "berserker" then
-                            local berserker = GetStudioAbilityById("berserker_stance") or {}
-                            local penalty = math.max(0, tonumber(berserker.secondaryValue) or 0)
-                            enemyDamageMultiplier = enemyDamageMultiplier * (1 + penalty / 100)
-                        end
-
-                        local shieldWall = run.buffs and run.buffs.shield_wall
-                        if shieldWall and (shieldWall.turns or 0) > 0 then
-                            enemyDamageMultiplier = enemyDamageMultiplier
-                                * (1 - math.max(0, math.min(90, tonumber(shieldWall.reduction) or 0)) / 100)
-                        end
-
-                        local recklessness = run.buffs and run.buffs.recklessness
-                        if recklessness and (recklessness.turns or 0) > 0 then
-                            enemyDamageMultiplier = enemyDamageMultiplier
-                                * (1 + math.max(0, tonumber(recklessness.damageTaken) or 0) / 100)
-                        end
-
-                        rawDamage = math.max(1, math.floor(rawDamage * enemyDamageMultiplier + 0.5))
-
-                        local armor = stats.armor or 0
-                        local lastStand = run.arcadeTraits and (run.arcadeTraits.LAST_STAND or 0) or 0
-                        if lastStand > 0 and (run.playerMaxHealth or 0) > 0
-                            and (run.playerHealth or 0) / run.playerMaxHealth <= 0.35 then
-                            armor = armor * (1 + lastStand / 100)
-                        end
-                        local mitigation = math.min(0.55, armor / (armor + 100))
-                        local damage = math.max(
-                            1,
-                            math.floor(rawDamage * (1 - mitigation) + 0.5)
-                        )
-
-                        local blockChance = stats.block or 0
-                        local shieldBlock = run.buffs and run.buffs.shield_block
-                        if shieldBlock and (shieldBlock.turns or 0) > 0 then
-                            blockChance = math.min(100, blockChance + math.max(0, tonumber(shieldBlock.percent) or 0))
-                        end
-
-                        local blocked = blockChance > 0
-                            and math.random(1, 1000) <= math.floor(blockChance * 10)
-
-                        if blocked then
-                            damage = math.max(1, math.floor(damage * 0.5 + 0.5))
-                            run.reactive = run.reactive or {}
-                            run.reactive.revenge = { turns = 2 }
-                        end
-
-                        run.playerHealth = math.max(
-                            0,
-                            (run.playerHealth or run.playerMaxHealth or 1) - damage
-                        )
-
-                        self:AddCombatLog(
-                            string.format(
-                                "%s%s hits you for %d damage. (%d/%d HP)",
-                                blocked and "BLOCK! " or "",
-                                GetEnemyDisplayName(enemy),
-                                damage,
-                                run.playerHealth,
-                                run.playerMaxHealth or run.playerHealth
-                            ),
-                            "enemy"
-                        )
-
-                        self:UpdateRunHealth()
-
-                        local berserkerRage = run.buffs and run.buffs.berserker_rage
-                        if run.playerHealth > 0 and berserkerRage and (berserkerRage.turns or 0) > 0 then
-                            GainRunResource(run, berserkerRage.resourcePerHit or 0)
-                            self:UpdateRunResource()
-                        end
-
-                        if run.playerHealth > 0 and run.buffs and run.buffs.retaliation and enemy.alive ~= false then
-                            local retaliationAbility = GetStudioAbilityById("retaliation")
-                            if retaliationAbility then
-                                self:DealRunDamage(enemy, retaliationAbility, { allowWeaponTrait = false })
-                            end
-                        end
-
-                        if run.playerHealth <= 0 then
-                            self:FailDungeonRun(
-                                GetEnemyDisplayName(enemy)
-                                .. " killed "
-                                .. (run.snapshot.name or "your hero")
-                                .. "."
-                            )
-                            return
-                        end
+                    if run.playerHealth > 0 and run.buffs and run.buffs.retaliation and enemy.alive ~= false then
+                        local retaliationAbility = GetStudioAbilityById("retaliation")
+                        if retaliationAbility then self:DealRunDamage(enemy, retaliationAbility, { allowWeaponTrait = false }) end
                     end
                 elseif enemy.alerted then
                     enemy.intent = "ALERTED"
@@ -9329,51 +9208,24 @@ function GA:RunEnemyTurn()
 
                     local movedSteps = 0
                     local visibleDuringMove = self:IsDungeonCellVisible(enemy.x, enemy.y)
-
                     for _ = 1, movementSteps do
-                        if IsAdjacent(enemy.x, enemy.y, run.playerX, run.playerY) then
-                            break
-                        end
-
+                        if IsAdjacent(enemy.x, enemy.y, run.playerX, run.playerY) then break end
                         local occupied = BuildOccupiedEnemyCells(run, enemy.uid)
-                        local nextX, nextY = FindNextStep(
-                            enemy.x,
-                            enemy.y,
-                            run.playerX,
-                            run.playerY,
-                            occupied
-                        )
-
+                        local nextX, nextY = FindNextStep(enemy.x, enemy.y, run.playerX, run.playerY, occupied)
                         if not nextX or not nextY
                             or (nextX == run.playerX and nextY == run.playerY)
-                            or occupied[CellKey(nextX, nextY)] then
-                            break
-                        end
-
-                        enemy.x = nextX
-                        enemy.y = nextY
+                            or occupied[CellKey(nextX, nextY)] then break end
+                        enemy.x, enemy.y = nextX, nextY
                         movedSteps = movedSteps + 1
-
-                        if self:IsDungeonCellVisible(enemy.x, enemy.y) then
-                            visibleDuringMove = true
-                        end
+                        if self:IsDungeonCellVisible(enemy.x, enemy.y) then visibleDuringMove = true end
                     end
 
-                    if movedSteps > 0 then
-                        enemy.intent = "MOVING"
-                    end
-
+                    if movedSteps > 0 then enemy.intent = "MOVING" end
                     if movedSteps > 0 and visibleDuringMove then
                         if enemy.movementPattern == "quick" and movedSteps > 1 then
-                            self:AddCombatLog(
-                                GetEnemyDisplayName(enemy) .. " scuttles quickly closer.",
-                                "enemy"
-                            )
+                            self:AddCombatLog(GetEnemyDisplayName(enemy) .. " scuttles quickly closer.", "enemy")
                         else
-                            self:AddCombatLog(
-                                GetEnemyDisplayName(enemy) .. " moves closer.",
-                                "enemy"
-                            )
+                            self:AddCombatLog(GetEnemyDisplayName(enemy) .. " moves closer.", "enemy")
                         end
                     end
                 else

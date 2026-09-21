@@ -223,9 +223,8 @@ end
 function GA:GetRunAttackPowerDamageBonus(weapon)
     local run = self.RunState
     local attackPower = run and run.arcadeStats and run.arcadeStats.attackPower or 0
-    return self:CalculateAttackPowerDamageBonus(attackPower, weapon and weapon.speed or "FAST")
+    return self:CalculateAttackPowerDamageBonus(attackPower, weapon or { speed = "FAST" })
 end
-
 function GA:RefreshRunWeaponFromEquipment()
     local weapon = self:GetCurrentRunWeapon()
     local baseMin = weapon and (weapon.damageMin or 1) or 1
@@ -309,86 +308,129 @@ end
 
 function GA:RecalculateRunGearStats()
     local run = self.RunState
-    if not run then
-        return
-    end
+    if not run then return end
 
-    local stats = {
-        health = 0,
-        armor = 0,
-        dodge = 0,
-        crit = 0,
-        block = 0,
-        attackPower = 0,
-        traits = {},
-        buildProfiles = {},
+    local gear = {
+        strength = 0, agility = 0, stamina = 0, intellect = 0, spirit = 0,
+        directHealth = 0, armor = 0, attackPower = 0, rangedAttackPower = 0,
+        hit = 0, crit = 0, expertise = 0, defense = 0,
+        dodge = 0, parry = 0, block = 0, blockValue = 0, weaponSkill = 0,
+        spellPower = 0, healingPower = 0, mp5 = 0,
+        arcaneResistance = 0, fireResistance = 0, frostResistance = 0,
+        natureResistance = 0, shadowResistance = 0,
+        hasShield = false,
+        traits = {}, buildProfiles = {},
     }
 
-    for _, item in pairs(run.equipment or {}) do
+    local numericKeys = {
+        "strength", "agility", "stamina", "intellect", "spirit",
+        "armor", "attackPower", "rangedAttackPower", "hit", "crit", "expertise",
+        "defense", "dodge", "parry", "block", "blockValue", "weaponSkill",
+        "spellPower", "healingPower", "mp5",
+        "arcaneResistance", "fireResistance", "frostResistance",
+        "natureResistance", "shadowResistance",
+    }
+
+    for slotKey, item in pairs(run.equipment or {}) do
         self:EnsureArcadeItemConversion(item)
         local converted = item and item.arcadeItem
-
-        if converted then
-            stats.health = stats.health + (converted.health or 0)
-            stats.armor = stats.armor + (converted.armor or 0)
-            stats.dodge = stats.dodge + (converted.dodge or 0)
-            stats.crit = stats.crit + (converted.crit or 0)
-            stats.block = stats.block + (converted.block or 0)
-            stats.attackPower = stats.attackPower + (converted.attackPower or 0)
-        end
-
         local weapon = item and item.arcadeWeapon
-        if weapon then
-            stats.attackPower = stats.attackPower + (weapon.attackPower or 0)
+
+        for _, source in ipairs({ converted, weapon }) do
+            if source then
+                for _, key in ipairs(numericKeys) do
+                    gear[key] = (gear[key] or 0) + (tonumber(source[key]) or 0)
+                end
+
+                -- Old extracted/stashed items can pre-date the Forever ruleset.
+                -- Keep their direct HP bonus until they are replaced, but do not
+                -- double-count the compatibility health alias on new STA gear.
+                if source.stamina == nil and (tonumber(source.health) or 0) > 0 then
+                    gear.directHealth = gear.directHealth + (tonumber(source.health) or 0)
+                end
+
+                if source.traitName and (tonumber(source.traitValue) or 0) > 0 then
+                    local traitKey = string.upper(tostring(source.traitName))
+                    gear.traits[traitKey] = math.min(50,
+                        (gear.traits[traitKey] or 0) + (tonumber(source.traitValue) or 0))
+                end
+
+                local profile = string.upper(tostring(item and item.buildProfile or source.buildProfile or "NONE"))
+                if profile ~= "" and profile ~= "NONE" then
+                    gear.buildProfiles[profile] = (gear.buildProfiles[profile] or 0) + 1
+                end
+            end
         end
 
-        local source = converted or weapon
-        if source and source.traitName and (tonumber(source.traitValue) or 0) > 0 then
-            local key = string.upper(tostring(source.traitName))
-            stats.traits[key] = math.min(50, (stats.traits[key] or 0) + (tonumber(source.traitValue) or 0))
-        end
-
-        local profile = string.upper(tostring(item and item.buildProfile or source and source.buildProfile or "NONE"))
-        if profile ~= "" and profile ~= "NONE" then
-            stats.buildProfiles[profile] = (stats.buildProfiles[profile] or 0) + 1
+        if slotKey == "offhand" and item and item.equipLoc == "INVTYPE_SHIELD" then
+            gear.hasShield = true
         end
     end
 
-    stats.dodge = math.min(35, stats.dodge)
-    stats.crit = math.min(50, stats.crit)
-    stats.block = math.min(40, stats.block)
+    local level = math.max(1, tonumber(run.runLevel or (run.snapshot and run.snapshot.level)) or 1)
+    local classFile = run.snapshot and run.snapshot.classFile or run.classId or "WARRIOR"
+    local stats
+    if self.ForeverRules and self.ForeverRules.BuildDerivedStats then
+        stats = self.ForeverRules:BuildDerivedStats(level, classFile, gear)
+    else
+        stats = gear
+    end
+    stats.level = level
+    stats.traits = gear.traits
+    stats.buildProfiles = gear.buildProfiles
+    stats.hasShield = gear.hasShield
+
     run.arcadeStats = stats
-    run.arcadeTraits = stats.traits
+    run.arcadeTraits = gear.traits
+    run.ruleset = self.ForeverRules and self.ForeverRules.ID or run.ruleset
 
     local oldMaxHealth = math.max(1, run.playerMaxHealth or run.baseMaxHealth or 1)
     local oldHealth = math.max(0, run.playerHealth or oldMaxHealth)
     local healthRatio = math.min(1, oldHealth / oldMaxHealth)
-    local baseMaxHealth = run.baseMaxHealth
+    local baseMaxHealth = run.rulesBaseHealth
+        or run.baseMaxHealth
         or (run.snapshot and run.snapshot.maxHealth)
         or oldMaxHealth
-
-    run.baseMaxHealth = baseMaxHealth
-    run.playerMaxHealth = math.max(1, baseMaxHealth + stats.health)
+    run.rulesBaseHealth = math.max(1, baseMaxHealth)
+    run.baseMaxHealth = run.rulesBaseHealth
+    run.playerMaxHealth = math.max(1, math.floor(run.rulesBaseHealth + (tonumber(stats.health) or 0) + 0.5))
     run.playerHealth = math.max(0, math.floor(run.playerMaxHealth * healthRatio + 0.5))
 
-    if self.UpdateRunHealth then
-        self:UpdateRunHealth()
+    if string.upper(tostring(run.resourceType or "")) == "RAGE" then
+        if (tonumber(run.resourceMax) or 0) <= 10 then
+            run.resource = math.min(100, math.max(0, (tonumber(run.resource) or 0) * 20))
+        end
+        run.baseResourceMax = 100
+        run.resourceMax = 100
     end
 
+    if self.UpdateRunHealth then self:UpdateRunHealth() end
+    if self.UpdateRunResource then self:UpdateRunResource() end
+
     if self.DungeonDodge then
-        self.DungeonDodge:SetText(string.format("%.1f%%", stats.dodge))
+        self.DungeonDodge:SetText(string.format("D %.1f  P %.1f  B %.1f",
+            tonumber(stats.dodge) or 0,
+            tonumber(stats.parry) or 0,
+            tonumber(stats.block) or 0))
     end
 
     if self.CharacterSheetStatRows then
-        self.CharacterSheetStatRows.health:SetText(string.format("HP Bonus +%d", stats.health))
-        self.CharacterSheetStatRows.attackPower:SetText(string.format("Attack Power +%d", stats.attackPower))
-        self.CharacterSheetStatRows.armor:SetText(string.format("Armor %d", stats.armor))
-        self.CharacterSheetStatRows.dodge:SetText(string.format("Dodge %.1f%%", stats.dodge))
-        self.CharacterSheetStatRows.crit:SetText(string.format("Crit %.1f%%", stats.crit))
-        self.CharacterSheetStatRows.block:SetText(string.format("Block %.1f%%", stats.block))
+        local rows = self.CharacterSheetStatRows
+        if rows.primary then rows.primary:SetText(string.format("STR %d  AGI %d  STA %d",
+            math.floor(stats.strength or 0), math.floor(stats.agility or 0), math.floor(stats.stamina or 0))) end
+        if rows.attackPower then rows.attackPower:SetText(string.format("Attack Power %d", math.floor(stats.attackPower or 0))) end
+        if rows.armor then rows.armor:SetText(string.format("Armor %d", math.floor(stats.armor or 0))) end
+        if rows.skills then rows.skills:SetText(string.format("Weapon %d  Defense %d",
+            math.floor(stats.weaponSkill or 0), math.floor(stats.defenseSkill or 0))) end
+        if rows.hitCrit then rows.hitCrit:SetText(string.format("Hit %.1f%%  Crit %.1f%%",
+            stats.hit or 0, stats.crit or 0)) end
+        if rows.expertise then rows.expertise:SetText(string.format("Expertise %.1f%%", stats.expertise or 0)) end
+        if rows.avoidance then rows.avoidance:SetText(string.format("Dodge %.1f%%  Parry %.1f%%",
+            stats.dodge or 0, stats.parry or 0)) end
+        if rows.block then rows.block:SetText(string.format("Block %.1f%%  Value %d",
+            stats.block or 0, math.floor(stats.blockValue or 0))) end
     end
 end
-
 function GA:CanDropCharacterItem(drag, targetType, targetKey)
     if not drag or not drag.item then
         return false
@@ -894,18 +936,20 @@ function GA:CreateCharacterSheet(parent)
     self.CharacterSheetHealth = health
 
     local statsFrame = CreateFrame("Frame", nil, gearPanel)
-    statsFrame:SetSize(156, 110)
+    statsFrame:SetSize(156, 144)
     statsFrame:SetPoint("TOP", health, "BOTTOM", 0, -6)
     self.CharacterSheetStatsFrame = statsFrame
     self.CharacterSheetStatRows = {}
 
     local statLabels = {
-        { key = "health", label = "HP Bonus" },
+        { key = "primary", label = "Primary" },
         { key = "attackPower", label = "Attack Power" },
         { key = "armor", label = "Armor" },
-        { key = "dodge", label = "Dodge" },
-        { key = "crit", label = "Crit" },
-        { key = "block", label = "Block" },
+        { key = "skills", label = "Weapon / Defense" },
+        { key = "hitCrit", label = "Hit / Crit" },
+        { key = "expertise", label = "Expertise" },
+        { key = "avoidance", label = "Dodge / Parry" },
+        { key = "block", label = "Block / Value" },
     }
 
     for i, definition in ipairs(statLabels) do

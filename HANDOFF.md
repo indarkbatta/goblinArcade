@@ -3,7 +3,7 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-21  
-Current addon version: **0.63.0**  
+Current addon version: **0.64.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
@@ -16,6 +16,30 @@ Default branch: `main`
 - The former multi-job Linux matrix was consolidated into one local audit job to avoid repeating checkout/tool setup and to prevent multiple local jobs from contending for the single desktop runner.
 - Python and Node use the desktop runner itself: existing installations are preferred; if Python is absent, a portable official Python 3.12.10 embeddable build is cached locally without an installer, and Node can fall back to the runner's own embedded Node 24. Lua 5.1.5 is built directly from the official Lua source with the desktop Visual Studio C++ toolchain and cached in the runner tool-cache; no Lua setup action or symlink is required.
 - GitHub still orchestrates the workflow and stores its logs/status, but no GitHub-hosted runner compute is requested by this audit workflow.
+
+## 0.64.0 — Forever Classic rules engine
+
+- Added central `GoblinArcade/ForeverRules.lua` rules engine (ruleset ID `FOREVER_CLASSIC_BETA`) instead of spreading combat formulas across UI/runtime files.
+- Active Warrior gameplay now uses primary **STR / AGI / STA / INT / SPI** and derived Attack Power, Armor, Hit, Crit, Expertise, Weapon Skill, Defense Skill, Dodge, Parry, Block and Block Value.
+- Physical Armor now uses the Classic level-based formula `Armor / (Armor + 400 + 85 × attacker level)`, capped at 75%; the old `armor/(armor+100)` arcade formula is removed from active combat.
+- Player melee attacks use a single attack table with **Miss → Dodge → Parry → Glancing → Block → Crit → Hit**. Glancing is restricted to basic white attacks.
+- Enemy physical attacks use **Miss → Dodge → Parry → Block → Crit → Crushing → Hit** and therefore react to player Defense Skill and shield stats.
+- Crit physical damage is 200%; Crushing is 150%; Block subtracts flat Block Value instead of halving all incoming damage.
+- Sunder Armor now reduces enemy Armor before mitigation rather than acting as a generic incoming-damage multiplier.
+- Rend periodic ticks can critically strike.
+- Warrior resource scale is now **0–100 Rage**. Basic attacks generate normalized Rage from weapon speed; 1H and 2H weapons produce different amounts and avoided swings generate none.
+- Existing Warrior ability costs/gains were migrated to the 100-Rage scale (e.g. Heroic Strike 15, Charge +15, Bloodrage +20).
+- Old suspended runs with the former tiny Rage scale are upgraded on resume.
+- Live WoW item snapshots now capture `GetItemStats` when available. Item/weapon conversion emits Forever primary and secondary stats; old extracted gear remains readable through compatibility aliases.
+- Studio Items now expose Strength, Agility, Stamina, Intellect, Spirit, Hit, Expertise, Defense, Parry, Block Value, Weapon Skill, Spell Power, Healing Power, MP5 and five magic resistances.
+- Character Sheet now shows primary stats, AP, Armor, Weapon/Defense Skill, Hit/Crit, Expertise, Dodge/Parry and Block/Block Value.
+- EnemyGenerator v12 attaches level-based Armor/Weapon Skill/Defense and avoidance values through the same rules engine.
+- ItemGenerator v5, WeaponGenerator v3 and ItemDatabase v6 use the new stat model.
+- Studio schema **14**, Studio **1.13.0**, browser draft key **v28**.
+- Added `tools/forever_rules_audit.lua` for formula tests and `tools/forever_runtime_audit.py` for integration/schema/CI regression checks.
+- All CI/deploy workflows remain restricted to the user's **self-hosted Windows** runner; no GitHub-hosted runner label is introduced.
+- Current scope: the complete active **physical/Warrior combat path** is on the new engine. Resistance, Spell Power and Healing Power are represented in the engine/data model, while future playable caster classes still need their individual spell-resolution/coefficient logic wired when those classes are enabled.
+- Addon version **0.64.0**.
 
 ## 0.63.0 — Runtime Blob47 wall autotiling
 

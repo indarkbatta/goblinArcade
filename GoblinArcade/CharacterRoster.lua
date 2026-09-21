@@ -133,6 +133,15 @@ local function GetItemSnapshot(itemLink, icon, slotKey)
         itemLevel = C_Item.GetDetailedItemLevelInfo(itemLink)
     end
 
+    local itemStats
+    if type(GetItemStats) == "function" then
+        local ok, stats = pcall(GetItemStats, itemLink)
+        if ok and type(stats) == "table" then itemStats = stats end
+    elseif C_Item and type(C_Item.GetItemStats) == "function" then
+        local ok, stats = pcall(C_Item.GetItemStats, itemLink)
+        if ok and type(stats) == "table" then itemStats = stats end
+    end
+
     local snapshot = {
         source = "wow",
         sourceSlot = slotKey,
@@ -148,6 +157,7 @@ local function GetItemSnapshot(itemLink, icon, slotKey)
         baselineLocked = true,
         stashEligible = false,
         ownershipSource = "baseline",
+        itemStats = itemStats,
     }
 
     local metadata = {
@@ -158,6 +168,7 @@ local function GetItemSnapshot(itemLink, icon, slotKey)
         itemType = itemType,
         itemSubType = itemSubType,
         equipLoc = equipLoc,
+        itemStats = itemStats,
     }
 
     local weaponEquipLoc = equipLoc == "INVTYPE_WEAPON"

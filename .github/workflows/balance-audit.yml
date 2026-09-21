@@ -6,6 +6,7 @@ on:
     paths:
       - "studio-data.json"
       - "GoblinArcade/**/*.lua"
+      - "GoblinArcade/ForeverRules.lua"
       - "index.html"
       - "studio/index.html"
       - "GoblinArcade/index.html"
@@ -19,6 +20,8 @@ on:
       - "tools/ecosystem_tile_audit.py"
       - "tools/ui_cleanup_audit.py"
       - "tools/autotile_builder_audit.py"
+      - "tools/forever_rules_audit.lua"
+      - "tools/forever_runtime_audit.py"
       - "tools/event_runtime_audit.lua"
       - "tools/event_logic_audit.lua"
       - ".github/workflows/balance-audit.yml"
@@ -254,7 +257,8 @@ jobs:
           foreach ($audit in @(
             "tools/event_runtime_audit.lua",
             "tools/event_logic_audit.lua",
-            "tools/ecosystem_runtime_audit.lua"
+            "tools/ecosystem_runtime_audit.lua",
+            "tools/forever_rules_audit.lua"
           )) {
             & luac -p $audit
             if ($LASTEXITCODE -ne 0) { throw "Lua syntax validation failed: $audit" }
@@ -265,7 +269,8 @@ jobs:
           foreach ($audit in @(
             "tools/ecosystem_tile_audit.py",
             "tools/ui_cleanup_audit.py",
-            "tools/autotile_builder_audit.py"
+            "tools/autotile_builder_audit.py",
+            "tools/forever_runtime_audit.py"
           )) {
             & python $audit
             if ($LASTEXITCODE -ne 0) { throw "Python audit failed: $audit" }

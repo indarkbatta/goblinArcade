@@ -3,7 +3,7 @@ local _, GA = ...
 GA.EnemyGenerator = GA.EnemyGenerator or {}
 local EG = GA.EnemyGenerator
 
-EG.VERSION = 11
+EG.VERSION = 12
 
 local GEAR_SLOTS = {
     "head",
@@ -332,7 +332,7 @@ function EG:CreateEnemy(options)
     local scoreValue = math.max(1, Round(archetype.baseScore * rank.scoreMultiplier))
     local xpValue = math.max(1, Round((archetype.dangerRating or 1) * GetXpPerDanger() * (rank.xpMultiplier or 1)))
 
-    return {
+    local generated = {
         generatorVersion = self.VERSION,
         id = archetypeKey,
         archetype = archetypeKey,
@@ -368,4 +368,11 @@ function EG:CreateEnemy(options)
         alerted = false,
         skipTurn = false,
     }
+    if GA.ForeverRules and GA.ForeverRules.BuildEnemyCombatStats then
+        local combat = GA.ForeverRules:BuildEnemyCombatStats(generated)
+        for key, value in pairs(combat) do
+            generated[key] = value
+        end
+    end
+    return generated
 end
