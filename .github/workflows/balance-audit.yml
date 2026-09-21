@@ -42,7 +42,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Locate local Python and Node
+      - name: Locate or provision local Python and Node
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
@@ -69,23 +69,51 @@ jobs:
           }
 
           if (-not $pythonPath) {
-            throw "Local Python 3 was not found on the self-hosted Windows runner."
+            $pythonVersion = "3.12.10"
+            $toolRoot = if ($env:RUNNER_TOOL_CACHE) { $env:RUNNER_TOOL_CACHE } else { $env:RUNNER_TEMP }
+            $pythonHome = Join-Path $toolRoot "GoblinArcadePython\$pythonVersion"
+            $pythonPath = Join-Path $pythonHome "python.exe"
+
+            if (-not (Test-Path $pythonPath)) {
+              Write-Host "Local Python not found; provisioning portable Python $pythonVersion in the self-hosted runner cache."
+              New-Item -ItemType Directory -Force -Path $pythonHome | Out-Null
+              $pythonZip = Join-Path $env:RUNNER_TEMP "python-$pythonVersion-embed-amd64.zip"
+              Invoke-WebRequest -Uri "https://www.python.org/ftp/python/$pythonVersion/python-$pythonVersion-embed-amd64.zip" -OutFile $pythonZip
+              Expand-Archive -LiteralPath $pythonZip -DestinationPath $pythonHome -Force
+              Remove-Item $pythonZip -Force -ErrorAction SilentlyContinue
+            }
+          }
+
+          if (-not (Test-Path $pythonPath)) {
+            throw "Python could not be provisioned on the self-hosted Windows runner."
           }
 
           $pythonDir = Split-Path -Parent $pythonPath
           $pythonDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          Write-Host "Using local Python: $pythonPath"
+          Write-Host "Using Python: $pythonPath"
           & $pythonPath --version
-          if ($LASTEXITCODE -ne 0) { throw "Local Python failed to start." }
+          if ($LASTEXITCODE -ne 0) { throw "Python failed to start." }
 
           $nodeCommand = Get-Command node.exe -ErrorAction SilentlyContinue
-          if (-not $nodeCommand) {
-            throw "Local Node.js was not found on the self-hosted Windows runner."
+          $nodePath = if ($nodeCommand) { $nodeCommand.Source } else { $null }
+
+          if (-not $nodePath) {
+            $runnerRoot = Split-Path -Parent (Split-Path -Parent $env:RUNNER_TEMP)
+            $nodeCandidates = Get-ChildItem -Path (Join-Path $runnerRoot "externals") -Recurse -Filter "node.exe" -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -match "node24" } |
+              Select-Object -First 1
+            if ($nodeCandidates) { $nodePath = $nodeCandidates.FullName }
           }
 
-          Write-Host "Using local Node: $($nodeCommand.Source)"
-          & $nodeCommand.Source --version
-          if ($LASTEXITCODE -ne 0) { throw "Local Node.js failed to start." }
+          if (-not $nodePath -or -not (Test-Path $nodePath)) {
+            throw "Node.js was not found on the self-hosted Windows runner."
+          }
+
+          $nodeDir = Split-Path -Parent $nodePath
+          $nodeDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          Write-Host "Using Node: $nodePath"
+          & $nodePath --version
+          if ($LASTEXITCODE -ne 0) { throw "Node.js failed to start." }
 
       - name: Detect local Lua 5.1
         id: local-lua
