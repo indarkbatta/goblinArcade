@@ -20,6 +20,7 @@ on:
       - "tools/ecosystem_tile_audit.py"
       - "tools/ui_cleanup_audit.py"
       - "tools/autotile_builder_audit.py"
+      - "tools/monster_sprite_studio_audit.py"
       - "tools/forever_rules_audit.lua"
       - "tools/forever_runtime_audit.py"
       - "tools/affix_system_audit.py"
@@ -179,6 +180,7 @@ jobs:
             "tools/ecosystem_tile_audit.py",
             "tools/ui_cleanup_audit.py",
             "tools/autotile_builder_audit.py",
+            "tools/monster_sprite_studio_audit.py",
             "tools/forever_runtime_audit.py",
             "tools/affix_system_audit.py",
             "tools/generated_character_audit.py",

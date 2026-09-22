@@ -8,6 +8,18 @@ Repository: `indarkbatta/goblinArcade`
 Default branch: `main`
 
 
+
+## Studio 1.18.0 — grouped navigation + Monster Sprite Studio
+
+- Reorganized the formerly flat Studio navigation into collapsible editor groups: **Characters & Combat**, **Monsters & AI**, **Items & Loot**, **Dungeon**, **Events**, plus **Art & Asset Tools**.
+- Added **Monster Sprite Studio** as a standalone art utility. It accepts large transparent PNG/WebP source artwork instead of requiring pre-sized 128×128 assets.
+- Every monster has three fixed state slots: **Idle / Attack / Dead**. Source images are stored persistently in browser **IndexedDB** while transform/FX settings are stored in local storage.
+- The 128×128 frame composer supports alpha-bound auto-fit into a 112×112 safe area, drag positioning, mouse-wheel/slider scaling, X/Y offsets, contrast, saturation, final-pixel outline width/color, and configurable drop shadow.
+- Final frames are rendered at 4× working resolution and reduced with multi-pass high-quality downscaling before outline/shadow compositing, so large master artwork remains readable at game scale.
+- A monster family exports as a deterministic atlas with **columns = Idle / Attack / Dead** and **rows = monsters**. Exports include runtime-oriented PNG, optional WebP, individual 128×128 frame PNG, and JSON manifest with pixel rectangles plus normalized UV coordinates.
+- The existing **Wall Autotile Builder** is now also directly accessible under **Art & Asset Tools**, while its ecosystem-specific entry point remains available.
+- Studio version **1.18.0**, schema remains **18**. Addon runtime version remains **0.71.2**; monster-state runtime switching is intentionally a separate follow-up after the first atlas is authored and committed.
+
 ## 0.71.2 — empty-state reset after hero deletion
 
 - Fixed the Selected Hero screen after deleting the final generated hero. The **RUN LOADOUT** card no longer keeps stale weapon or Hardcore memorial text from the deleted character.
