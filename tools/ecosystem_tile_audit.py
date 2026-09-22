@@ -75,7 +75,7 @@ for token in (
     '["floorTexture","Floor Texture"',
     '["wallTexture","Wall Texture"',
     '["wallAutotileTexture","Wall Autotile Atlas"',
-    "goblinArcadeStudio.v28",
+    "goblinArcadeStudio.v29",
 ):
     assert token in studio, f"Studio hook missing: {token}"
 
