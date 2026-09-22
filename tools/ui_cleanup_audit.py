@@ -43,8 +43,12 @@ print("Dungeon UI cleanup audit OK: death/completion clear entities and setup mo
 
 # Character sheet layout regression checks.
 for token in (
-    'statsPanel:SetPoint("TOPLEFT", gearPanel, "BOTTOMLEFT", 0, -12)',
-    'statsPanel:SetPoint("BOTTOMRIGHT", sheet, "BOTTOMLEFT", 418, 20)',
+    'backpackPanel:SetHeight(446)',
+    'statsPanel:SetPoint("TOPLEFT", backpackPanel, "BOTTOMLEFT", 0, -12)',
+    'statsPanel:SetPoint("BOTTOMRIGHT", sheet, "BOTTOMRIGHT", -22, 20)',
+    'CreateStatGroup("OFFENSE", 182, -52, 158',
+    'CreateStatGroup("DEFENSE", 350, -52, 158',
+    'CreateStatGroup("MAGIC / RESISTANCES", 518, -52, 158',
     'CreateStatGroup("PRIMARY ATTRIBUTES"',
     'CreateStatGroup("OFFENSE"',
     'CreateStatGroup("DEFENSE"',
@@ -58,4 +62,4 @@ for token in (
 assert 'self.CharacterSheetStatRows' not in character_sheet, "Legacy centered character-sheet stat stack still exists"
 assert 'statsFrame:SetSize(156, 144)' not in character_sheet, "Legacy 156x144 overlapping stat frame still exists"
 
-print("Character sheet audit OK: paper-doll gear box stays clean and derived stats render in structured columns below it.")
+print("Character sheet audit OK: paper-doll and backpack share the upper row; derived stats render in four structured columns below the backpack.")

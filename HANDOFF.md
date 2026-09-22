@@ -3,10 +3,20 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-22  
-Current addon version: **0.67.0**  
+Current addon version: **0.67.1**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
+
+## 0.67.1 — Move Character Stats below Backpack
+
+- Moved the **CHARACTER STATS** panel from underneath the narrow 396px equipment/paper-doll column to underneath the much wider **Backpack** column.
+- Backpack is now explicitly the same 446px height as the paper-doll panel, creating a clean aligned upper row.
+- The stat panel spans the full right-hand width from the Backpack's left edge to the Character Sheet's right margin.
+- Primary, Offense, Defense and Magic/Resistances now sit **side by side in four columns**, giving long labels and derived values substantially more horizontal room while keeping all groups above the sheet bottom.
+- The paper-doll column no longer needs to reserve any vertical space for stats.
+- Updated the self-hosted UI regression audit to require the Backpack-relative stat placement and four-column layout.
+- Addon version **0.67.1**.
 
 ## 0.67.0 — Character sheet stat layout redesign
 
