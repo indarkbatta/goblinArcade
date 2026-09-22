@@ -3,10 +3,29 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-22  
-Current addon version: **0.68.0**  
+Current addon version: **0.69.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
+
+## 0.69.0 — Generated-only GoblinArcade characters
+
+- Removed the WoW-character-as-roguelike-character model. **Only characters created inside GoblinArcade can appear in the roster or start/resume a dungeon run.**
+- Every newly generated hero has authoritative `level = 1` / `startingLevel = 1`, independent of the logged-in WoW character.
+- Login initialization no longer snapshots `UnitName`, `UnitLevel`, `UnitClass`, `UnitRace`, health, inventory links or equipped gear.
+- Added a generated-only SavedVariables migration:
+  - legacy WoW-imported roster entries are removed;
+  - suspended runs and action-bar records belonging to those imported entries are removed;
+  - real GoblinArcade-generated heroes, Central Stash contents and their saved runs/loadouts are preserved.
+- Character selection and difficulty changes reject non-generated records; selection falls back only to another generated hero or to the **Create New Character** slot.
+- The empty-roster UI now explicitly says **GENERATED CHARACTERS ONLY** and disables Begin Run until a hero is created.
+- Removed the **WoW Gear Input / Arcade Conversion** flow from active runtime behavior. The left-side pre-run panel now explains that WoW level, stats and equipment are ignored.
+- Removed live `PLAYER_EQUIPMENT_CHANGED` / item-info listeners and all main-hand scanning/conversion from DungeonRun.
+- `CharacterSheet:EnsureArcadeItemConversion()` is now a compatibility no-op; runtime gear must already be native GoblinArcade item data.
+- `WeaponGenerator.lua` and `ItemGenerator.lua` remain in repository history but are no longer loaded by either TOC.
+- In-run level progression remains the existing GoblinArcade run progression system; this change only removes WoW character conversion and establishes Level 1 as the generated-character starting point.
+- Added static + executable generated-character audits proving that legacy WoW roster entries are purged and a newly created hero starts at Level 1.
+- Addon version **0.69.0**.
 
 ## 0.68.0 — Item / Affix System v2 foundation
 

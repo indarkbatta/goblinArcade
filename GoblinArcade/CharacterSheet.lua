@@ -104,16 +104,7 @@ local function CopyTable(value)
 end
 
 local function SetCharacterVisual(texture, snapshot)
-    if not texture then
-        return
-    end
-
-    local currentKey = GA.GetCurrentCharacterKey and GA:GetCurrentCharacterKey()
-    if snapshot and snapshot.characterKey == currentKey then
-        texture:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-        SetPortraitTexture(texture, "player")
-        return
-    end
+    if not texture then return end
 
     if snapshot and (snapshot.isArcadeGenerated or snapshot.sourceType == "arcade") then
         local race = GA.GetStudioRaceDefinition and GA:GetStudioRaceDefinition(snapshot.raceId)
@@ -126,14 +117,8 @@ local function SetCharacterVisual(texture, snapshot)
         return
     end
 
-    local coords = snapshot and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[snapshot.classFile]
-    if coords then
-        texture:SetTexture("Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES")
-        texture:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
-    else
-        texture:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
-        texture:SetTexCoord(0, 1, 0, 1)
-    end
+    texture:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+    texture:SetTexCoord(0, 1, 0, 1)
 end
 
 local function GetMouseFocusCompat()
@@ -257,52 +242,8 @@ function GA:RefreshRunWeaponFromEquipment()
 end
 
 function GA:EnsureArcadeItemConversion(item)
-    if not item then
-        return nil
-    end
-
-    -- Studio-defined dungeon items already carry their authoritative
-    -- GoblinArcade stats. Never run them through the WoW import converters.
-    if item.studioDefined then
-        return item
-    end
-
-    local itemGeneratorVersion = self.ItemGenerator and self.ItemGenerator.VERSION
-    local weaponGeneratorVersion = self.WeaponGenerator and self.WeaponGenerator.VERSION
-
-    if item.arcadeItem
-        and item.arcadeItem.generatorVersion == itemGeneratorVersion then
-        return item
-    end
-
-    if item.arcadeWeapon
-        and item.arcadeWeapon.generatorVersion == weaponGeneratorVersion then
-        return item
-    end
-
-    local metadata = {
-        itemID = item.itemID,
-        name = item.name,
-        itemLevel = item.itemLevel,
-        quality = item.quality,
-        itemType = item.itemType,
-        itemSubType = item.itemSubType,
-        equipLoc = item.equipLoc,
-    }
-
-    local weaponEquipLoc = item.equipLoc == "INVTYPE_WEAPON"
-        or item.equipLoc == "INVTYPE_WEAPONMAINHAND"
-        or item.equipLoc == "INVTYPE_WEAPONOFFHAND"
-        or item.equipLoc == "INVTYPE_2HWEAPON"
-        or item.equipLoc == "INVTYPE_RANGED"
-        or item.equipLoc == "INVTYPE_RANGEDRIGHT"
-
-    if weaponEquipLoc and self.WeaponGenerator and self.WeaponGenerator.Convert then
-        item.arcadeWeapon = self.WeaponGenerator:Convert(metadata)
-    elseif self.ItemGenerator and self.ItemGenerator.Convert then
-        item.arcadeItem = self.ItemGenerator:Convert(metadata)
-    end
-
+    -- Itemization is now native to GoblinArcade. No WoW item conversion path
+    -- is permitted; Studio/runtime items must already carry arcade stats.
     return item
 end
 

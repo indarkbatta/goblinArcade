@@ -7,8 +7,6 @@ data = json.loads((root / "studio-data.json").read_text(encoding="utf-8"))
 run = (root / "GoblinArcade" / "DungeonRun.lua").read_text(encoding="utf-8")
 sheet = (root / "GoblinArcade" / "CharacterSheet.lua").read_text(encoding="utf-8")
 roster = (root / "GoblinArcade" / "CharacterRoster.lua").read_text(encoding="utf-8")
-items = (root / "GoblinArcade" / "ItemGenerator.lua").read_text(encoding="utf-8")
-weapons = (root / "GoblinArcade" / "WeaponGenerator.lua").read_text(encoding="utf-8")
 database = (root / "GoblinArcade" / "ItemDatabase.lua").read_text(encoding="utf-8")
 affixes = (root / "GoblinArcade" / "AffixSystem.lua").read_text(encoding="utf-8")
 enemy = (root / "GoblinArcade" / "EnemyGenerator.lua").read_text(encoding="utf-8")
@@ -48,13 +46,14 @@ for token in (
 assert "armor / (armor + 100)" not in run, "Legacy armor formula is still active in DungeonRun"
 assert "BuildDerivedStats" in sheet
 assert "run.resourceMax = 100" in sheet
-assert "GetItemStats" in roster
 for token in ("strength", "agility", "stamina", "hit", "expertise", "defense", "blockValue", "weaponSkill"):
-    assert token in items, f"ItemGenerator missing {token}"
     assert token in database, f"ItemDatabase missing {token}"
-for token in ("weaponSpeedSeconds", "expertise", "stamina"):
-    assert token in weapons, f"WeaponGenerator missing {token}"
 assert "BuildEnemyCombatStats" in enemy
+assert "WeaponGenerator.lua" not in toc and "ItemGenerator.lua" not in toc
+assert 'characterRosterMode = "generated_only_v1"' in roster
+assert 'level = 1' in roster and 'startingLevel = 1' in roster
+for forbidden in ('GetInventoryItemLink("player"', 'UnitLevel("player")', 'UnitHealthMax("player")', "SnapshotCurrentEquipment", "SyncCurrentCharacterRoster", "GetCurrentCharacterKey"):
+    assert forbidden not in roster, f"WoW character import hook remains in CharacterRoster: {forbidden}"
 assert "DB.VERSION = 7" in database and "GA.AffixSystem:ApplyToItem" in database
 for token in ("ITEMIZATION_VERSION = 2","GetAffixCount","BuildAffix","ApplyToItem","STAT_META"): assert token in affixes
 assert len(data["prefixes"]) >= 8 and len(data["suffixes"]) >= 8
@@ -63,4 +62,4 @@ assert "runs-on:" in workflow and "- self-hosted" in workflow and "- Windows" in
 for hosted in ("ubuntu-latest", "windows-latest", "macos-latest"):
     assert hosted not in workflow, f"Paid/hosted runner reintroduced: {hosted}"
 
-print("Forever runtime audit OK: Warrior combat, derived stats, Affix Itemization v2, 100 Rage, attack tables and self-hosted CI hooks verified.")
+print("Forever runtime audit OK: generated-only heroes, Warrior combat, derived stats, Affix Itemization v2, 100 Rage and self-hosted CI hooks verified.")

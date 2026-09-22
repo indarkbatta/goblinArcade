@@ -77,120 +77,15 @@ local function IsConsumableItem(item)
     )
 end
 
-local function GetItemSnapshot(itemLink, icon, slotKey)
-    if not itemLink then
-        return nil
-    end
-
-    local name
-    local quality
-    local itemLevel
-    local itemType
-    local itemSubType
-    local itemID
-    local equipLoc
-
-    if C_Item and C_Item.GetItemInfo then
-        local a, _, c, d, _, f, g = C_Item.GetItemInfo(itemLink)
-
-        if type(a) == "table" then
-            name = a.itemName or a.name
-            quality = a.itemQuality or a.quality
-            itemLevel = a.itemLevel or a.level
-            itemType = a.itemType or a.type
-            itemSubType = a.itemSubType or a.subType
-        else
-            name = a
-            quality = c
-            itemLevel = d
-            itemType = f
-            itemSubType = g
-        end
-    elseif type(GetItemInfo) == "function" then
-        local a, _, c, d, _, f, g = GetItemInfo(itemLink)
-        name = a
-        quality = c
-        itemLevel = d
-        itemType = f
-        itemSubType = g
-    end
-
-    if C_Item and C_Item.GetItemInfoInstant then
-        local instantID, instantType, instantSubType, instantEquipLoc = C_Item.GetItemInfoInstant(itemLink)
-        itemID = instantID
-        itemType = itemType or instantType
-        itemSubType = itemSubType or instantSubType
-        equipLoc = instantEquipLoc
-    elseif type(GetItemInfoInstant) == "function" then
-        local instantID, instantType, instantSubType, instantEquipLoc = GetItemInfoInstant(itemLink)
-        itemID = instantID
-        itemType = itemType or instantType
-        itemSubType = itemSubType or instantSubType
-        equipLoc = instantEquipLoc
-    end
-
-    if not itemLevel and C_Item and C_Item.GetDetailedItemLevelInfo then
-        itemLevel = C_Item.GetDetailedItemLevelInfo(itemLink)
-    end
-
-    local itemStats
-    if type(GetItemStats) == "function" then
-        local ok, stats = pcall(GetItemStats, itemLink)
-        if ok and type(stats) == "table" then itemStats = stats end
-    elseif C_Item and type(C_Item.GetItemStats) == "function" then
-        local ok, stats = pcall(C_Item.GetItemStats, itemLink)
-        if ok and type(stats) == "table" then itemStats = stats end
-    end
-
-    local snapshot = {
-        source = "wow",
-        sourceSlot = slotKey,
-        name = name or itemLink:match("%[(.-)%]") or "Equipped item",
-        link = itemLink,
-        icon = icon,
-        itemID = itemID,
-        itemLevel = itemLevel,
-        quality = quality,
-        itemType = itemType,
-        itemSubType = itemSubType,
-        equipLoc = equipLoc,
-        baselineLocked = true,
-        stashEligible = false,
-        ownershipSource = "baseline",
-        itemStats = itemStats,
-    }
-
-    local metadata = {
-        itemID = itemID,
-        name = snapshot.name,
-        itemLevel = itemLevel,
-        quality = quality,
-        itemType = itemType,
-        itemSubType = itemSubType,
-        equipLoc = equipLoc,
-        itemStats = itemStats,
-    }
-
-    local weaponEquipLoc = equipLoc == "INVTYPE_WEAPON"
-        or equipLoc == "INVTYPE_WEAPONMAINHAND"
-        or equipLoc == "INVTYPE_WEAPONOFFHAND"
-        or equipLoc == "INVTYPE_2HWEAPON"
-        or equipLoc == "INVTYPE_RANGED"
-        or equipLoc == "INVTYPE_RANGEDRIGHT"
-
-    if weaponEquipLoc and GA.WeaponGenerator and GA.WeaponGenerator.Convert then
-        snapshot.arcadeWeapon = GA.WeaponGenerator:Convert(metadata)
-    elseif GA.ItemGenerator and GA.ItemGenerator.Convert then
-        snapshot.arcadeItem = GA.ItemGenerator:Convert(metadata)
-    end
-
-    return snapshot
-end
-
 local GetDB
 
 local function Trim(value)
     return tostring(value or ""):match("^%s*(.-)%s*$") or ""
+end
+
+local function IsGeneratedCharacter(character)
+    return character
+        and (character.isArcadeGenerated == true or character.sourceType == "arcade")
 end
 
 function GA:GetStudioClassDefinition(classId)
@@ -351,6 +246,7 @@ function GA:CreateArcadeCharacter(name, raceId, classId, hardcore, difficulty)
         name = name,
         realm = "GoblinArcade",
         level = 1,
+        startingLevel = 1,
         classId = classId,
         className = class.name or classId,
         classFile = classFile,
@@ -463,14 +359,11 @@ function GA:DeleteArcadeCharacter(key)
         db.actionBarVersions[key] = nil
     end
 
-    local currentKey = self:GetCurrentCharacterKey()
-    local nextKey = db.characters[currentKey] and currentKey or nil
-    if not nextKey then
-        for candidateKey, candidate in pairs(db.characters) do
-            if candidate and candidate.name then
-                nextKey = candidateKey
-                break
-            end
+    local nextKey
+    for candidateKey, candidate in pairs(db.characters) do
+        if IsGeneratedCharacter(candidate) and candidate.name then
+            nextKey = candidateKey
+            break
         end
     end
 
@@ -488,21 +381,6 @@ function GA:GetEquipmentSlotDefinitions()
     return EQUIPMENT_SLOTS
 end
 
-function GA:SnapshotCurrentEquipment()
-    local equipment = {}
-
-    for _, slot in ipairs(EQUIPMENT_SLOTS) do
-        local link = GetInventoryItemLink("player", slot.slotID)
-        local icon = GetInventoryItemTexture("player", slot.slotID)
-
-        if link then
-            equipment[slot.key] = GetItemSnapshot(link, icon, slot.key)
-        end
-    end
-
-    return equipment
-end
-
 GetDB = function()
     GoblinArcadeDB = GoblinArcadeDB or {}
     GoblinArcadeDB.version = GoblinArcadeDB.version or 1
@@ -518,7 +396,12 @@ GetDB = function()
     end
 
     for _, character in pairs(GoblinArcadeDB.characters) do
-        if character then
+        if IsGeneratedCharacter(character) then
+            character.sourceType = "arcade"
+            character.isArcadeGenerated = true
+            character.level = math.max(1, math.floor(tonumber(character.level) or 1))
+            character.startingLevel = tonumber(character.startingLevel) or 1
+            character.realm = "GoblinArcade"
             character.arcadeLoadout = character.arcadeLoadout or {}
             character.arcadeSupplies = character.arcadeSupplies or {}
             character.difficulty = GA.NormalizeDifficulty and GA:NormalizeDifficulty(character.difficulty) or "NORMAL"
@@ -1047,121 +930,58 @@ function GA:GetLoadoutSlotDefinitions()
     return EQUIPMENT_SLOTS
 end
 
-function GA:GetCurrentCharacterKey()
-    local realm = GetRealmName and GetRealmName() or "Unknown Realm"
-    local name = UnitName("player") or "Unknown"
-    return realm .. ":" .. name
-end
-
 function GA:InitializeCharacterRoster()
     local db = GetDB()
-    local key = self:GetCurrentCharacterKey()
-    local character = db.characters[key] or {}
+    local removedKeys = {}
 
-    character.key = key
-    character.name = UnitName("player") or "Unknown"
-    character.realm = GetRealmName and GetRealmName() or "Unknown Realm"
-    character.level = UnitLevel("player") or 0
+    -- Generated-only migration: WoW characters are not GoblinArcade heroes.
+    for key, character in pairs(db.characters) do
+        if not IsGeneratedCharacter(character) then
+            removedKeys[#removedKeys + 1] = key
+        end
+    end
 
-    local className, classFile = UnitClass("player")
-    character.className = className or "Adventurer"
-    character.classFile = classFile or "WARRIOR"
-    character.raceName = UnitRace("player") or ""
-    character.maxHealth = UnitHealthMax("player") or character.maxHealth or 0
-    character.updatedAt = time and time() or 0
-    character.equipment = self:SnapshotCurrentEquipment()
-    character.arcadeLoadout = character.arcadeLoadout or {}
-    character.arcadeSupplies = character.arcadeSupplies or {}
-    character.difficulty = self.NormalizeDifficulty and self:NormalizeDifficulty(character.difficulty) or "NORMAL"
+    for _, key in ipairs(removedKeys) do
+        db.characters[key] = nil
+        if db.suspendedRuns then db.suspendedRuns[key] = nil end
+        if db.actionBars then db.actionBars[key] = nil end
+        if db.actionBarVersions then db.actionBarVersions[key] = nil end
+        if db.selectedCharacterKey == key then db.selectedCharacterKey = nil end
+        if db.lastCharacterKey == key then db.lastCharacterKey = nil end
+    end
 
-    db.characters[key] = character
-    db.lastCharacterKey = key
+    db.characterRosterMode = "generated_only_v1"
 
-    if not db.selectedCharacterKey or not db.characters[db.selectedCharacterKey] then
-        db.selectedCharacterKey = key
+    if db.selectedCharacterKey and not IsGeneratedCharacter(db.characters[db.selectedCharacterKey]) then
+        db.selectedCharacterKey = nil
+    end
+
+    if not db.selectedCharacterKey then
+        for key, character in pairs(db.characters) do
+            if IsGeneratedCharacter(character) then
+                db.selectedCharacterKey = key
+                break
+            end
+        end
     end
 
     self.SelectedCharacterKey = db.selectedCharacterKey
 end
 
-function GA:SyncCurrentCharacterRoster(weapon, source)
-    local db = GetDB()
-    local key = self:GetCurrentCharacterKey()
-    local character = db.characters[key] or {}
-
-    character.key = key
-    character.name = UnitName("player") or "Unknown"
-    character.realm = GetRealmName and GetRealmName() or "Unknown Realm"
-    character.level = UnitLevel("player") or 0
-
-    local className, classFile = UnitClass("player")
-    character.className = className or "Adventurer"
-    character.classFile = classFile or "WARRIOR"
-    character.raceName = UnitRace("player") or ""
-    character.maxHealth = UnitHealthMax("player") or 0
-    character.updatedAt = time and time() or 0
-    character.equipment = self:SnapshotCurrentEquipment()
-    character.arcadeLoadout = character.arcadeLoadout or {}
-    character.arcadeSupplies = character.arcadeSupplies or {}
-    character.difficulty = self.NormalizeDifficulty and self:NormalizeDifficulty(character.difficulty) or "NORMAL"
-
-    source = source or {}
-
-    if source.clearWeapon then
-        character.weapon = nil
-        character.weaponName = nil
-        character.weaponIcon = nil
-        character.weaponLink = nil
-        character.weaponItemLevel = nil
-        character.weaponQuality = nil
-        character.weaponSubtype = nil
-    elseif weapon then
-        character.weapon = CopyTable(weapon)
-        character.weaponName = source.weaponName or weapon.sourceName
-        character.weaponIcon = source.weaponIcon
-        character.weaponLink = source.weaponLink
-        character.weaponItemLevel = source.weaponItemLevel or weapon.itemLevel
-        character.weaponQuality = source.weaponQuality or weapon.quality
-        character.weaponSubtype = source.weaponSubtype or weapon.style
-
-        if character.equipment and character.equipment.mainhand then
-            character.equipment.mainhand.arcadeWeapon = CopyTable(weapon)
-        end
-    end
-
-    db.characters[key] = character
-    db.lastCharacterKey = key
-
-    if not self.SelectedCharacterKey then
-        self.SelectedCharacterKey = db.selectedCharacterKey or key
-    end
-
-    if self.RefreshDungeonCharacterSelection then
-        self:RefreshDungeonCharacterSelection()
-    end
-end
-
 function GA:GetCharacterRoster()
     local db = GetDB()
-    local currentKey = self:GetCurrentCharacterKey()
     local roster = {}
 
     for key, character in pairs(db.characters) do
-        if character and character.name then
+        if IsGeneratedCharacter(character) and character.name then
             character.key = key
             roster[#roster + 1] = character
         end
     end
 
     table.sort(roster, function(a, b)
-        if a.key == currentKey and b.key ~= currentKey then
-            return true
-        end
-        if b.key == currentKey and a.key ~= currentKey then
-            return false
-        end
-        if (a.level or 0) ~= (b.level or 0) then
-            return (a.level or 0) > (b.level or 0)
+        if (a.level or 1) ~= (b.level or 1) then
+            return (a.level or 1) > (b.level or 1)
         end
         return string.lower(a.name or "") < string.lower(b.name or "")
     end)
@@ -1173,7 +993,7 @@ function GA:SelectDungeonCharacter(key)
     local db = GetDB()
     self.PendingDeleteArcadeKey = nil
     self.PendingAbandonSavedKey = nil
-    if key and db.characters[key] then
+    if key and IsGeneratedCharacter(db.characters[key]) then
         self.SelectedCharacterKey = key
         db.selectedCharacterKey = key
     end
@@ -1186,8 +1006,8 @@ end
 function GA:SetCharacterDifficulty(key, difficulty)
     local db = GetDB()
     local character = key and db.characters[key]
-    if not character then
-        return false, "Character not found."
+    if not IsGeneratedCharacter(character) then
+        return false, "Generated GoblinArcade character not found."
     end
 
     if self.RunState and self.RunState.active and self.RunState.snapshot
@@ -1211,13 +1031,22 @@ end
 
 function GA:GetSelectedDungeonCharacter()
     local db = GetDB()
-    local key = self.SelectedCharacterKey or db.selectedCharacterKey or self:GetCurrentCharacterKey()
+    local key = self.SelectedCharacterKey or db.selectedCharacterKey
+    local character = key and db.characters[key] or nil
 
-    if not db.characters[key] then
-        key = self:GetCurrentCharacterKey()
+    if not IsGeneratedCharacter(character) then
+        key = nil
+        character = nil
+        for candidateKey, candidate in pairs(db.characters) do
+            if IsGeneratedCharacter(candidate) then
+                key = candidateKey
+                character = candidate
+                break
+            end
+        end
     end
 
     self.SelectedCharacterKey = key
     db.selectedCharacterKey = key
-    return db.characters[key]
+    return character
 end

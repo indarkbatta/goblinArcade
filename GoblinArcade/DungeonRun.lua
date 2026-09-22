@@ -1913,16 +1913,7 @@ local function GenerateFloorSetup(floorGenerator, enemyGenerator, playerLevel, f
 end
 
 local function SetCharacterVisual(texture, character)
-    if not texture then
-        return
-    end
-
-    local currentKey = GA.GetCurrentCharacterKey and GA:GetCurrentCharacterKey()
-    if character and character.key == currentKey then
-        texture:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-        SetPortraitTexture(texture, "player")
-        return
-    end
+    if not texture then return end
 
     if character and (character.isArcadeGenerated or character.sourceType == "arcade") then
         local race = GA.GetStudioRaceDefinition and GA:GetStudioRaceDefinition(character.raceId)
@@ -1936,14 +1927,8 @@ local function SetCharacterVisual(texture, character)
         return
     end
 
-    local coords = character and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[character.classFile]
-    if coords then
-        texture:SetTexture("Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES")
-        texture:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
-    else
-        texture:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
-        texture:SetTexCoord(0, 1, 0, 1)
-    end
+    texture:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+    texture:SetTexCoord(0, 1, 0, 1)
 end
 
 local function SetGeneratorClassVisual(texture, classId)
@@ -2337,7 +2322,7 @@ function GA:CreateDungeonRunPage(parent)
     self.DungeonResource:Hide()
     self.DungeonResourceLabel:Hide()
 
-    local gearTitle = CreateText(left, "GameFontNormalSmall", "WOW GEAR INPUT")
+    local gearTitle = CreateText(left, "GameFontNormalSmall", "ARCADE HERO")
     gearTitle:SetPoint("TOPLEFT", 12, -126)
     gearTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
@@ -2373,7 +2358,7 @@ function GA:CreateDungeonRunPage(parent)
     runPortraitMeta:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
     self.DungeonRunPortraitMeta = runPortraitMeta
 
-    local gearHint = CreateText(left, "GameFontHighlightSmall", "Main hand")
+    local gearHint = CreateText(left, "GameFontHighlightSmall", "Generated characters only")
     gearHint:SetPoint("TOPLEFT", 12, -148)
     gearHint:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
@@ -2389,17 +2374,15 @@ function GA:CreateDungeonRunPage(parent)
     self.DungeonMainHandIcon = itemIcon
 
     itemIconButton:SetScript("OnEnter", function(button)
-        if GA.DungeonMainHandLink then
-            GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
-            GameTooltip:SetHyperlink(GA.DungeonMainHandLink)
-            GameTooltip:Show()
-        end
+        GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+        GameTooltip:SetText("GoblinArcade hero", 1, 0.82, 0.2)
+        GameTooltip:AddLine("WoW level, stats and equipment are not imported.", 0.82, 0.79, 0.72, true)
+        GameTooltip:AddLine("Create a hero here; every new hero starts at Level 1.", 0.25, 1.00, 0.35, true)
+        GameTooltip:Show()
     end)
-    itemIconButton:SetScript("OnLeave", function()
-        GameTooltip:Hide()
-    end)
+    itemIconButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-    local itemName = CreateText(left, "GameFontNormalSmall", "Scanning...")
+    local itemName = CreateText(left, "GameFontNormalSmall", "No WoW character import")
     itemName:SetPoint("TOPLEFT", itemIconButton, "TOPRIGHT", 8, -2)
     itemName:SetPoint("RIGHT", left, "RIGHT", -8, 0)
     itemName:SetJustifyH("LEFT")
@@ -2407,14 +2390,14 @@ function GA:CreateDungeonRunPage(parent)
     itemName:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
     self.DungeonMainHandName = itemName
 
-    local itemLevel = CreateText(left, "GameFontHighlightSmall", "")
+    local itemLevel = CreateText(left, "GameFontHighlightSmall", "New heroes start at Level 1")
     itemLevel:SetPoint("TOPLEFT", itemIconButton, "TOPRIGHT", 8, -22)
     itemLevel:SetPoint("RIGHT", left, "RIGHT", -8, 0)
     itemLevel:SetJustifyH("LEFT")
     itemLevel:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
     self.DungeonMainHandLevel = itemLevel
 
-    local itemMeta = CreateText(left, "GameFontDisableSmall", "")
+    local itemMeta = CreateText(left, "GameFontDisableSmall", "Stats and gear come only from GoblinArcade.")
     itemMeta:SetPoint("TOPLEFT", 12, -218)
     itemMeta:SetPoint("RIGHT", left, "RIGHT", -8, 0)
     itemMeta:SetJustifyH("LEFT")
@@ -2430,18 +2413,18 @@ function GA:CreateDungeonRunPage(parent)
         itemMeta,
     }
 
-    local conversionTitle = CreateText(left, "GameFontNormalSmall", "ARCADE CONVERSION")
+    local conversionTitle = CreateText(left, "GameFontNormalSmall", "ROGUELIKE PROGRESSION")
     conversionTitle:SetPoint("TOPLEFT", 12, -252)
     conversionTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
-    local arcadeDamage = CreateText(left, "GameFontNormal", "Damage --")
+    local arcadeDamage = CreateText(left, "GameFontNormal", "No WoW conversion")
     arcadeDamage:SetPoint("TOPLEFT", 12, -276)
     arcadeDamage:SetPoint("RIGHT", left, "RIGHT", -10, 0)
     arcadeDamage:SetJustifyH("LEFT")
     arcadeDamage:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
     self.DungeonArcadeDamage = arcadeDamage
 
-    local arcadeStyle = CreateText(left, "GameFontHighlightSmall", "")
+    local arcadeStyle = CreateText(left, "GameFontHighlightSmall", "Dungeon loot drives your build")
     arcadeStyle:SetPoint("TOPLEFT", 12, -298)
     arcadeStyle:SetPoint("RIGHT", left, "RIGHT", -10, 0)
     arcadeStyle:SetJustifyH("LEFT")
@@ -4839,7 +4822,6 @@ function GA:RefreshDungeonCharacterSelection()
     self:RefreshCharacterGenerator()
 
     local roster = self:GetCharacterRoster()
-    local currentKey = self:GetCurrentCharacterKey()
     local selected = self:GetSelectedDungeonCharacter()
 
     if not selected and #roster > 0 then
@@ -4879,7 +4861,7 @@ function GA:RefreshDungeonCharacterSelection()
                 character.level or 0,
                 character.raceName or "",
                 character.className or "Adventurer",
-                character.key == currentKey and "  -  CURRENT" or "",
+                "",
                 difficultyTag,
                 hardcoreTag,
                 deadTag,
@@ -4924,6 +4906,24 @@ function GA:RefreshDungeonCharacterSelection()
     end
 
     if not selected then
+        if self.DungeonSelectedCharacterIcon then
+            self.DungeonSelectedCharacterIcon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+            self.DungeonSelectedCharacterIcon:SetTexCoord(0, 1, 0, 1)
+        end
+        if self.DungeonSelectedCharacterName then self.DungeonSelectedCharacterName:SetText("NO HERO SELECTED") end
+        if self.DungeonSelectedCharacterMeta then self.DungeonSelectedCharacterMeta:SetText("Create a GoblinArcade hero to begin.") end
+        if self.DungeonSelectedCharacterSource then self.DungeonSelectedCharacterSource:SetText("GENERATED CHARACTERS ONLY") end
+        if self.DungeonSelectedNote then
+            self.DungeonSelectedNote:SetText("WoW characters, levels, stats and equipment are not imported.")
+            self.DungeonSelectedNote:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+        end
+        if self.DungeonSetupBeginButton then
+            self.DungeonSetupBeginButton:SetEnabled(false)
+            self.DungeonSetupBeginButton.label:SetText("CREATE A HERO")
+            self.DungeonSetupBeginButton.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+        end
+        if self.DungeonDeleteHeroButton then self.DungeonDeleteHeroButton:Hide() end
+        if self.DungeonAbandonSavedRunButton then self.DungeonAbandonSavedRunButton:Hide() end
         return
     end
 
@@ -4939,42 +4939,28 @@ function GA:RefreshDungeonCharacterSelection()
         selected.hardcore and "  -  HARDCORE" or "",
         selected.dead and "  -  DEAD" or ""
     ))
-    if selected.isArcadeGenerated or selected.sourceType == "arcade" then
-        if selected.dead and selected.hardcore then
-            self.DungeonSelectedCharacterSource:SetText("HARDCORE HERO - DEAD")
-            if self.DungeonSelectedNote then
-                self.DungeonSelectedNote:SetText(
-                    string.format(
-                        "Died on Floor %d. %s",
-                        tonumber(selected.deathFloor) or 1,
-                        selected.deathReason or "This hero fell in the dungeon."
-                    )
-                )
-                self.DungeonSelectedNote:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
-            end
-        else
-            self.DungeonSelectedCharacterSource:SetText(
-                selected.hardcore and "ARCADE HERO - HARDCORE" or "ARCADE HERO - NORMAL"
-            )
-            if self.DungeonSelectedNote then
-                self.DungeonSelectedNote:SetText(
-                    selected.hardcore
-                        and "Hardcore hero: death in a run is permanent."
-                        or "Generated hero: failed runs are not permanent."
-                )
-                self.DungeonSelectedNote:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
-            end
-        end
-    elseif selected.key == currentKey then
-        self.DungeonSelectedCharacterSource:SetText("CURRENT CHARACTER - LIVE DATA")
+    if selected.dead and selected.hardcore then
+        self.DungeonSelectedCharacterSource:SetText("HARDCORE HERO - DEAD")
         if self.DungeonSelectedNote then
-            self.DungeonSelectedNote:SetText("Current character data is read live from WoW.")
-            self.DungeonSelectedNote:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+            self.DungeonSelectedNote:SetText(
+                string.format(
+                    "Died on Floor %d. %s",
+                    tonumber(selected.deathFloor) or 1,
+                    selected.deathReason or "This hero fell in the dungeon."
+                )
+            )
+            self.DungeonSelectedNote:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
         end
     else
-        self.DungeonSelectedCharacterSource:SetText("ALT - LAST SYNCED DATA")
+        self.DungeonSelectedCharacterSource:SetText(
+            selected.hardcore and "GENERATED HERO - HARDCORE" or "GENERATED HERO"
+        )
         if self.DungeonSelectedNote then
-            self.DungeonSelectedNote:SetText("To refresh an alt's gear, log into that character once and open GoblinArcade.")
+            self.DungeonSelectedNote:SetText(
+                selected.hardcore
+                    and "Starts at Level 1. Hardcore death is permanent."
+                    or "Starts at Level 1. WoW character data is never imported."
+            )
             self.DungeonSelectedNote:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
         end
     end
@@ -5190,11 +5176,12 @@ end
 function GA:SetDungeonRunPortraitMode(active)
     if self.DungeonGearWidgets then
         for _, widget in ipairs(self.DungeonGearWidgets) do
-            if active then
-                widget:Hide()
-            else
-                widget:Show()
-            end
+            if active then widget:Hide() else widget:Show() end
+        end
+    end
+    if self.DungeonConversionWidgets then
+        for _, widget in ipairs(self.DungeonConversionWidgets) do
+            if active then widget:Hide() else widget:Show() end
         end
     end
 
@@ -5234,9 +5221,9 @@ function GA:SetDungeonRunPortraitMode(active)
     if self.DungeonRunPortraitFrame then
         if active then
             local snapshot = self.RunState and self.RunState.snapshot
-            local name = snapshot and snapshot.name or UnitName("player") or "Unknown"
-            local level = self.RunState and self.RunState.runLevel or snapshot and snapshot.level or UnitLevel("player") or 0
-            local className = snapshot and snapshot.className or UnitClass("player") or "Adventurer"
+            local name = snapshot and snapshot.name or "GoblinArcade Hero"
+            local level = self.RunState and self.RunState.runLevel or snapshot and snapshot.level or 1
+            local className = snapshot and snapshot.className or "Adventurer"
 
             self.DungeonRunPortraitName:SetText(name)
             self.DungeonRunPortraitMeta:SetText(string.format("Level %d %s", level, className))
@@ -5258,179 +5245,10 @@ function GA:SetDungeonRunPortraitMode(active)
     end
 end
 
-local QUALITY_NAMES = {
-    [0] = "Poor",
-    [1] = "Common",
-    [2] = "Uncommon",
-    [3] = "Rare",
-    [4] = "Epic",
-    [5] = "Legendary",
-    [6] = "Artifact",
-    [7] = "Heirloom",
-}
-
-local function GetCompatItemInfo(itemInfo)
-    if C_Item and C_Item.GetItemInfo then
-        local a, b, c, d, e, f, g = C_Item.GetItemInfo(itemInfo)
-
-        -- Some modern clients expose item info as a structured table.
-        if type(a) == "table" then
-            return a.itemName or a.name,
-                a.itemLink or a.hyperlink,
-                a.itemQuality or a.quality,
-                a.itemLevel or a.level,
-                a.itemMinLevel or a.minLevel,
-                a.itemType or a.type,
-                a.itemSubType or a.subType
-        end
-
-        return a, b, c, d, e, f, g
-    end
-
-    if type(GetItemInfo) == "function" then
-        return GetItemInfo(itemInfo)
-    end
-
-    return nil
-end
-
-local function GetCompatItemInstant(itemInfo)
-    if C_Item and C_Item.GetItemInfoInstant then
-        local itemID, itemType, itemSubType, equipLoc = C_Item.GetItemInfoInstant(itemInfo)
-        return itemID, itemType, itemSubType, equipLoc
-    end
-
-    if type(GetItemInfoInstant) == "function" then
-        local itemID, itemType, itemSubType, equipLoc = GetItemInfoInstant(itemInfo)
-        return itemID, itemType, itemSubType, equipLoc
-    end
-
-    return nil, nil, nil, nil
-end
-
-function GA:RefreshMainHandInfo(force)
-    if not self.DungeonMainHandName then
-        return
-    end
-
-    if self.RunState and self.RunState.active and not force then
-        return
-    end
-
-    local slotID = 16
-    local itemLink = GetInventoryItemLink("player", slotID)
-    local texture = GetInventoryItemTexture("player", slotID)
-
-    self.DungeonMainHandLink = itemLink
-
-    if self.DungeonMainHandIcon then
-        self.DungeonMainHandIcon:SetTexture(texture or "Interface\\Icons\\INV_Misc_QuestionMark")
-    end
-
-    if not itemLink then
-        self.DungeonMainHandName:SetText("No main hand")
-        self.DungeonMainHandName:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
-        self.DungeonMainHandLevel:SetText("")
-        self.DungeonMainHandMeta:SetText("Equip a weapon to scan it.")
-        self.DungeonArcadeDamage:SetText("Damage --")
-        self.DungeonArcadeStyle:SetText("")
-        self.DungeonArcadeTraitName:SetText("")
-        self.DungeonArcadeTraitDesc:SetText("")
-        self.DungeonPower:SetText("--")
-        self.ArcadeMainHand = nil
-
-        if self.SyncCurrentCharacterRoster then
-            self:SyncCurrentCharacterRoster(nil, { clearWeapon = true })
-        end
-
-        if self.DungeonBeginButton and not (self.RunState and self.RunState.active) then
-            self.DungeonBeginButton:SetEnabled(false)
-            self.DungeonBeginButton.label:SetText("BEGIN RUN")
-            self.DungeonBeginButton.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
-        end
-        return
-    end
-
-    local name, _, quality, itemLevel, _, itemType, itemSubType = GetCompatItemInfo(itemLink)
-    local itemID, instantType, instantSubType, equipLoc = GetCompatItemInstant(itemLink)
-
-    itemType = itemType or instantType
-    itemSubType = itemSubType or instantSubType
-
-    if not itemLevel and C_Item and C_Item.GetDetailedItemLevelInfo then
-        itemLevel = C_Item.GetDetailedItemLevelInfo(itemLink)
-    end
-
-    if quality == nil and type(GetInventoryItemQuality) == "function" then
-        quality = GetInventoryItemQuality("player", slotID)
-    end
-
-    if not name then
-        -- Equipped item links already contain a readable name, so keep the UI
-        -- useful even while the rest of the item data is still loading.
-        name = itemLink:match("%[(.-)%]") or "Loading item..."
-    end
-
-    local qualityColor = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality]
-    if qualityColor then
-        self.DungeonMainHandName:SetTextColor(qualityColor.r, qualityColor.g, qualityColor.b)
-    else
-        self.DungeonMainHandName:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
-    end
-
-    self.DungeonMainHandName:SetText(name)
-    self.DungeonMainHandLevel:SetText("Item Level " .. tostring(itemLevel or "?"))
-
-    local rarity = QUALITY_NAMES[quality] or "Unknown"
-    local typeName = itemSubType or itemType or "Unknown type"
-    self.DungeonMainHandMeta:SetText(rarity .. "  -  " .. typeName)
-
-    if self.WeaponGenerator and self.WeaponGenerator.Convert then
-        local weapon = self.WeaponGenerator:Convert({
-            itemID = itemID,
-            name = name,
-            itemLevel = itemLevel,
-            quality = quality,
-            itemType = itemType,
-            itemSubType = itemSubType,
-            equipLoc = equipLoc,
-        })
-
-        self.ArcadeMainHand = weapon
-
-        if weapon then
-            self.DungeonArcadeDamage:SetText(string.format("Damage %d - %d", weapon.damageMin, weapon.damageMax))
-            self.DungeonArcadeStyle:SetText(
-                string.format("%s  -  %s  -  Range %d", weapon.style, weapon.speed, weapon.range)
-            )
-            self.DungeonPower:SetText(string.format("%d-%d", weapon.damageMin, weapon.damageMax))
-
-            if weapon.traitName then
-                self.DungeonArcadeTraitName:SetText(weapon.traitName)
-                self.DungeonArcadeTraitDesc:SetText(weapon.traitDescription or "")
-            else
-                self.DungeonArcadeTraitName:SetText("NO SIGNATURE TRAIT")
-                self.DungeonArcadeTraitDesc:SetText("Uncommon or better weapons unlock their archetype trait.")
-            end
-
-            if self.SyncCurrentCharacterRoster then
-                self:SyncCurrentCharacterRoster(weapon, {
-                    weaponName = name,
-                    weaponIcon = texture,
-                    weaponLink = itemLink,
-                    weaponItemLevel = itemLevel,
-                    weaponQuality = quality,
-                    weaponSubtype = itemSubType or itemType,
-                })
-            end
-
-            if self.DungeonBeginButton and not (self.RunState and self.RunState.active) then
-                self.DungeonBeginButton:SetEnabled(true)
-                self.DungeonBeginButton.label:SetText(self.RunState and self.RunState.completed and "BEGIN AGAIN" or "BEGIN RUN")
-                self.DungeonBeginButton.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
-            end
-        end
-    end
+function GA:RefreshMainHandInfo()
+    -- Legacy UI hook retained so old callers remain safe. GoblinArcade no
+    -- longer reads, snapshots or converts the logged-in WoW character.
+    self.DungeonMainHandLink = nil
 end
 
 function GA:RefreshEnemyCombatCard()
@@ -8307,12 +8125,14 @@ function GA:BeginDungeonRun()
         return
     end
 
-    local currentKey = self.GetCurrentCharacterKey and self:GetCurrentCharacterKey()
     local selected = self.GetSelectedDungeonCharacter and self:GetSelectedDungeonCharacter()
 
-    if selected and selected.key == currentKey then
-        self:RefreshMainHandInfo(true)
-        selected = self:GetSelectedDungeonCharacter()
+    if not selected or not (selected.isArcadeGenerated or selected.sourceType == "arcade") then
+        if self.DungeonRunStateText then
+            self.DungeonRunStateText:SetText("CREATE A GOBLINARCADE HERO FIRST")
+            self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
+        end
+        return
     end
 
     if selected and self.HasSuspendedRun and self:HasSuspendedRun(selected.key) then
@@ -8333,14 +8153,14 @@ function GA:BeginDungeonRun()
     local selectedWeapon = ResolveCharacterWeapon(self, selected)
     if not selected or not selectedWeapon then
         if self.DungeonRunStateText then
-            self.DungeonRunStateText:SetText("SELECT A CHARACTER WITH A CACHED LOADOUT")
+            self.DungeonRunStateText:SetText("GENERATED HERO NEEDS A STARTER WEAPON")
             self.DungeonRunStateText:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
         end
         return
     end
 
     local name = selected.name or "Unknown"
-    local level = selected.level or 0
+    local level = math.max(1, math.floor(tonumber(selected.level) or 1))
     local className = selected.className or "Adventurer"
     local classId = string.lower(tostring(selected.classId or selected.classFile or className or ""))
     if not (self.IsStudioClassPlayable and self:IsStudioClassPlayable(classId)) then
@@ -10767,19 +10587,8 @@ function GA:RefreshDungeonSummary()
         self.DungeonRunPage:SetPropagateKeyboardInput(true)
     end
 
-    local maxHealth = self:ScaleCombatValue(UnitHealthMax("player") or 0)
-    self.DungeonHealth:SetText(tostring(maxHealth))
+    self.DungeonHealth:SetText("--")
     self:RefreshMainHandInfo()
     self:RefreshRunCounters()
     self:RenderDungeonGrid()
 end
-
-local itemEventFrame = CreateFrame("Frame")
-itemEventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
-itemEventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
-
-itemEventFrame:SetScript("OnEvent", function()
-    if GA.RefreshMainHandInfo then
-        GA:RefreshMainHandInfo()
-    end
-end)
