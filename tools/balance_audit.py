@@ -240,9 +240,10 @@ class Audit:
             }
         return rows
 
-    @staticmethod
-    def stamina_health(stamina: float) -> float:
-        return min(20.0, stamina) + max(0.0, stamina - 20.0) * 10.0
+    def stamina_health(self, stamina: float) -> float:
+        first = max(0.0, float(self.warrior.get("healthPerStaminaFirst20", 1) or 1))
+        after = max(0.0, float(self.warrior.get("healthPerStaminaAfter20", 10) or 10))
+        return min(20.0, stamina) * first + max(0.0, stamina - 20.0) * after
 
     def warrior_reference(self, level: int) -> dict[str, float]:
         level = max(1, min(60, int(level)))
@@ -265,7 +266,9 @@ class Audit:
             + float(self.warrior.get("meleeApOffset", -20) or 0),
         )
         raw_hp = max(1.0, row["base_hp"] + self.stamina_health(row["stamina"]))
-        raw_damage = max(1.0, 1.5 + (ap / 14.0) * 2.4)
+        weapon_base = max(0.0, float(self.warrior.get("referenceWeaponBaseDamage", 1.5) or 1.5))
+        weapon_speed = max(0.5, float(self.warrior.get("referenceWeaponSpeedSeconds", 2.4) or 2.4))
+        raw_damage = max(1.0, weapon_base + (ap / 14.0) * weapon_speed)
         return {"raw_hp": raw_hp, "attack_power": ap, "raw_damage": raw_damage, **row}
 
     def select_ecosystem(self) -> str | None:
