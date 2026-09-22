@@ -312,7 +312,7 @@ function GA:RecalculateRunGearStats()
     local classFile = run.snapshot and run.snapshot.classFile or run.classId or "WARRIOR"
     local stats
     if self.ForeverRules and self.ForeverRules.BuildDerivedStats then
-        stats = self.ForeverRules:BuildDerivedStats(level, classFile, gear)
+        stats = self.ForeverRules:BuildDerivedStats(level, classFile, gear, run.snapshot and run.snapshot.raceId)
     else
         stats = gear
     end
@@ -335,11 +335,14 @@ function GA:RecalculateRunGearStats()
     run.playerHealth = math.max(0, math.floor(run.playerMaxHealth * healthRatio + 0.5))
 
     if string.upper(tostring(run.resourceType or "")) == "RAGE" then
-        if (tonumber(run.resourceMax) or 0) <= 10 then
-            run.resource = math.min(100, math.max(0, (tonumber(run.resource) or 0) * 20))
+        local classDefinition = self.GetStudioClassDefinition and self:GetStudioClassDefinition(run.classId)
+        local rageCap = math.max(1, tonumber(classDefinition and classDefinition.resourceMax) or tonumber(run.baseResourceMax) or 100)
+        if (tonumber(run.resourceMax) or 0) <= 10 and rageCap > 10 then
+            run.resource = math.min(rageCap, math.max(0, (tonumber(run.resource) or 0) * 20))
         end
-        run.baseResourceMax = 100
-        run.resourceMax = 100
+        run.baseResourceMax = rageCap
+        run.resourceMax = rageCap
+        run.resource = math.min(rageCap, math.max(0, tonumber(run.resource) or 0))
     end
 
     if self.UpdateRunHealth then self:UpdateRunHealth() end
