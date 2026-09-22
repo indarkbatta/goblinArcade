@@ -3,10 +3,23 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-22  
-Current addon version: **0.67.2**  
+Current addon version: **0.68.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
+
+## 0.68.0 — Item / Affix System v2 foundation
+
+- Rebuilt Studio-authored dungeon equipment around **Base Item -> Prefix -> Suffix**.
+- Added `AffixSystem.lua` v1 / Itemization v2 with quality-based affix counts and item-level/quality/slot/tier budget scaling.
+- Secondary stats now come from data-authored Offense, Defense, Magic and Resistance affixes; Item Bases keep primary stats, HP/Armor, weapon damage/speed/range and signature traits.
+- New items persist resolved affix IDs/stat values and never reroll on refresh. Runtime names compose automatically, e.g. **Savage Iron Breastplate of Precision**.
+- Tooltips render base primary stats and resolved Prefix/Suffix stat lines.
+- Studio **Items** became **Item Bases** and gained separate **Prefixes** and **Suffixes** sections.
+- Studio schema **15**, Studio **1.14.0**, local draft **v29**; publish validates/persists both affix arrays.
+- ItemDatabase bumped to **v7**. Added static and executable affix audits.
+- Existing saved items and WoW-imported equipment retain compatibility; Itemization v2 governs newly built Studio dungeon gear.
+- Addon version **0.68.0**.
 
 ## 0.67.2 — Full-width Character Stats lower band
 

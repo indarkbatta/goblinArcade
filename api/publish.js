@@ -12,7 +12,7 @@ function safeEqual(left, right) {
 
 function assertStudioData(data) {
   if (!data || typeof data !== "object") throw new Error("Missing Studio data.");
-  const arrays = ["classes", "races", "abilities", "monsterSkills", "items", "lootTables", "loot", "objects", "ecosystems", "ecosystemEnemies", "eventRules", "events", "eventFlags", "eventOptions", "enemies", "ranks", "progression", "rooms", "shrines"];
+  const arrays = ["classes", "races", "abilities", "monsterSkills", "items", "prefixes", "suffixes", "lootTables", "loot", "objects", "ecosystems", "ecosystemEnemies", "eventRules", "events", "eventFlags", "eventOptions", "enemies", "ranks", "progression", "rooms", "shrines"];
   for (const key of arrays) {
     if (!Array.isArray(data[key])) throw new Error("Missing array: " + key);
     const ids = new Set();
@@ -33,6 +33,15 @@ function assertStudioData(data) {
   const lootTableIds = new Set(data.lootTables.map(x => String(x.id || "")));
   const itemIds = new Set(data.items.map(x => String(x.id || "")));
   const classIds = new Set(data.classes.map(x => String(x.id || "")));
+  const affixStats = new Set(["attackPower","hit","crit","expertise","weaponSkill","armor","defense","dodge","parry","block","blockValue","spellPower","healingPower","mp5","arcaneResistance","fireResistance","frostResistance","natureResistance","shadowResistance"]);
+  const affixFamilies = new Set(["OFFENSE","DEFENSE","MAGIC","RESISTANCE","UTILITY"]);
+  for (const [kind, records] of [["Prefix", data.prefixes], ["Suffix", data.suffixes]]) for (const affix of records) {
+    if (!affixFamilies.has(String(affix.family || "").toUpperCase())) throw new Error(kind+" "+affix.id+" has invalid Family.");
+    const tier=Number(affix.tier),weight=Number(affix.weight),minLevel=Number(affix.minItemLevel),w1=Number(affix.stat1Weight||0),w2=Number(affix.stat2Weight||0);
+    if (!Number.isFinite(tier)||tier<1||tier>4||!(weight>0)||!Number.isFinite(minLevel)||minLevel<1) throw new Error(kind+" "+affix.id+" has invalid tier/weight/minimum.");
+    if (!affixStats.has(String(affix.stat1||""))||(String(affix.stat2||"")&&!affixStats.has(String(affix.stat2)))) throw new Error(kind+" "+affix.id+" has invalid stat.");
+    if (w1<0||w2<0||w1+w2<=0) throw new Error(kind+" "+affix.id+" needs positive stat budget.");
+  }
 
   const validStyles = new Set(["ORC_CRYPT","WARREN","HAUNTED_CRYPT","PLAGUE_CRYPT"]);
   for (const ecosystem of data.ecosystems) {
@@ -298,6 +307,8 @@ module.exports = async function handler(req, res) {
       abilities: data.abilities,
       monsterSkills: data.monsterSkills,
       items: data.items,
+      prefixes: data.prefixes,
+      suffixes: data.suffixes,
       lootTables: data.lootTables,
       loot: data.loot,
       objects: data.objects,

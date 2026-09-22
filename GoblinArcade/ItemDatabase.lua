@@ -3,7 +3,7 @@ local _, GA = ...
 GA.ItemDatabase = GA.ItemDatabase or {}
 local DB = GA.ItemDatabase
 
-DB.VERSION = 6
+DB.VERSION = 7
 
 local SLOT_LABELS = {
     INVTYPE_HEAD = "Head",
@@ -149,6 +149,8 @@ function DB:BuildItemInstance(itemId, options)
         studioItemId = definition.id,
         itemDatabaseVersion = self.VERSION,
         name = definition.name or definition.id or "Dungeon Item",
+        baseName = definition.name or definition.id or "Dungeon Item",
+        itemizationVersion = 2,
         icon = NormalizeIcon(definition.icon),
         itemLevel = itemLevel,
         tier = tostring(definition.tier or "T0"),
@@ -171,79 +173,37 @@ function DB:BuildItemInstance(itemId, options)
     if category == "WEAPON" then
         item.itemType = "Weapon"
         item.arcadeWeapon = {
-            generatorVersion = "studio",
-            sourceName = item.name,
-            itemLevel = itemLevel,
-            quality = item.quality,
-            style = definition.itemSubType or "Weapon",
-            damageMin = math.max(1, Round((tonumber(definition.damageMin) or 1) * powerMultiplier)),
-            damageMax = math.max(1, Round((tonumber(definition.damageMax) or 1) * powerMultiplier)),
-            speed = tostring(definition.weaponSpeed or "NORMAL"),
-            range = math.max(1, math.floor(tonumber(definition.range) or 1)),
-            attackPower = math.max(0, Round((tonumber(definition.attackPower) or 0) * powerMultiplier)),
-            strength = math.max(0, Round((tonumber(definition.strength) or 0) * powerMultiplier)),
-            agility = math.max(0, Round((tonumber(definition.agility) or 0) * powerMultiplier)),
-            stamina = math.max(0, Round((tonumber(definition.stamina) or 0) * powerMultiplier)),
-            intellect = math.max(0, Round((tonumber(definition.intellect) or 0) * powerMultiplier)),
-            spirit = math.max(0, Round((tonumber(definition.spirit) or 0) * powerMultiplier)),
-            hit = math.max(0, Round1((tonumber(definition.hit) or 0) * powerMultiplier)),
-            crit = math.max(0, Round1((tonumber(definition.crit) or 0) * powerMultiplier)),
-            expertise = math.max(0, Round1((tonumber(definition.expertise) or 0) * powerMultiplier)),
-            weaponSkill = math.max(0, Round((tonumber(definition.weaponSkill) or 0) * powerMultiplier)),
-            spellPower = math.max(0, Round((tonumber(definition.spellPower) or 0) * powerMultiplier)),
-            healingPower = math.max(0, Round((tonumber(definition.healingPower) or 0) * powerMultiplier)),
-            weaponSpeedSeconds = tonumber(definition.weaponSpeedSeconds) or nil,
-            traitName = definition.traitName ~= "" and definition.traitName or nil,
-            traitValue = math.max(0, tonumber(definition.traitValue) or 0),
-            buildProfile = tostring(definition.buildProfile or "NONE"),
-            traitDescription = definition.traitDescription ~= "" and definition.traitDescription or nil,
+            generatorVersion="studio", itemizationVersion=2, sourceName=item.baseName, itemLevel=itemLevel, quality=item.quality,
+            style=definition.itemSubType or "Weapon", damageMin=math.max(1,Round((tonumber(definition.damageMin)or 1)*powerMultiplier)),
+            damageMax=math.max(1,Round((tonumber(definition.damageMax)or 1)*powerMultiplier)), speed=tostring(definition.weaponSpeed or "NORMAL"),
+            range=math.max(1,math.floor(tonumber(definition.range)or 1)),
+            strength=math.max(0,Round((tonumber(definition.strength)or 0)*powerMultiplier)), agility=math.max(0,Round((tonumber(definition.agility)or 0)*powerMultiplier)),
+            stamina=math.max(0,Round((tonumber(definition.stamina)or 0)*powerMultiplier)), intellect=math.max(0,Round((tonumber(definition.intellect)or 0)*powerMultiplier)), spirit=math.max(0,Round((tonumber(definition.spirit)or 0)*powerMultiplier)),
+            attackPower=0,hit=0,crit=0,expertise=0,weaponSkill=0,spellPower=0,healingPower=0,
+            weaponSpeedSeconds=tonumber(definition.weaponSpeedSeconds)or nil,traitName=definition.traitName~="" and definition.traitName or nil,
+            traitValue=math.max(0,tonumber(definition.traitValue)or 0),buildProfile=tostring(definition.buildProfile or "NONE"),
+            traitDescription=definition.traitDescription~="" and definition.traitDescription or nil,
         }
-        if item.arcadeWeapon.damageMax < item.arcadeWeapon.damageMin then
-            item.arcadeWeapon.damageMax = item.arcadeWeapon.damageMin
-        end
+        if item.arcadeWeapon.damageMax < item.arcadeWeapon.damageMin then item.arcadeWeapon.damageMax=item.arcadeWeapon.damageMin end
     elseif category == "CONSUMABLE" then
         item.itemType = "Consumable"
     else
         item.itemType = "Armor"
         item.arcadeItem = {
-            generatorVersion = "studio",
-            sourceName = item.name,
-            itemLevel = itemLevel,
-            quality = item.quality,
-            style = definition.itemSubType or category,
-            equipLoc = item.equipLoc,
-            health = math.max(0, Round((tonumber(definition.health) or 0) * powerMultiplier)),
-            strength = math.max(0, Round((tonumber(definition.strength) or 0) * powerMultiplier)),
-            agility = math.max(0, Round((tonumber(definition.agility) or 0) * powerMultiplier)),
-            stamina = math.max(0, Round((tonumber(definition.stamina) or 0) * powerMultiplier)),
-            intellect = math.max(0, Round((tonumber(definition.intellect) or 0) * powerMultiplier)),
-            spirit = math.max(0, Round((tonumber(definition.spirit) or 0) * powerMultiplier)),
-            armor = math.max(0, Round((tonumber(definition.armor) or 0) * powerMultiplier)),
-            attackPower = math.max(0, Round((tonumber(definition.attackPower) or 0) * powerMultiplier)),
-            hit = math.max(0, Round1((tonumber(definition.hit) or 0) * powerMultiplier)),
-            dodge = math.max(0, Round1((tonumber(definition.dodge) or 0) * powerMultiplier)),
-            parry = math.max(0, Round1((tonumber(definition.parry) or 0) * powerMultiplier)),
-            crit = math.max(0, Round1((tonumber(definition.crit) or 0) * powerMultiplier)),
-            expertise = math.max(0, Round1((tonumber(definition.expertise) or 0) * powerMultiplier)),
-            defense = math.max(0, Round((tonumber(definition.defense) or 0) * powerMultiplier)),
-            block = math.max(0, Round1((tonumber(definition.block) or 0) * powerMultiplier)),
-            blockValue = math.max(0, Round((tonumber(definition.blockValue) or 0) * powerMultiplier)),
-            weaponSkill = math.max(0, Round((tonumber(definition.weaponSkill) or 0) * powerMultiplier)),
-            spellPower = math.max(0, Round((tonumber(definition.spellPower) or 0) * powerMultiplier)),
-            healingPower = math.max(0, Round((tonumber(definition.healingPower) or 0) * powerMultiplier)),
-            mp5 = math.max(0, Round((tonumber(definition.mp5) or 0) * powerMultiplier)),
-            arcaneResistance = math.max(0, Round((tonumber(definition.arcaneResistance) or 0) * powerMultiplier)),
-            fireResistance = math.max(0, Round((tonumber(definition.fireResistance) or 0) * powerMultiplier)),
-            frostResistance = math.max(0, Round((tonumber(definition.frostResistance) or 0) * powerMultiplier)),
-            natureResistance = math.max(0, Round((tonumber(definition.natureResistance) or 0) * powerMultiplier)),
-            shadowResistance = math.max(0, Round((tonumber(definition.shadowResistance) or 0) * powerMultiplier)),
-            traitName = definition.traitName ~= "" and definition.traitName or nil,
-            traitValue = math.max(0, tonumber(definition.traitValue) or 0),
-            buildProfile = tostring(definition.buildProfile or "NONE"),
-            traitDescription = definition.traitDescription ~= "" and definition.traitDescription or nil,
+            generatorVersion="studio",itemizationVersion=2,sourceName=item.baseName,itemLevel=itemLevel,quality=item.quality,style=definition.itemSubType or category,equipLoc=item.equipLoc,
+            health=math.max(0,Round((tonumber(definition.health)or 0)*powerMultiplier)),strength=math.max(0,Round((tonumber(definition.strength)or 0)*powerMultiplier)),
+            agility=math.max(0,Round((tonumber(definition.agility)or 0)*powerMultiplier)),stamina=math.max(0,Round((tonumber(definition.stamina)or 0)*powerMultiplier)),
+            intellect=math.max(0,Round((tonumber(definition.intellect)or 0)*powerMultiplier)),spirit=math.max(0,Round((tonumber(definition.spirit)or 0)*powerMultiplier)),
+            armor=math.max(0,Round((tonumber(definition.armor)or 0)*powerMultiplier)),
+            attackPower=0,hit=0,dodge=0,parry=0,crit=0,expertise=0,defense=0,block=0,blockValue=0,weaponSkill=0,spellPower=0,healingPower=0,mp5=0,
+            arcaneResistance=0,fireResistance=0,frostResistance=0,natureResistance=0,shadowResistance=0,
+            traitName=definition.traitName~="" and definition.traitName or nil,traitValue=math.max(0,tonumber(definition.traitValue)or 0),
+            buildProfile=tostring(definition.buildProfile or "NONE"),traitDescription=definition.traitDescription~="" and definition.traitDescription or nil,
         }
     end
-
+    if item.equipLoc and GA.AffixSystem and GA.AffixSystem.ApplyToItem then
+        GA.AffixSystem:ApplyToItem(item,{classId=options.classId or(GA.RunState and(GA.RunState.classId or(GA.RunState.snapshot and GA.RunState.snapshot.classFile))),prefixId=options.prefixId,suffixId=options.suffixId})
+    end
     return item
 end
 

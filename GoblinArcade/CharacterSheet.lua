@@ -711,6 +711,26 @@ local function FormatCopperValue(copper)
     return string.format("%dc", remainingCopper)
 end
 
+
+local function AddItemAffixesToTooltip(item)
+    if not item or not item.affixes or #item.affixes==0 then return end
+    GameTooltip:AddLine(" ")
+    for _,a in ipairs(item.affixes)do
+        GameTooltip:AddLine(a.displayName or a.id or "Affix",1.00,0.72,0.12)
+        for _,s in ipairs(a.stats or {})do
+            local v=tonumber(s.value)or 0
+            local text=s.kind=="percent" and string.format("+%.1f%% %s",v,s.label or s.key or "Stat") or string.format("+%d %s",math.floor(v+0.5),s.label or s.key or "Stat")
+            GameTooltip:AddLine(text,0.78,0.86,1.00)
+        end
+    end
+end
+local function AddPrimaryStatsToTooltip(source)
+    if not source then return end
+    for _,d in ipairs({{"strength","Strength"},{"agility","Agility"},{"stamina","Stamina"},{"intellect","Intellect"},{"spirit","Spirit"}})do
+        local v=tonumber(source[d[1]])or 0;if v>0 then GameTooltip:AddLine(string.format("+%d %s",math.floor(v+0.5),d[2]),0.92,0.89,0.82)end
+    end
+end
+
 local function AddArcadeConversionToTooltip(item)
     if not item then
         return
@@ -757,7 +777,8 @@ local function AddArcadeConversionToTooltip(item)
             string.format("Damage %d - %d", weapon.damageMin or 0, weapon.damageMax or 0),
             0.92, 0.89, 0.82
         )
-        if (weapon.attackPower or 0) > 0 then
+        AddPrimaryStatsToTooltip(weapon)
+        if item.itemizationVersion ~= 2 and (weapon.attackPower or 0) > 0 then
             GameTooltip:AddLine(string.format("Attack Power +%d", weapon.attackPower), 1.00, 0.72, 0.12)
         end
         GameTooltip:AddLine(
@@ -768,6 +789,8 @@ local function AddArcadeConversionToTooltip(item)
             0.92, 0.89, 0.82,
             true
         )
+
+        AddItemAffixesToTooltip(item)
 
         if weapon.traitName then
             GameTooltip:AddLine(" ")
@@ -784,11 +807,13 @@ local function AddArcadeConversionToTooltip(item)
     if converted then
         GameTooltip:AddLine(converted.style or "Gear", 0.65, 0.60, 0.52)
 
+        AddPrimaryStatsToTooltip(converted)
+
         if (converted.health or 0) > 0 then
             GameTooltip:AddLine(string.format("Health +%d", converted.health), 0.30, 1.00, 0.38)
         end
 
-        if (converted.attackPower or 0) > 0 then
+        if item.itemizationVersion ~= 2 and (converted.attackPower or 0) > 0 then
             GameTooltip:AddLine(string.format("Attack Power +%d", converted.attackPower), 1.00, 0.72, 0.12)
         end
 
@@ -796,17 +821,19 @@ local function AddArcadeConversionToTooltip(item)
             GameTooltip:AddLine(string.format("Armor +%d", converted.armor), 0.92, 0.89, 0.82)
         end
 
-        if (converted.dodge or 0) > 0 then
+        if item.itemizationVersion ~= 2 and (converted.dodge or 0) > 0 then
             GameTooltip:AddLine(string.format("Dodge +%.1f%%", converted.dodge), 0.92, 0.89, 0.82)
         end
 
-        if (converted.crit or 0) > 0 then
+        if item.itemizationVersion ~= 2 and (converted.crit or 0) > 0 then
             GameTooltip:AddLine(string.format("Crit +%.1f%%", converted.crit), 0.92, 0.89, 0.82)
         end
 
-        if (converted.block or 0) > 0 then
+        if item.itemizationVersion ~= 2 and (converted.block or 0) > 0 then
             GameTooltip:AddLine(string.format("Block +%.1f%%", converted.block), 0.92, 0.89, 0.82)
         end
+
+        AddItemAffixesToTooltip(item)
 
         if converted.traitName then
             GameTooltip:AddLine(" ")
