@@ -8,8 +8,8 @@ sheet = (root / "GoblinArcade" / "CharacterSheet.lua").read_text(encoding="utf-8
 toc = (root / "GoblinArcade" / "GoblinArcade.toc").read_text(encoding="utf-8")
 core = (root / "GoblinArcade" / "Core.lua").read_text(encoding="utf-8")
 
-assert 'GA.version = "0.69.0"' in core
-assert "## Version: 0.69.0" in toc
+assert 'GA.version = "0.70.0"' in core
+assert "## Version: 0.70.0" in toc
 assert "WeaponGenerator.lua" not in toc
 assert "ItemGenerator.lua" not in toc
 
