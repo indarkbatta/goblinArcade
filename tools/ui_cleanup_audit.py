@@ -2,6 +2,7 @@
 from pathlib import Path
 
 source = Path("GoblinArcade/DungeonRun.lua").read_text(encoding="utf-8")
+character_sheet = Path("GoblinArcade/CharacterSheet.lua").read_text(encoding="utf-8")
 
 required = [
     "function GA:ClearDungeonGridVisuals()",
@@ -38,3 +39,23 @@ assert setup_block.index("self.DungeonGrid:Hide()") < setup_block.index("    els
 assert setup_block.index("self.DungeonGrid:Show()") > setup_block.index("    else"), "Grid show must be in run-active branch"
 
 print("Dungeon UI cleanup audit OK: death/completion clear entities and setup mode hides the entire grid/sprite layer.")
+
+
+# Character sheet layout regression checks.
+for token in (
+    'statsPanel:SetPoint("TOPLEFT", gearPanel, "BOTTOMLEFT", 0, -12)',
+    'statsPanel:SetPoint("BOTTOMRIGHT", sheet, "BOTTOMLEFT", 418, 20)',
+    'CreateStatGroup("PRIMARY ATTRIBUTES"',
+    'CreateStatGroup("OFFENSE"',
+    'CreateStatGroup("DEFENSE"',
+    'CreateStatGroup("MAGIC / RESISTANCES"',
+    'self.CharacterSheetStatValues[definition.key] = value',
+    'SetPercent("crit", stats.crit)',
+    'SetInteger("shadowResistance", stats.shadowResistance)',
+):
+    assert token in character_sheet, f"Missing character-sheet stat layout hook: {token}"
+
+assert 'self.CharacterSheetStatRows' not in character_sheet, "Legacy centered character-sheet stat stack still exists"
+assert 'statsFrame:SetSize(156, 144)' not in character_sheet, "Legacy 156x144 overlapping stat frame still exists"
+
+print("Character sheet audit OK: paper-doll gear box stays clean and derived stats render in structured columns below it.")

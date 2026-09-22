@@ -414,21 +414,49 @@ function GA:RecalculateRunGearStats()
             tonumber(stats.block) or 0))
     end
 
-    if self.CharacterSheetStatRows then
-        local rows = self.CharacterSheetStatRows
-        if rows.primary then rows.primary:SetText(string.format("STR %d  AGI %d  STA %d",
-            math.floor(stats.strength or 0), math.floor(stats.agility or 0), math.floor(stats.stamina or 0))) end
-        if rows.attackPower then rows.attackPower:SetText(string.format("Attack Power %d", math.floor(stats.attackPower or 0))) end
-        if rows.armor then rows.armor:SetText(string.format("Armor %d", math.floor(stats.armor or 0))) end
-        if rows.skills then rows.skills:SetText(string.format("Weapon %d  Defense %d",
-            math.floor(stats.weaponSkill or 0), math.floor(stats.defenseSkill or 0))) end
-        if rows.hitCrit then rows.hitCrit:SetText(string.format("Hit %.1f%%  Crit %.1f%%",
-            stats.hit or 0, stats.crit or 0)) end
-        if rows.expertise then rows.expertise:SetText(string.format("Expertise %.1f%%", stats.expertise or 0)) end
-        if rows.avoidance then rows.avoidance:SetText(string.format("Dodge %.1f%%  Parry %.1f%%",
-            stats.dodge or 0, stats.parry or 0)) end
-        if rows.block then rows.block:SetText(string.format("Block %.1f%%  Value %d",
-            stats.block or 0, math.floor(stats.blockValue or 0))) end
+    if self.CharacterSheetStatValues then
+        local values = self.CharacterSheetStatValues
+
+        local function SetInteger(key, value)
+            if values[key] then
+                values[key]:SetText(tostring(math.floor((tonumber(value) or 0) + 0.5)))
+            end
+        end
+
+        local function SetPercent(key, value)
+            if values[key] then
+                values[key]:SetText(string.format("%.1f%%", tonumber(value) or 0))
+            end
+        end
+
+        SetInteger("strength", stats.strength)
+        SetInteger("agility", stats.agility)
+        SetInteger("stamina", stats.stamina)
+        SetInteger("intellect", stats.intellect)
+        SetInteger("spirit", stats.spirit)
+
+        SetInteger("attackPower", stats.attackPower)
+        SetInteger("rangedAttackPower", stats.rangedAttackPower)
+        SetInteger("weaponSkill", stats.weaponSkill)
+        SetPercent("hit", stats.hit)
+        SetPercent("crit", stats.crit)
+        SetPercent("expertise", stats.expertise)
+
+        SetInteger("armor", stats.armor)
+        SetInteger("defenseSkill", stats.defenseSkill)
+        SetPercent("dodge", stats.dodge)
+        SetPercent("parry", stats.parry)
+        SetPercent("block", stats.block)
+        SetInteger("blockValue", stats.blockValue)
+
+        SetInteger("spellPower", stats.spellPower)
+        SetInteger("healingPower", stats.healingPower)
+        SetInteger("mp5", stats.mp5)
+        SetInteger("arcaneResistance", stats.arcaneResistance)
+        SetInteger("fireResistance", stats.fireResistance)
+        SetInteger("frostResistance", stats.frostResistance)
+        SetInteger("natureResistance", stats.natureResistance)
+        SetInteger("shadowResistance", stats.shadowResistance)
     end
 end
 function GA:CanDropCharacterItem(drag, targetType, targetKey)
@@ -935,31 +963,92 @@ function GA:CreateCharacterSheet(parent)
     health:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
     self.CharacterSheetHealth = health
 
-    local statsFrame = CreateFrame("Frame", nil, gearPanel)
-    statsFrame:SetSize(156, 144)
-    statsFrame:SetPoint("TOP", health, "BOTTOM", 0, -6)
-    self.CharacterSheetStatsFrame = statsFrame
-    self.CharacterSheetStatRows = {}
+    -- Keep the paper-doll area clean. Derived stats live in their own
+    -- character-sheet panel below the equipment box instead of being stacked
+    -- into the portrait/slot space.
+    local statsPanel = CreateFrame("Frame", nil, sheet, "BackdropTemplate")
+    statsPanel:SetPoint("TOPLEFT", gearPanel, "BOTTOMLEFT", 0, -12)
+    statsPanel:SetPoint("BOTTOMRIGHT", sheet, "BOTTOMLEFT", 418, 20)
+    ApplyBackdrop(statsPanel, { 0.045, 0.039, 0.032, 1 }, COLORS.goldDim)
+    self.CharacterSheetStatsFrame = statsPanel
+    self.CharacterSheetStatValues = {}
 
-    local statLabels = {
-        { key = "primary", label = "Primary" },
-        { key = "attackPower", label = "Attack Power" },
-        { key = "armor", label = "Armor" },
-        { key = "skills", label = "Weapon / Defense" },
-        { key = "hitCrit", label = "Hit / Crit" },
-        { key = "expertise", label = "Expertise" },
-        { key = "avoidance", label = "Dodge / Parry" },
-        { key = "block", label = "Block / Value" },
-    }
+    local statsTitle = CreateText(statsPanel, "GameFontNormalLarge", "CHARACTER STATS")
+    statsTitle:SetPoint("TOPLEFT", 14, -12)
+    statsTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
-    for i, definition in ipairs(statLabels) do
-        local row = CreateText(statsFrame, "GameFontHighlightSmall", "")
-        row:SetPoint("TOP", 0, -((i - 1) * 17))
-        row:SetWidth(156)
-        row:SetJustifyH("CENTER")
-        row:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
-        self.CharacterSheetStatRows[definition.key] = row
+    local statsRule = statsPanel:CreateTexture(nil, "ARTWORK")
+    statsRule:SetColorTexture(COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 0.65)
+    statsRule:SetPoint("TOPLEFT", 14, -36)
+    statsRule:SetPoint("TOPRIGHT", -14, -36)
+    statsRule:SetHeight(1)
+
+    local function CreateStatGroup(titleText, x, y, width, definitions)
+        local groupTitle = CreateText(statsPanel, "GameFontNormalSmall", titleText)
+        groupTitle:SetPoint("TOPLEFT", x, y)
+        groupTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+        local groupRule = statsPanel:CreateTexture(nil, "ARTWORK")
+        groupRule:SetColorTexture(COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 0.45)
+        groupRule:SetPoint("TOPLEFT", x, y - 18)
+        groupRule:SetWidth(width)
+        groupRule:SetHeight(1)
+
+        for index, definition in ipairs(definitions) do
+            local rowY = y - 28 - ((index - 1) * 18)
+
+            local label = CreateText(statsPanel, "GameFontHighlightSmall", definition.label)
+            label:SetPoint("TOPLEFT", x, rowY)
+            label:SetWidth(width - 54)
+            label:SetJustifyH("LEFT")
+            label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+            local value = CreateText(statsPanel, "GameFontNormalSmall", "--")
+            value:SetPoint("TOPRIGHT", statsPanel, "TOPLEFT", x + width, rowY)
+            value:SetWidth(50)
+            value:SetJustifyH("RIGHT")
+            value:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+
+            self.CharacterSheetStatValues[definition.key] = value
+        end
     end
+
+    CreateStatGroup("PRIMARY ATTRIBUTES", 14, -52, 172, {
+        { key = "strength", label = "Strength" },
+        { key = "agility", label = "Agility" },
+        { key = "stamina", label = "Stamina" },
+        { key = "intellect", label = "Intellect" },
+        { key = "spirit", label = "Spirit" },
+    })
+
+    CreateStatGroup("OFFENSE", 14, -184, 172, {
+        { key = "attackPower", label = "Attack Power" },
+        { key = "rangedAttackPower", label = "Ranged AP" },
+        { key = "weaponSkill", label = "Weapon Skill" },
+        { key = "hit", label = "Hit" },
+        { key = "crit", label = "Critical Strike" },
+        { key = "expertise", label = "Expertise" },
+    })
+
+    CreateStatGroup("DEFENSE", 210, -52, 172, {
+        { key = "armor", label = "Armor" },
+        { key = "defenseSkill", label = "Defense Skill" },
+        { key = "dodge", label = "Dodge" },
+        { key = "parry", label = "Parry" },
+        { key = "block", label = "Block" },
+        { key = "blockValue", label = "Block Value" },
+    })
+
+    CreateStatGroup("MAGIC / RESISTANCES", 210, -202, 172, {
+        { key = "spellPower", label = "Spell Power" },
+        { key = "healingPower", label = "Healing Power" },
+        { key = "mp5", label = "MP5" },
+        { key = "arcaneResistance", label = "Arcane Resist" },
+        { key = "fireResistance", label = "Fire Resist" },
+        { key = "frostResistance", label = "Frost Resist" },
+        { key = "natureResistance", label = "Nature Resist" },
+        { key = "shadowResistance", label = "Shadow Resist" },
+    })
 
     local leftSlots = { "head", "neck", "shoulder", "back", "chest", "wrist", "hands", "waist" }
     local rightSlots = { "legs", "feet", "finger1", "finger2", "trinket1", "trinket2", "mainhand", "offhand" }

@@ -3,10 +3,24 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-22  
-Current addon version: **0.66.2**  
+Current addon version: **0.67.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
+
+## 0.67.0 — Character sheet stat layout redesign
+
+- Reworked the in-run Character Sheet so derived/secondary stats no longer occupy the portrait/paper-doll area between equipment slots.
+- The original 396×446 equipment box is now reserved for the portrait, character identity/HP and the two equipment-slot columns.
+- Added a separate full-width **CHARACTER STATS** panel directly below the equipment box.
+- Stats are presented as proper label/value rows instead of compressed combined strings, with four character-sheet-style groups:
+  - **PRIMARY ATTRIBUTES:** Strength, Agility, Stamina, Intellect, Spirit
+  - **OFFENSE:** Attack Power, Ranged Attack Power, Weapon Skill, Hit, Critical Strike, Expertise
+  - **DEFENSE:** Armor, Defense Skill, Dodge, Parry, Block, Block Value
+  - **MAGIC / RESISTANCES:** Spell Power, Healing Power, MP5, Arcane/Fire/Frost/Nature/Shadow Resistance
+- Percentage and integer values are formatted independently and stay aligned in their own value column.
+- Added self-hosted UI regression checks requiring the lower stat panel and preventing the legacy 156×144 centered stat stack from returning.
+- Addon version **0.67.0**.
 
 ## 0.66.2 — Fix invisible lighting FX assets
 
