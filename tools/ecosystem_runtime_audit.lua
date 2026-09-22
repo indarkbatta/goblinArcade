@@ -32,7 +32,7 @@ dungeonChunk("GoblinArcade", GA)
 local floorChunk = assert(loadfile("GoblinArcade/FloorGenerator.lua"))
 floorChunk("GoblinArcade", GA)
 
-assert(GA.DungeonGenerator.VERSION == 17, "Unexpected DungeonGenerator version")
+assert(GA.DungeonGenerator.VERSION == 18, "Unexpected DungeonGenerator version")
 assert(GA.FloorGenerator.VERSION == 5, "Unexpected FloorGenerator version")
 
 local selectedA = assert(GA.DungeonGenerator:SelectEcosystem(424242))
@@ -53,6 +53,26 @@ for floor = 1, 9 do
     assert(map.floorTexture == (selectedA.floorTexture or ""), "Floor texture did not follow ecosystem")
     assert(map.wallTexture == (selectedA.wallTexture or ""), "Wall texture did not follow ecosystem")
     assert(map.wallAutotileTexture == (selectedA.wallAutotileTexture or ""), "Wall autotile texture did not follow ecosystem")
+    assert(type(map.wallTorches) == "table", "Wall torch placement table missing")
+    assert(map.wallTorchCount == #(function()
+        local result = {}
+        for _, torch in pairs(map.wallTorches or {}) do result[#result + 1] = torch end
+        return result
+    end)(), "Wall torch count mismatch")
+
+    local placedTorches = {}
+    for key, torch in pairs(map.wallTorches or {}) do
+        assert(map.walls[key] == true, "Torch must be mounted on a wall")
+        assert(map.walkable[tostring(torch.lightX) .. ":" .. tostring(torch.lightY)] == true, "Torch light origin must face walkable floor")
+        assert(torch.facing == "N" or torch.facing == "E" or torch.facing == "S" or torch.facing == "W", "Torch facing invalid")
+        for _, other in ipairs(placedTorches) do
+            local dx = torch.x - other.x
+            local dy = torch.y - other.y
+            assert((dx * dx) + (dy * dy) >= 25, "Wall torches are too close together")
+        end
+        placedTorches[#placedTorches + 1] = torch
+    end
+
     for _, placement in ipairs(map.eventPlacements or {}) do
         if selectedA.id == "orc" then
             assert(placement.eventId == "orc_event", "Foreign event entered orc ecosystem")
@@ -73,4 +93,4 @@ assert(explicitOrc.ecosystemId == "orc", "Explicit ecosystem was not preserved")
 local ok, _, reason = GA.DungeonGenerator:InjectEvent(explicitOrc, "kobold_event", 1)
 assert(ok == false and reason == "ecosystem", "Cross-ecosystem chained event was not rejected")
 
-print("Ecosystem runtime audit OK: one deterministic ecosystem per 9-floor run, filtered monsters/events, style metadata and floor/wall textures.")
+print("Ecosystem runtime audit OK: deterministic ecosystems, filtered content, wall torches with spacing, style metadata and floor/wall textures.")

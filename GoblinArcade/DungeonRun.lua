@@ -45,6 +45,57 @@ local WALL_CONTACT_SHADOW_PASSES = {
 }
 local WALL_CONTACT_SHADOW_MEMORY_ALPHA = 0.30
 
+local LIGHTING_UPDATE_INTERVAL = 0.12
+local SOFT_RADIAL_TEXTURE = "Interface\\AddOns\\GoblinArcade\\Media\\FX\\soft_radial"
+local WALL_TORCH_TEXTURE = "Interface\\AddOns\\GoblinArcade\\Media\\FX\\wall_torch"
+
+local DUNGEON_LIGHTING_PRESETS = {
+    ORC_CRYPT = {
+        ambientDarkness = 0.58,
+        memoryDarkness = 0.22,
+        playerRadius = 2.8,
+        playerStrength = 0.46,
+        torchRadius = 4.4,
+        torchStrength = 0.94,
+        lightLift = 0.88,
+        torchColor = { 1.00, 0.42, 0.12 },
+        tintStrength = 0.22,
+    },
+    WARREN = {
+        ambientDarkness = 0.50,
+        memoryDarkness = 0.19,
+        playerRadius = 2.9,
+        playerStrength = 0.48,
+        torchRadius = 4.2,
+        torchStrength = 0.88,
+        lightLift = 0.86,
+        torchColor = { 1.00, 0.48, 0.16 },
+        tintStrength = 0.19,
+    },
+    HAUNTED_CRYPT = {
+        ambientDarkness = 0.62,
+        memoryDarkness = 0.25,
+        playerRadius = 2.7,
+        playerStrength = 0.44,
+        torchRadius = 4.3,
+        torchStrength = 0.90,
+        lightLift = 0.87,
+        torchColor = { 0.92, 0.48, 0.18 },
+        tintStrength = 0.18,
+    },
+    PLAGUE_CRYPT = {
+        ambientDarkness = 0.58,
+        memoryDarkness = 0.23,
+        playerRadius = 2.8,
+        playerStrength = 0.45,
+        torchRadius = 4.2,
+        torchStrength = 0.90,
+        lightLift = 0.87,
+        torchColor = { 0.94, 0.50, 0.14 },
+        tintStrength = 0.19,
+    },
+}
+
 local STATIC_WALLS = {
     ["4:3"] = true, ["4:4"] = true, ["4:5"] = true,
     ["9:2"] = true, ["9:3"] = true,
@@ -240,6 +291,11 @@ local function GetActiveDungeonStyle()
     return DUNGEON_STYLE_PALETTES[preset] or DUNGEON_STYLE_PALETTES.WARREN
 end
 
+local function GetActiveDungeonLightingStyle()
+    local preset = ACTIVE_FLOOR_MAP and ACTIVE_FLOOR_MAP.stylePreset or "WARREN"
+    return DUNGEON_LIGHTING_PRESETS[preset] or DUNGEON_LIGHTING_PRESETS.WARREN
+end
+
 local function ResolveDungeonTileTexture(texturePath)
     local raw = tostring(texturePath or "")
     if raw == "" or string.find(raw, "^https?://") then return nil end
@@ -316,6 +372,14 @@ end
 
 local function GetDungeonMarkers()
     return ACTIVE_FLOOR_MAP and ACTIVE_FLOOR_MAP.markers or STATIC_MARKERS
+end
+
+local function GetDungeonWallTorches()
+    return ACTIVE_FLOOR_MAP and ACTIVE_FLOOR_MAP.wallTorches or {}
+end
+
+local function GetDungeonTorchAt(x, y)
+    return GetDungeonWallTorches()[CellKey(x, y)]
 end
 
 local function GetDungeonStart()
@@ -418,6 +482,107 @@ local function HasLineOfSight(fromX, fromY, toX, toY)
     end
 
     return true
+end
+
+
+local function ClampUnit(value)
+    if value < 0 then return 0 end
+    if value > 1 then return 1 end
+    return value
+end
+
+local function GetTorchFlickerScale(torch, now)
+    local phase = tonumber(torch and torch.phase) or 0
+    local timeValue = tonumber(now) or 0
+    local waveA = math.sin((timeValue * 7.3) + phase) * 0.045
+    local waveB = math.sin((timeValue * 12.7) + (phase * 1.9)) * 0.025
+    return math.max(0.90, math.min(1.10, 1 + waveA + waveB))
+end
+
+local function GetLightContribution(sourceX, sourceY, targetX, targetY, radius, strength)
+    local dx = targetX - sourceX
+    local dy = targetY - sourceY
+    local radiusValue = math.max(0.1, tonumber(radius) or 0.1)
+    local distanceSquared = (dx * dx) + (dy * dy)
+
+    if distanceSquared > (radiusValue * radiusValue) then
+        return 0
+    end
+
+    if not HasLineOfSight(sourceX, sourceY, targetX, targetY) then
+        return 0
+    end
+
+    local distance = math.sqrt(distanceSquared)
+    local t = ClampUnit(1 - (distance / radiusValue))
+    local smooth = t * t * (3 - (2 * t))
+    return ClampUnit(smooth * math.max(0, tonumber(strength) or 0))
+end
+
+local function GetDungeonLightingAt(worldX, worldY, now)
+    local runState = GA.RunState
+    local lighting = GetActiveDungeonLightingStyle()
+    local combined = 0
+    local tintWeight = 0
+    local tintR, tintG, tintB = 0, 0, 0
+
+    local function Accumulate(sourceX, sourceY, radius, strength, color, colorScale)
+        local contribution = GetLightContribution(
+            sourceX,
+            sourceY,
+            worldX,
+            worldY,
+            radius,
+            strength
+        )
+        if contribution <= 0 then
+            return
+        end
+
+        combined = 1 - ((1 - combined) * (1 - contribution))
+
+        if color then
+            local weight = contribution * math.max(0, tonumber(colorScale) or 0)
+            tintWeight = tintWeight + weight
+            tintR = tintR + ((tonumber(color[1]) or 1) * weight)
+            tintG = tintG + ((tonumber(color[2]) or 1) * weight)
+            tintB = tintB + ((tonumber(color[3]) or 1) * weight)
+        end
+    end
+
+    if runState and runState.playerX and runState.playerY then
+        Accumulate(
+            runState.playerX,
+            runState.playerY,
+            lighting.playerRadius,
+            lighting.playerStrength,
+            { 1.00, 0.92, 0.76 },
+            0.045
+        )
+    end
+
+    for _, torch in pairs(GetDungeonWallTorches()) do
+        local flicker = GetTorchFlickerScale(torch, now)
+        local scale = math.max(0.5, tonumber(torch.strengthScale) or 1)
+        Accumulate(
+            tonumber(torch.lightX) or tonumber(torch.x) or 1,
+            tonumber(torch.lightY) or tonumber(torch.y) or 1,
+            lighting.torchRadius,
+            lighting.torchStrength * scale * flicker,
+            lighting.torchColor,
+            lighting.tintStrength
+        )
+    end
+
+    if tintWeight > 0 then
+        tintR = tintR / tintWeight
+        tintG = tintG / tintWeight
+        tintB = tintB / tintWeight
+    else
+        tintR, tintG, tintB = 1, 1, 1
+    end
+
+    return ClampUnit(combined), ClampUnit(tintR), ClampUnit(tintG), ClampUnit(tintB), math.min(0.30, tintWeight)
 end
 
 local function IsWithinRadius(fromX, fromY, toX, toY, radius)
@@ -1702,6 +1867,22 @@ local function CreateWallContactShadowTextures(cell)
     return shadows
 end
 
+
+local function AnchorWallTorchTexture(texture, cell, facing)
+    if not texture or not cell then return end
+
+    texture:ClearAllPoints()
+    if facing == "N" then
+        texture:SetPoint("CENTER", cell, "TOP", 0, -16)
+    elseif facing == "S" then
+        texture:SetPoint("CENTER", cell, "BOTTOM", 0, 16)
+    elseif facing == "E" then
+        texture:SetPoint("CENTER", cell, "RIGHT", -16, 0)
+    else
+        texture:SetPoint("CENTER", cell, "LEFT", 16, 0)
+    end
+end
+
 local function CreateGrid(parent)
     local size = DUNGEON_TILE_SIZE
     local gap = DUNGEON_TILE_GAP
@@ -1713,6 +1894,12 @@ local function CreateGrid(parent)
     grid:SetSize(gridWidth, gridHeight)
     grid:SetPoint("TOP", 0, -28)
     ApplyBackdrop(grid, { 0.018, 0.016, 0.013, 1 }, { 0.16, 0.12, 0.05, 1 })
+
+    -- Lighting FX sit above terrain/darkness but below creature sprites.
+    local lightingLayer = CreateFrame("Frame", nil, grid)
+    lightingLayer:SetAllPoints(grid)
+    lightingLayer:SetFrameLevel(grid:GetFrameLevel() + 10)
+    grid.lightingLayer = lightingLayer
 
     -- Creature art lives on a dedicated overlay layer for clean z-order.
     -- Source art stays 128x128, while both physical tiles and rendered
@@ -1746,6 +1933,30 @@ local function CreateGrid(parent)
             terrainTexture:SetTexCoord(0, 1, 0, 1)
             terrainTexture:Hide()
 
+            local darknessOverlay = cell:CreateTexture(nil, "OVERLAY", nil, -2)
+            darknessOverlay:SetAllPoints(cell)
+            darknessOverlay:SetTexture("Interface\\Buttons\\WHITE8X8")
+            darknessOverlay:SetVertexColor(0, 0, 0, 1)
+            darknessOverlay:SetBlendMode("BLEND")
+            darknessOverlay:Hide()
+
+            local lightTintOverlay = cell:CreateTexture(nil, "OVERLAY", nil, -1)
+            lightTintOverlay:SetAllPoints(cell)
+            lightTintOverlay:SetTexture("Interface\\Buttons\\WHITE8X8")
+            lightTintOverlay:SetBlendMode("ADD")
+            lightTintOverlay:Hide()
+
+            local torchGlow = lightingLayer:CreateTexture(nil, "ARTWORK", nil, 0)
+            torchGlow:SetSize(164, 164)
+            torchGlow:SetTexture(SOFT_RADIAL_TEXTURE)
+            torchGlow:SetBlendMode("ADD")
+            torchGlow:Hide()
+
+            local torchIcon = spriteLayer:CreateTexture(nil, "ARTWORK", nil, 1)
+            torchIcon:SetSize(32, 48)
+            torchIcon:SetTexture(WALL_TORCH_TEXTURE)
+            torchIcon:Hide()
+
             local lootIcon = spriteLayer:CreateTexture(nil, "OVERLAY", nil, 1)
             lootIcon:SetSize(50, 50)
             lootIcon:SetPoint("CENTER", cell, "CENTER", 0, 0)
@@ -1759,6 +1970,15 @@ local function CreateGrid(parent)
             eventIcon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
             eventIcon:SetTexCoord(0.06, 0.94, 0.06, 0.94)
             eventIcon:Hide()
+
+            local enemyShadow = spriteLayer:CreateTexture(nil, "ARTWORK", nil, 0)
+            enemyShadow:SetSize(58, 22)
+            enemyShadow:SetPoint("CENTER", cell, "CENTER", 0, -20)
+            enemyShadow:SetTexture(SOFT_RADIAL_TEXTURE)
+            enemyShadow:SetVertexColor(0, 0, 0, 1)
+            enemyShadow:SetAlpha(0.42)
+            enemyShadow:SetBlendMode("BLEND")
+            enemyShadow:Hide()
 
             local enemyIcon = spriteLayer:CreateTexture(nil, "OVERLAY", nil, 2)
             enemyIcon:SetSize(CREATURE_SPRITE_RENDER_SIZE, CREATURE_SPRITE_RENDER_SIZE)
@@ -1796,9 +2016,14 @@ local function CreateGrid(parent)
                 floorUnderlayTexture = floorUnderlayTexture,
                 wallContactShadows = wallContactShadows,
                 terrainTexture = terrainTexture,
+                darknessOverlay = darknessOverlay,
+                lightTintOverlay = lightTintOverlay,
+                torchGlow = torchGlow,
+                torchIcon = torchIcon,
                 marker = marker,
                 lootIcon = lootIcon,
                 eventIcon = eventIcon,
+                enemyShadow = enemyShadow,
                 enemyIcon = enemyIcon,
                 enemyHealthBackdrop = enemyHealthBackdrop,
                 enemyHealthBar = enemyHealthBar,
@@ -1808,6 +2033,22 @@ local function CreateGrid(parent)
             }
         end
     end
+
+    grid.gaLightingElapsed = 0
+    grid:SetScript("OnUpdate", function(self, elapsed)
+        self.gaLightingElapsed = (self.gaLightingElapsed or 0) + (elapsed or 0)
+        if self.gaLightingElapsed < LIGHTING_UPDATE_INTERVAL then
+            return
+        end
+
+        self.gaLightingElapsed = 0
+        if self:IsShown()
+            and GA.RunState
+            and GA.RunState.active
+            and GA.UpdateDungeonLightingAnimation then
+            GA:UpdateDungeonLightingAnimation()
+        end
+    end)
 
     return grid
 end
@@ -7423,6 +7664,98 @@ function GA:UseDungeonFloorAccess()
     return false
 end
 
+
+function GA:UpdateDungeonLightingAnimation()
+    if not self.DungeonGrid or not self.DungeonGrid.cells then
+        return
+    end
+
+    local runState = self.RunState
+    if not runState or not runState.active then
+        return
+    end
+
+    local now = (GetTime and GetTime()) or 0
+    local lighting = GetActiveDungeonLightingStyle()
+    local cameraX = self.DungeonCameraX or 1
+    local cameraY = self.DungeonCameraY or 1
+
+    for viewY = 1, VIEWPORT_HEIGHT do
+        for viewX = 1, VIEWPORT_WIDTH do
+            local entry = self.DungeonGrid.cells[CellKey(viewX, viewY)]
+            if entry then
+                local worldX = cameraX + viewX - 1
+                local worldY = cameraY + viewY - 1
+                local visible = self:IsDungeonCellVisible(worldX, worldY)
+                local explored = self:IsDungeonCellExplored(worldX, worldY)
+
+                if entry.darknessOverlay then
+                    if not explored then
+                        entry.darknessOverlay:SetAlpha(0.96)
+                        entry.darknessOverlay:Show()
+                    elseif not visible then
+                        entry.darknessOverlay:SetAlpha(lighting.memoryDarkness)
+                        entry.darknessOverlay:Show()
+                    else
+                        local lightLevel, tintR, tintG, tintB, tintAlpha =
+                            GetDungeonLightingAt(worldX, worldY, now)
+                        local darkness = lighting.ambientDarkness
+                            * (1 - ((lighting.lightLift or 0.85) * lightLevel))
+                        darkness = math.max(0.06, math.min(0.90, darkness))
+
+                        entry.darknessOverlay:SetAlpha(darkness)
+                        entry.darknessOverlay:Show()
+
+                        if entry.lightTintOverlay then
+                            if tintAlpha > 0.004 then
+                                entry.lightTintOverlay:SetVertexColor(tintR, tintG, tintB, 1)
+                                entry.lightTintOverlay:SetAlpha(tintAlpha)
+                                entry.lightTintOverlay:Show()
+                            else
+                                entry.lightTintOverlay:Hide()
+                            end
+                        end
+                    end
+                end
+
+                if not visible and entry.lightTintOverlay then
+                    entry.lightTintOverlay:Hide()
+                end
+
+                local torch = GetDungeonTorchAt(worldX, worldY)
+                if torch then
+                    local flicker = GetTorchFlickerScale(torch, now)
+                    local strengthScale = math.max(0.5, tonumber(torch.strengthScale) or 1)
+
+                    if entry.torchIcon and explored then
+                        entry.torchIcon:SetAlpha(
+                            visible
+                                and math.max(0.76, math.min(1, 0.92 + ((flicker - 1) * 1.6)))
+                                or 0.25
+                        )
+                    end
+
+                    if entry.torchGlow then
+                        if visible then
+                            local color = lighting.torchColor or { 1, 0.45, 0.12 }
+                            entry.torchGlow:SetVertexColor(color[1], color[2], color[3], 1)
+                            entry.torchGlow:SetAlpha(
+                                math.max(0.10, math.min(0.30, 0.21 * flicker * strengthScale))
+                            )
+                            entry.torchGlow:Show()
+                        else
+                            entry.torchGlow:Hide()
+                        end
+                    end
+                else
+                    if entry.torchGlow then entry.torchGlow:Hide() end
+                    if entry.torchIcon then entry.torchIcon:Hide() end
+                end
+            end
+        end
+    end
+end
+
 function GA:RenderDungeonGrid()
     if not self.DungeonGrid or not self.DungeonGrid.cells then
         return
@@ -7471,6 +7804,21 @@ function GA:RenderDungeonGrid()
                     entry.terrainTexture:SetAlpha(1)
                     entry.terrainTexture:SetTexCoord(0, 1, 0, 1)
                 end
+                if entry.darknessOverlay then
+                    entry.darknessOverlay:Hide()
+                    entry.darknessOverlay:SetAlpha(1)
+                end
+                if entry.lightTintOverlay then
+                    entry.lightTintOverlay:Hide()
+                    entry.lightTintOverlay:SetAlpha(1)
+                end
+                if entry.torchGlow then
+                    entry.torchGlow:Hide()
+                end
+                if entry.torchIcon then
+                    entry.torchIcon:Hide()
+                    entry.torchIcon:SetAlpha(1)
+                end
                 if entry.lootIcon then
                     entry.lootIcon:Hide()
                     entry.lootIcon:SetAlpha(1)
@@ -7480,6 +7828,9 @@ function GA:RenderDungeonGrid()
                     entry.eventIcon:Hide()
                     entry.eventIcon:SetAlpha(1)
                     entry.eventIcon:SetTexCoord(0.06, 0.94, 0.06, 0.94)
+                end
+                if entry.enemyShadow then
+                    entry.enemyShadow:Hide()
                 end
                 if entry.enemyIcon then
                     entry.enemyIcon:Hide()
@@ -7570,6 +7921,19 @@ function GA:RenderDungeonGrid()
                     end
                 end
 
+                local wallTorch = GetDungeonTorchAt(worldX, worldY)
+                if wallTorch and explored then
+                    if entry.torchGlow then
+                        AnchorWallTorchTexture(entry.torchGlow, entry.frame, wallTorch.facing)
+                        if visible then entry.torchGlow:Show() end
+                    end
+                    if entry.torchIcon then
+                        AnchorWallTorchTexture(entry.torchIcon, entry.frame, wallTorch.facing)
+                        entry.torchIcon:SetAlpha(visible and 1 or 0.25)
+                        entry.torchIcon:Show()
+                    end
+                end
+
                 -- Static landmarks are remembered after discovery. They are
                 -- bright while visible and muted when only remembered.
                 if explored then
@@ -7654,6 +8018,8 @@ function GA:RenderDungeonGrid()
         end
     end
 
+    self:UpdateDungeonLightingAnimation()
+
     -- Creatures are not remembered through fog. Every living enemy renders
     -- only while its world cell is currently visible.
     for _, enemy in ipairs(run and run.enemies or {}) do
@@ -7677,6 +8043,9 @@ function GA:RenderDungeonGrid()
                         enemyCell.enemyIcon:SetTexCoord(0, 1, 0, 1)
                     end
 
+                    if enemyCell.enemyShadow then
+                        enemyCell.enemyShadow:Show()
+                    end
                     enemyCell.enemyIcon:Show()
 
                     if enemyCell.enemyHealthBackdrop and enemyCell.enemyHealthBar then

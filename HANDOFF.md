@@ -3,10 +3,24 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-22  
-Current addon version: **0.65.1**  
+Current addon version: **0.66.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
+
+## 0.66.0 — Dynamic dungeon lighting, wall torches and creature shadows
+
+- Added a lightweight **2D dynamic lighting engine** for the 7×7 dungeon viewport. Visible cells receive ecosystem-specific ambient darkness plus distance falloff from the player and mounted wall torches.
+- Light propagation uses the existing dungeon **line-of-sight / closed-door blocking**, so illumination does not simply pass through walls.
+- Added deterministic procedural **wall-torch placement** in DungeonGenerator v18. Torches only mount on clean straight wall faces that look onto walkable floor, avoid nearby landmarks/doors/events, and enforce a minimum **5-tile spacing** so fixtures do not pile up.
+- Each generated torch stores its floor-side light origin, facing, deterministic flicker phase and small strength variation. A floor normally receives only a small handful of fixtures, scaled by dungeon walkable area and capped at seven.
+- Added animated torch flicker at a throttled 0.12 s update cadence without re-rendering the whole dungeon.
+- Added authored addon FX assets: `Media/FX/wall_torch.png` and `Media/FX/soft_radial.png`. The radial asset provides local torch bloom and is also reused as a soft elliptical creature ground shadow.
+- Every visible living enemy now renders a **soft drop shadow** underneath its sprite.
+- Dynamic lighting does not expand player vision or reveal fogged cells; explored memory remains deliberately subdued.
+- Existing Blob47 wall autotiling, floor underlay, wall contact shadow and legacy wall fallback remain intact.
+- Expanded self-hosted ecosystem/runtime audits for torch placement, spacing, legal floor-facing light origins, lighting hooks, FX assets and WoW texture-sublevel safety.
+- Addon version **0.66.0**.
 
 ## 0.65.1 — WoW texture sublevel compatibility fix
 

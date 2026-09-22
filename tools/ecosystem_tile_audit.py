@@ -30,6 +30,17 @@ assert floor_raw[:8] == b"\x89PNG\r\n\x1a\n", "Orc floor texture must be PNG"
 floor_width, floor_height = struct.unpack(">II", floor_raw[16:24])
 assert floor_width == floor_height and floor_width >= 128, f"Expected square floor texture >=128px, got {floor_width}x{floor_height}"
 
+fx_assets = {
+    "soft radial FX": (root / "GoblinArcade" / "Media" / "FX" / "soft_radial.png", (64, 64)),
+    "wall torch FX": (root / "GoblinArcade" / "Media" / "FX" / "wall_torch.png", (32, 48)),
+}
+for label, (path, expected_size) in fx_assets.items():
+    assert path.exists(), f"Missing {label}: {path}"
+    header = path.read_bytes()[:24]
+    assert header[:8] == b"\x89PNG\r\n\x1a\n", f"{label} must be PNG"
+    asset_width, asset_height = struct.unpack(">II", header[16:24])
+    assert (asset_width, asset_height) == expected_size, f"{label} expected {expected_size}, got {(asset_width, asset_height)}"
+
 atlas_rel = orc["wallAutotileTexture"]
 assert atlas_rel == "Media/Tiles/Autotiles/orc_occupied_crypt/orc_occupied_crypt_wall_autotile_47.png"
 atlas = root / "GoblinArcade" / atlas_rel
@@ -86,6 +97,18 @@ for token in (
     "wallContactShadows",
     "shadow.gaContactShadowAlpha",
     "entry.floorUnderlayTexture:SetTexture(floorPath)",
+    "DUNGEON_LIGHTING_PRESETS",
+    "GetDungeonLightingAt",
+    "GetTorchFlickerScale",
+    "UpdateDungeonLightingAnimation",
+    "darknessOverlay",
+    "lightTintOverlay",
+    "torchGlow",
+    "torchIcon",
+    "enemyShadow",
+    "SOFT_RADIAL_TEXTURE",
+    "WALL_TORCH_TEXTURE",
+    "self:UpdateDungeonLightingAnimation()",
     'cell:CreateTexture(nil, "BACKGROUND", nil, 7)',
     'cell:CreateTexture(nil, "BORDER", nil, 7)',
     'cell:CreateTexture(nil, "ARTWORK", nil, -8)',
@@ -97,4 +120,4 @@ for match in re.finditer(r'CreateTexture\([^\n]*?,\s*"[^"]+"\s*,\s*nil\s*,\s*(-?
     assert -8 <= sublevel <= 7, f"Invalid CreateTexture sublevel {sublevel}: WoW requires -8..7"
 
 assert 'for (const textureKey of ["floorTexture", "wallTexture", "wallAutotileTexture"])' in api
-print("Ecosystem tile audit OK: Orc floor texture, Blob47 wall autotile runtime, floor underlay + soft contact shadow, 1024 atlas, 47 masks and fallback verified.")
+print("Ecosystem tile audit OK: Orc floor, Blob47 walls, contact shadow, dynamic LOS lighting, wall torches, enemy drop shadow and FX assets verified.")

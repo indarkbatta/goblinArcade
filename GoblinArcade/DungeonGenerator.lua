@@ -3,7 +3,7 @@ local _, GA = ...
 GA.DungeonGenerator = GA.DungeonGenerator or {}
 local DG = GA.DungeonGenerator
 
-DG.VERSION = 17
+DG.VERSION = 18
 
 local MODULUS = 2147483647
 local MULTIPLIER = 48271
@@ -875,6 +875,132 @@ local function AddTreasureChests(markers, chestKeys, room, maximumChests, marker
     end
 end
 
+
+local WALL_TORCH_MIN_SPACING = 5
+local WALL_TORCH_MAX_COUNT = 7
+local WALL_TORCH_DIRECTIONS = {
+    { facing = "N", dx = 0, dy = -1, tangentX = 1, tangentY = 0 },
+    { facing = "E", dx = 1, dy = 0, tangentX = 0, tangentY = 1 },
+    { facing = "S", dx = 0, dy = 1, tangentX = 1, tangentY = 0 },
+    { facing = "W", dx = -1, dy = 0, tangentX = 0, tangentY = 1 },
+}
+
+local function IsTorchMarkerNearby(markers, x, y)
+    for offsetY = -1, 1 do
+        for offsetX = -1, 1 do
+            if markers[CellKey(x + offsetX, y + offsetY)] then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function GetWallTorchCandidate(walls, walkable, markers, x, y, width, height)
+    if x <= 2 or x >= width - 1 or y <= 2 or y >= height - 1 then
+        return nil
+    end
+
+    if walls[CellKey(x, y)] ~= true or IsTorchMarkerNearby(markers, x, y) then
+        return nil
+    end
+
+    local openDirection
+    local openCount = 0
+
+    for _, direction in ipairs(WALL_TORCH_DIRECTIONS) do
+        local neighborKey = CellKey(x + direction.dx, y + direction.dy)
+        if walkable[neighborKey] == true then
+            openDirection = direction
+            openCount = openCount + 1
+        end
+    end
+
+    -- Only use clean wall faces. Corners, junctions and wall ends are skipped
+    -- so torches read as deliberately mounted fixtures instead of random noise.
+    if openCount ~= 1 or not openDirection then
+        return nil
+    end
+
+    local tangentX = openDirection.tangentX
+    local tangentY = openDirection.tangentY
+    if walls[CellKey(x + tangentX, y + tangentY)] ~= true
+        or walls[CellKey(x - tangentX, y - tangentY)] ~= true then
+        return nil
+    end
+
+    return {
+        x = x,
+        y = y,
+        facing = openDirection.facing,
+        lightX = x + openDirection.dx,
+        lightY = y + openDirection.dy,
+    }
+end
+
+local function IsTorchFarEnough(selected, candidate)
+    local minimumSquared = WALL_TORCH_MIN_SPACING * WALL_TORCH_MIN_SPACING
+
+    for _, torch in ipairs(selected) do
+        local dx = torch.x - candidate.x
+        local dy = torch.y - candidate.y
+        if (dx * dx) + (dy * dy) < minimumSquared then
+            return false
+        end
+    end
+
+    return true
+end
+
+local function BuildWallTorches(walls, walkable, markers, width, height, rng)
+    local candidates = {}
+
+    for y = 3, height - 2 do
+        for x = 3, width - 2 do
+            local candidate = GetWallTorchCandidate(
+                walls,
+                walkable,
+                markers,
+                x,
+                y,
+                width,
+                height
+            )
+            if candidate then
+                candidates[#candidates + 1] = candidate
+            end
+        end
+    end
+
+    -- Seeded shuffle: same floor seed = same fixture layout.
+    for index = #candidates, 2, -1 do
+        local swapIndex = rng(1, index)
+        candidates[index], candidates[swapIndex] = candidates[swapIndex], candidates[index]
+    end
+
+    local targetCount = math.max(
+        3,
+        math.min(WALL_TORCH_MAX_COUNT, math.floor(CountKeys(walkable) / 30))
+    )
+    local selected = {}
+    local torches = {}
+
+    for _, candidate in ipairs(candidates) do
+        if #selected >= targetCount then
+            break
+        end
+
+        if IsTorchFarEnough(selected, candidate) then
+            candidate.phase = rng(0, 628) / 100
+            candidate.strengthScale = 0.92 + (rng(0, 16) / 100)
+            selected[#selected + 1] = candidate
+            torches[CellKey(candidate.x, candidate.y)] = candidate
+        end
+    end
+
+    return torches
+end
+
 function DG:GenerateFloor(width, height, floorNumber, runSeed, ecosystemId)
     local mapWidth = math.max(15, tonumber(width) or 25)
     local mapHeight = math.max(15, tonumber(height) or 25)
@@ -1067,6 +1193,7 @@ function DG:GenerateFloor(width, height, floorNumber, runSeed, ecosystemId)
     AddRoomRoleMarker(markers, roleData.bossRoom, GetStudioRoomMarker("BOSS", "B"), "red", "boss")
 
     local eventKeys, eventPlacements = AddDungeonEvents(markers, rooms, floor, rng, resolvedEcosystemId)
+    local wallTorches = BuildWallTorches(walls, walkable, markers, mapWidth, mapHeight, rng)
 
     return {
         generatorVersion = self.VERSION,
@@ -1095,6 +1222,8 @@ function DG:GenerateFloor(width, height, floorNumber, runSeed, ecosystemId)
         eventCount = #eventKeys,
         doors = doors,
         doorCount = CountKeys(doors),
+        wallTorches = wallTorches,
+        wallTorchCount = CountKeys(wallTorches),
         start = start,
         exit = exit,
     }
