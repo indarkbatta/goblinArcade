@@ -17,15 +17,15 @@ function GA:GetDifficultyDefinition(id)
 end
 
 assert(loadfile("GoblinArcade/Data/StudioData.lua"))("GoblinArcade", GA)
-assert(GA.StudioData.schemaVersion == 17)
-assert(GA.StudioData.studioVersion == "1.16.0")
+assert(GA.StudioData.schemaVersion == 18)
+assert(GA.StudioData.studioVersion == "1.17.0")
 assert(loadfile("GoblinArcade/ForeverRules.lua"))("GoblinArcade", GA)
 assert(loadfile("GoblinArcade/EnemyGenerator.lua"))("GoblinArcade", GA)
 
 local FR = GA.ForeverRules
 local EG = GA.EnemyGenerator
 local warrior = FR:GetClassProfile("warrior")
-assert(warrior and warrior.strAP == 2 and warrior.healthPerStaminaAfter20 == 10)
+assert(warrior and warrior.strAP == 2 and warrior.healthPerStaminaAfter20 == 10 and warrior.baseDodge == 0)
 
 local l1 = FR:GetClassLevelStats("warrior", 1, "human")
 local l5 = FR:GetClassLevelStats("warrior", 5, "human")
@@ -34,6 +34,8 @@ assert(l1.baseHealth == 20 and l1.strength == 23 and l1.stamina == 22)
 assert(l5.baseHealth == 56 and l5.strength == 28 and l5.stamina == 26)
 assert(l10.baseHealth == 97 and l10.strength == 33 and l10.stamina == 31)
 assert(FR:HealthFromStamina(22, "warrior") == 40)
+assert(FR:ManaFromIntellect(20, "warrior", 1) == 20)
+assert(FR:ManaFromIntellect(21, "warrior", 1) == 35)
 
 local human1 = FR:GetReferencePlayerCombatProfile("warrior", 1, "human")
 local human5 = FR:GetReferencePlayerCombatProfile("warrior", 5, "human")
@@ -50,6 +52,7 @@ assert(orc1.attackPower == 35 and orc1.rawMaxHealth == 70)
 local derived = FR:BuildDerivedStats(1, "warrior", {}, "orc")
 assert(derived.attackPower == 35 and derived.rawMaxHealth == 70 and derived.raceId == "orc")
 assert(derived.defenseSkill == 5 and derived.weaponSkill == 5)
+assert(math.abs(derived.dodge - (17 / 20)) < 0.001 and derived.maxMana == 0)
 assert(math.abs(derived.armor - 34) < 0.001)
 
 local studioWarrior
