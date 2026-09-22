@@ -546,7 +546,7 @@ class Audit:
         reference = self.warrior_reference(player.level)
         stats.attack_power = round_lua(reference["attack_power"])
         stats.crit = float(reference.get("agility", 0)) / max(1.0, float(self.warrior.get("critAgiPerPercent", 20) or 20))
-        stats.dodge = float(self.warrior.get("baseDodge", 3) or 0) + float(reference.get("agility", 0)) / max(1.0, float(self.warrior.get("dodgeAgiPerPercent", 20) or 20))
+        stats.dodge = float(self.warrior.get("baseDodge", 0) or 0) + float(reference.get("agility", 0)) / max(1.0, float(self.warrior.get("dodgeAgiPerPercent", 20) or 20))
         for item in player.gear.values():
             if not item:
                 continue
