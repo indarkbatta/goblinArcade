@@ -2,11 +2,22 @@
 
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
-Last updated: 2026-09-21  
-Current addon version: **0.64.0**  
+Last updated: 2026-09-22  
+Current addon version: **0.65.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
+
+## 0.65.0 — Orc floor material + soft wall contact shadow
+
+- Added the authored Orc-Occupied Crypt floor texture at `Media/Tiles/Floors/orc_occupied_crypt/orc_occupied_crypt_floor01.png`.
+- The uploaded `floor01.png` was moved out of the wall-autotile directory into a dedicated per-ecosystem `Media/Tiles/Floors/` layout.
+- Orc-Occupied Crypt now sets `floorTexture` to the new floor material in Studio JSON, generated Lua and all three Studio HTML mirrors.
+- Autotiled wall cells now render the ecosystem floor underneath the transparent wall atlas, so the wall material sits on the same real floor texture seen in walkable cells.
+- Added a **three-pass soft contact shadow** under the exact wall atlas alpha silhouette. Each pass is slightly larger and lower-alpha, creating a feathered AO/shadow transition that follows corners, ends, T-junctions and other Blob47 shapes instead of using rectangular edge strips.
+- Memory/fog rendering keeps the effect subdued.
+- Legacy `wallTexture` ecosystems are unchanged.
+- Addon version **0.65.0**.
 
 ## CI runner policy — Windows self-hosted only
 

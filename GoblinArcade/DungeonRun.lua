@@ -34,6 +34,17 @@ local DUNGEON_TILE_GAP = 1
 local CREATURE_SPRITE_SOURCE_SIZE = 128
 local CREATURE_SPRITE_RENDER_SIZE = 96
 
+-- Three low-alpha, progressively enlarged copies of the exact wall autotile
+-- silhouette approximate a soft contact shadow without requiring another
+-- authored atlas. The floor is rendered underneath wall cells so the atlas'
+-- transparency and the shadow passes blend into the real floor material.
+local WALL_CONTACT_SHADOW_PASSES = {
+    { spread = 3, alpha = 0.14 },
+    { spread = 7, alpha = 0.075 },
+    { spread = 11, alpha = 0.035 },
+}
+local WALL_CONTACT_SHADOW_MEMORY_ALPHA = 0.30
+
 local STATIC_WALLS = {
     ["4:3"] = true, ["4:4"] = true, ["4:5"] = true,
     ["9:2"] = true, ["9:3"] = true,
@@ -1669,6 +1680,26 @@ local function SetGeneratorClassVisual(texture, classId)
     end
 end
 
+local function CreateWallContactShadowTextures(cell)
+    local shadows = {}
+
+    for index, pass in ipairs(WALL_CONTACT_SHADOW_PASSES) do
+        local spread = pass.spread or 0
+        local shadow = cell:CreateTexture(nil, "ARTWORK", nil, -9)
+        shadow:SetPoint("TOPLEFT", cell, "TOPLEFT", -spread, spread)
+        shadow:SetPoint("BOTTOMRIGHT", cell, "BOTTOMRIGHT", spread, -spread)
+        shadow:SetTexCoord(0, 1, 0, 1)
+        shadow:SetVertexColor(0, 0, 0, 1)
+        shadow:SetBlendMode("BLEND")
+        shadow.gaContactShadowAlpha = pass.alpha or 0
+        shadow.gaContactShadowIndex = index
+        shadow:Hide()
+        shadows[index] = shadow
+    end
+
+    return shadows
+end
+
 local function CreateGrid(parent)
     local size = DUNGEON_TILE_SIZE
     local gap = DUNGEON_TILE_GAP
@@ -1700,6 +1731,13 @@ local function CreateGrid(parent)
             cell:SetPoint("TOPLEFT", (col - 1) * stride, -((row - 1) * stride))
 
             ApplyBackdrop(cell, { 0.055, 0.048, 0.038, 1 }, { 0.09, 0.075, 0.055, 1 })
+
+            local floorUnderlayTexture = cell:CreateTexture(nil, "ARTWORK", nil, -10)
+            floorUnderlayTexture:SetAllPoints(cell)
+            floorUnderlayTexture:SetTexCoord(0, 1, 0, 1)
+            floorUnderlayTexture:Hide()
+
+            local wallContactShadows = CreateWallContactShadowTextures(cell)
 
             local terrainTexture = cell:CreateTexture(nil, "ARTWORK", nil, -8)
             terrainTexture:SetAllPoints(cell)
@@ -1753,6 +1791,8 @@ local function CreateGrid(parent)
 
             grid.cells[CellKey(col, row)] = {
                 frame = cell,
+                floorUnderlayTexture = floorUnderlayTexture,
+                wallContactShadows = wallContactShadows,
                 terrainTexture = terrainTexture,
                 marker = marker,
                 lootIcon = lootIcon,
@@ -7412,6 +7452,18 @@ function GA:RenderDungeonGrid()
                 entry.wall = wall
 
                 entry.marker:SetText("")
+                if entry.floorUnderlayTexture then
+                    entry.floorUnderlayTexture:Hide()
+                    entry.floorUnderlayTexture:SetAlpha(1)
+                    entry.floorUnderlayTexture:SetTexCoord(0, 1, 0, 1)
+                end
+                if entry.wallContactShadows then
+                    for _, shadow in ipairs(entry.wallContactShadows) do
+                        shadow:Hide()
+                        shadow:SetAlpha(1)
+                        shadow:SetTexCoord(0, 1, 0, 1)
+                    end
+                end
                 if entry.terrainTexture then
                     entry.terrainTexture:Hide()
                     entry.terrainTexture:SetAlpha(1)
@@ -7467,17 +7519,41 @@ function GA:RenderDungeonGrid()
                 if entry.terrainTexture and explored then
                     local terrainPath
                     local texLeft, texRight, texTop, texBottom
+                    local floorPath = GetActiveDungeonTileTexture(false)
 
                     if wall then
                         terrainPath = GetActiveDungeonWallAutotileTexture()
                         if terrainPath then
                             local wallMask = GetDungeonWallAutotileMask(worldX, worldY)
                             texLeft, texRight, texTop, texBottom = GetWallAutotileTexCoord(wallMask)
+
+                            -- Wall atlas cells contain transparent material margins.
+                            -- Draw the ecosystem floor underneath so those margins
+                            -- reveal the actual floor instead of a flat backdrop.
+                            if floorPath and entry.floorUnderlayTexture then
+                                entry.floorUnderlayTexture:SetTexture(floorPath)
+                                entry.floorUnderlayTexture:SetAlpha(visible and 1 or 0.24)
+                                entry.floorUnderlayTexture:Show()
+                            end
+
+                            -- Reuse the exact atlas crop as a black alpha mask.
+                            -- Progressive enlargement produces a soft, geometry-
+                            -- accurate contact shadow around every blob shape.
+                            if entry.wallContactShadows then
+                                local memoryScale = visible and 1 or WALL_CONTACT_SHADOW_MEMORY_ALPHA
+                                for _, shadow in ipairs(entry.wallContactShadows) do
+                                    shadow:SetTexture(terrainPath)
+                                    shadow:SetTexCoord(texLeft, texRight, texTop, texBottom)
+                                    shadow:SetVertexColor(0, 0, 0, 1)
+                                    shadow:SetAlpha((shadow.gaContactShadowAlpha or 0) * memoryScale)
+                                    shadow:Show()
+                                end
+                            end
                         else
                             terrainPath = GetActiveDungeonTileTexture(true)
                         end
                     else
-                        terrainPath = GetActiveDungeonTileTexture(false)
+                        terrainPath = floorPath
                     end
 
                     if terrainPath then

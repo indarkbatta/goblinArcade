@@ -20,6 +20,15 @@ for eco in data.get("ecosystems", []):
         assert not value.startswith(("http://", "https://")), f"{eco.get('id')}: remote texture URL"
 
 orc = next(eco for eco in data["ecosystems"] if eco["id"] == "orc_occupied_crypt")
+floor_rel = orc["floorTexture"]
+assert floor_rel == "Media/Tiles/Floors/orc_occupied_crypt/orc_occupied_crypt_floor01.png"
+floor = root / "GoblinArcade" / floor_rel
+assert floor.exists(), f"Missing Orc floor texture: {floor}"
+floor_raw = floor.read_bytes()[:24]
+assert floor_raw[:8] == b"\x89PNG\r\n\x1a\n", "Orc floor texture must be PNG"
+floor_width, floor_height = struct.unpack(">II", floor_raw[16:24])
+assert floor_width == floor_height and floor_width >= 128, f"Expected square floor texture >=128px, got {floor_width}x{floor_height}"
+
 atlas_rel = orc["wallAutotileTexture"]
 assert atlas_rel == "Media/Tiles/Autotiles/orc_occupied_crypt/orc_occupied_crypt_wall_autotile_47.png"
 atlas = root / "GoblinArcade" / atlas_rel
@@ -70,8 +79,14 @@ for token in (
     "local function GetWallAutotileTexCoord",
     "WALL_AUTOTILE_INDEX_BY_MASK",
     "entry.terrainTexture:SetTexCoord(texLeft, texRight, texTop, texBottom)",
+    "WALL_CONTACT_SHADOW_PASSES",
+    "local function CreateWallContactShadowTextures",
+    "floorUnderlayTexture",
+    "wallContactShadows",
+    "shadow.gaContactShadowAlpha",
+    "entry.floorUnderlayTexture:SetTexture(floorPath)",
 ):
     assert token in run, f"Renderer hook missing: {token}"
 
 assert 'for (const textureKey of ["floorTexture", "wallTexture", "wallAutotileTexture"])' in api
-print("Ecosystem tile audit OK: Blob47 wall autotile runtime, 1024 atlas, 47 masks and fallback verified.")
+print("Ecosystem tile audit OK: Orc floor texture, Blob47 wall autotile runtime, floor underlay + soft contact shadow, 1024 atlas, 47 masks and fallback verified.")

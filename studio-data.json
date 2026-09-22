@@ -11972,7 +11972,7 @@
       "weight": 70,
       "stylePreset": "ORC_CRYPT",
       "description": "A desecrated burial complex occupied by orc raiders and grave robbers. Shallow floors are scavenger-heavy; deeper floors shift toward hexers, sentinels, plague-corrupted orcs and champions.",
-      "floorTexture": "",
+      "floorTexture": "Media/Tiles/Floors/orc_occupied_crypt/orc_occupied_crypt_floor01.png",
       "wallTexture": "",
       "wallAutotileTexture": "Media/Tiles/Autotiles/orc_occupied_crypt/orc_occupied_crypt_wall_autotile_47.png"
     },
