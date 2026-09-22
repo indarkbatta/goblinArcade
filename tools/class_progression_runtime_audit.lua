@@ -18,7 +18,7 @@ end
 
 assert(loadfile("GoblinArcade/Data/StudioData.lua"))("GoblinArcade", GA)
 assert(GA.StudioData.schemaVersion == 18)
-assert(GA.StudioData.studioVersion == "1.17.0")
+assert(GA.StudioData.studioVersion == "1.18.0")
 assert(loadfile("GoblinArcade/ForeverRules.lua"))("GoblinArcade", GA)
 assert(loadfile("GoblinArcade/EnemyGenerator.lua"))("GoblinArcade", GA)
 
