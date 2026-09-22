@@ -45,7 +45,8 @@ for token in (
 
 assert "armor / (armor + 100)" not in run, "Legacy armor formula is still active in DungeonRun"
 assert "BuildDerivedStats" in sheet
-assert "run.resourceMax = 100" in sheet
+assert "classDefinition.resourceMax" in sheet
+assert "run.resourceMax = rageCap" in sheet
 for token in ("strength", "agility", "stamina", "hit", "expertise", "defense", "blockValue", "weaponSkill"):
     assert token in database, f"ItemDatabase missing {token}"
 assert "BuildEnemyCombatStats" in enemy
