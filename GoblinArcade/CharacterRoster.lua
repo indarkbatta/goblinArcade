@@ -254,7 +254,7 @@ function GA:CreateArcadeCharacter(name, raceId, classId, hardcore, difficulty)
         raceName = race.name or raceId,
         maxHealth = (
             self.ForeverRules and self.ForeverRules.GetReferencePlayerCombatProfile
-            and self.ForeverRules:GetReferencePlayerCombatProfile(classId, 1).maxHealth
+            and self.ForeverRules:GetReferencePlayerCombatProfile(classId, 1, raceId).maxHealth
         ) or 1,
         updatedAt = time and time() or 0,
         equipment = {
