@@ -12,8 +12,8 @@ for raw in warrior["levelStatTable"].splitlines():
     assert len(cols) == 8
     rows[cols[0]] = cols
 
-assert data["schemaVersion"] == 17
-assert data["studioVersion"] == "1.16.0"
+assert data["schemaVersion"] == 18
+assert data["studioVersion"] == "1.17.0"
 assert len(rows) == 60 and set(rows) == set(range(1, 61))
 assert rows[1] == [1,20,0,23,20,22,20,20]
 assert rows[5] == [5,56,0,28,23,26,20,21]
@@ -24,9 +24,9 @@ assert rows[60] == [60,1689,0,120,80,110,30,45]
 for key, expected in {
     "meleeApPerLevel": 3, "meleeApPerStrength": 2, "meleeApOffset": -20,
     "rangedApPerLevel": 1, "rangedApPerAgility": 1, "rangedApOffset": -10,
-    "critAgiPerPercent": 20, "dodgeAgiPerPercent": 20,
+    "critAgiPerPercent": 20, "dodgeAgiPerPercent": 20, "baseDodge": 0,
     "healthPerStaminaFirst20": 1, "healthPerStaminaAfter20": 10,
-    "manaPerIntellect": 15, "armorPerAgility": 2,
+    "manaPerIntellectFirst20": 1, "manaPerIntellectAfter20": 15, "armorPerAgility": 2,
     "blockValuePerStrength": 0.05, "defenseSkillPerLevel": 5,
     "weaponSkillPerLevel": 5, "referenceWeaponBaseDamage": 1.5,
     "referenceWeaponSpeedSeconds": 2.4,
@@ -69,7 +69,7 @@ publish = (root/"api"/"publish.js").read_text(encoding="utf-8")
 assert studio == studio_mirror == addon_mirror
 for token in (
     "GetClassProfile", "GetRaceProfile", "GetClassLevelStats", "ApplyRaceOffsets",
-    "HealthFromStamina", "GetReferencePlayerCombatProfile", "rawMaxHealth",
+    "HealthFromStamina", "ManaFromIntellect", "GetReferencePlayerCombatProfile", "rawMaxHealth",
     "healthPerStaminaAfter20", "referenceWeaponSpeedSeconds",
 ):
     assert token in fr, token
@@ -87,7 +87,7 @@ for token in (
     "Stat Source / Provenance",
 ):
     assert token in studio, token
-for token in ("schemaVersion must be 17", "UNVERIFIED_NEUTRAL", "statOffsetSource", "integer -20..20"):
+for token in ("schemaVersion must be 18", "UNVERIFIED_NEUTRAL", "statOffsetSource", "integer -20..20"):
     assert token in publish, token
 
 print("Class progression audit OK: exact Warrior L1/L5/L10/L20/L60 curve, Classic race offsets, Studio source-of-truth, race-aware runtime and enemy reference scaling verified.")
