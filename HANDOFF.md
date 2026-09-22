@@ -3,10 +3,17 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-22  
-Current addon version: **0.65.0**  
+Current addon version: **0.65.1**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
+
+## 0.65.1 — WoW texture sublevel compatibility fix
+
+- Fixed the Orc wall contact-shadow startup error: WoW only permits `Frame:CreateTexture()` sublevels from **-8 through 7**.
+- Floor underlay now renders on `BACKGROUND` sublevel `7`, contact-shadow passes on `BORDER` sublevel `7`, and the existing terrain/wall texture remains on `ARTWORK` sublevel `-8`, preserving the intended floor → shadow → wall order without invalid sublevels.
+- Extended `tools/ecosystem_tile_audit.py` to verify the runtime layer hooks and reject numeric `CreateTexture()` sublevels outside WoW's legal range.
+- Addon version **0.65.1**.
 
 ## 0.65.0 — Orc floor material + soft wall contact shadow
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import re
 import struct
 from pathlib import Path
 
@@ -85,8 +86,15 @@ for token in (
     "wallContactShadows",
     "shadow.gaContactShadowAlpha",
     "entry.floorUnderlayTexture:SetTexture(floorPath)",
+    'cell:CreateTexture(nil, "BACKGROUND", nil, 7)',
+    'cell:CreateTexture(nil, "BORDER", nil, 7)',
+    'cell:CreateTexture(nil, "ARTWORK", nil, -8)',
 ):
     assert token in run, f"Renderer hook missing: {token}"
+
+for match in re.finditer(r'CreateTexture\([^\n]*?,\s*"[^"]+"\s*,\s*nil\s*,\s*(-?\d+)\s*\)', run):
+    sublevel = int(match.group(1))
+    assert -8 <= sublevel <= 7, f"Invalid CreateTexture sublevel {sublevel}: WoW requires -8..7"
 
 assert 'for (const textureKey of ["floorTexture", "wallTexture", "wallAutotileTexture"])' in api
 print("Ecosystem tile audit OK: Orc floor texture, Blob47 wall autotile runtime, floor underlay + soft contact shadow, 1024 atlas, 47 masks and fallback verified.")

@@ -1681,11 +1681,13 @@ local function SetGeneratorClassVisual(texture, classId)
 end
 
 local function CreateWallContactShadowTextures(cell)
+    -- WoW texture sublevels are limited to -8..7. Draw layers preserve the
+    -- intended floor -> shadow -> wall order without using invalid sublevels.
     local shadows = {}
 
     for index, pass in ipairs(WALL_CONTACT_SHADOW_PASSES) do
         local spread = pass.spread or 0
-        local shadow = cell:CreateTexture(nil, "ARTWORK", nil, -9)
+        local shadow = cell:CreateTexture(nil, "BORDER", nil, 7)
         shadow:SetPoint("TOPLEFT", cell, "TOPLEFT", -spread, spread)
         shadow:SetPoint("BOTTOMRIGHT", cell, "BOTTOMRIGHT", spread, -spread)
         shadow:SetTexCoord(0, 1, 0, 1)
@@ -1732,7 +1734,7 @@ local function CreateGrid(parent)
 
             ApplyBackdrop(cell, { 0.055, 0.048, 0.038, 1 }, { 0.09, 0.075, 0.055, 1 })
 
-            local floorUnderlayTexture = cell:CreateTexture(nil, "ARTWORK", nil, -10)
+            local floorUnderlayTexture = cell:CreateTexture(nil, "BACKGROUND", nil, 7)
             floorUnderlayTexture:SetAllPoints(cell)
             floorUnderlayTexture:SetTexCoord(0, 1, 0, 1)
             floorUnderlayTexture:Hide()
