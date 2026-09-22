@@ -964,10 +964,10 @@ function GA:CreateCharacterSheet(parent)
     health:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
     self.CharacterSheetHealth = health
 
-    -- Keep the paper-doll area clean. The wider right-hand column has room
-    -- for a proper four-column stat sheet below the backpack.
+    -- Use the complete lower band for derived stats. The upper row remains
+    -- a clean paper-doll + backpack layout; stats get the full sheet width.
     local statsPanel = CreateFrame("Frame", nil, sheet, "BackdropTemplate")
-    statsPanel:SetPoint("TOPLEFT", backpackPanel, "BOTTOMLEFT", 0, -12)
+    statsPanel:SetPoint("TOPLEFT", gearPanel, "BOTTOMLEFT", 0, -12)
     statsPanel:SetPoint("BOTTOMRIGHT", sheet, "BOTTOMRIGHT", -22, 20)
     ApplyBackdrop(statsPanel, { 0.045, 0.039, 0.032, 1 }, COLORS.goldDim)
     self.CharacterSheetStatsFrame = statsPanel
@@ -1013,7 +1013,42 @@ function GA:CreateCharacterSheet(parent)
         end
     end
 
-    CreateStatGroup("PRIMARY ATTRIBUTES", 14, -52, 158, {
+    local function CreateResistanceStrip(titleText, x, y, width, definitions)
+        local groupTitle = CreateText(statsPanel, "GameFontNormalSmall", titleText)
+        groupTitle:SetPoint("TOPLEFT", x, y)
+        groupTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+
+        local groupRule = statsPanel:CreateTexture(nil, "ARTWORK")
+        groupRule:SetColorTexture(COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 0.45)
+        groupRule:SetPoint("TOPLEFT", x, y - 18)
+        groupRule:SetWidth(width)
+        groupRule:SetHeight(1)
+
+        local cellWidth = math.floor((width - ((#definitions - 1) * 10)) / #definitions)
+
+        for index, definition in ipairs(definitions) do
+            local cellX = x + ((index - 1) * (cellWidth + 10))
+
+            local cell = CreateFrame("Frame", nil, statsPanel, "BackdropTemplate")
+            cell:SetPoint("TOPLEFT", cellX, y - 30)
+            cell:SetSize(cellWidth, 54)
+            ApplyBackdrop(cell, { 0.036, 0.031, 0.026, 0.70 }, { COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 0.45 })
+
+            local label = CreateText(cell, "GameFontHighlightSmall", definition.label)
+            label:SetPoint("TOPLEFT", 8, -8)
+            label:SetPoint("TOPRIGHT", -8, -8)
+            label:SetJustifyH("LEFT")
+            label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+            local value = CreateText(cell, "GameFontNormal", "--")
+            value:SetPoint("BOTTOMRIGHT", -8, 7)
+            value:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+
+            self.CharacterSheetStatValues[definition.key] = value
+        end
+    end
+
+    CreateStatGroup("PRIMARY ATTRIBUTES", 14, -52, 330, {
         { key = "strength", label = "Strength" },
         { key = "agility", label = "Agility" },
         { key = "stamina", label = "Stamina" },
@@ -1021,16 +1056,16 @@ function GA:CreateCharacterSheet(parent)
         { key = "spirit", label = "Spirit" },
     })
 
-    CreateStatGroup("OFFENSE", 182, -52, 158, {
+    CreateStatGroup("OFFENSE", 374, -52, 330, {
         { key = "attackPower", label = "Attack Power" },
-        { key = "rangedAttackPower", label = "Ranged AP" },
+        { key = "rangedAttackPower", label = "Ranged Attack Power" },
         { key = "weaponSkill", label = "Weapon Skill" },
         { key = "hit", label = "Hit" },
         { key = "crit", label = "Critical Strike" },
         { key = "expertise", label = "Expertise" },
     })
 
-    CreateStatGroup("DEFENSE", 350, -52, 158, {
+    CreateStatGroup("DEFENSE", 734, -52, 330, {
         { key = "armor", label = "Armor" },
         { key = "defenseSkill", label = "Defense Skill" },
         { key = "dodge", label = "Dodge" },
@@ -1039,15 +1074,18 @@ function GA:CreateCharacterSheet(parent)
         { key = "blockValue", label = "Block Value" },
     })
 
-    CreateStatGroup("MAGIC / RESISTANCES", 518, -52, 158, {
+    CreateStatGroup("MAGIC", 14, -194, 300, {
         { key = "spellPower", label = "Spell Power" },
         { key = "healingPower", label = "Healing Power" },
         { key = "mp5", label = "MP5" },
-        { key = "arcaneResistance", label = "Arcane Resist" },
-        { key = "fireResistance", label = "Fire Resist" },
-        { key = "frostResistance", label = "Frost Resist" },
-        { key = "natureResistance", label = "Nature Resist" },
-        { key = "shadowResistance", label = "Shadow Resist" },
+    })
+
+    CreateResistanceStrip("RESISTANCES", 344, -194, 720, {
+        { key = "arcaneResistance", label = "Arcane" },
+        { key = "fireResistance", label = "Fire" },
+        { key = "frostResistance", label = "Frost" },
+        { key = "natureResistance", label = "Nature" },
+        { key = "shadowResistance", label = "Shadow" },
     })
 
     local leftSlots = { "head", "neck", "shoulder", "back", "chest", "wrist", "hands", "waist" }

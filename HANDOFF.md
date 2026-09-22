@@ -3,10 +3,21 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-22  
-Current addon version: **0.67.1**  
+Current addon version: **0.67.2**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
+
+## 0.67.2 — Full-width Character Stats lower band
+
+- Expanded **CHARACTER STATS** to use the entire lower band, from the paper-doll panel's left edge to the Character Sheet's right margin.
+- The screenshot-driven follow-up fixes the cramped right-side resistance layout from 0.67.1.
+- The upper portion of the lower band now uses three generous 330px groups: **PRIMARY ATTRIBUTES**, **OFFENSE**, and **DEFENSE**.
+- **MAGIC** moved to its own lower-left section with Spell Power, Healing Power and MP5.
+- Added a dedicated **RESISTANCES** strip across the rest of the lower band. Arcane, Fire, Frost, Nature and Shadow each render in their own framed cell with a short label and separately aligned value.
+- This avoids long "Arcane Resist / Shadow Resist" labels colliding with values and uses the previously empty area below the gear panel.
+- Updated the self-hosted UI regression audit for the full-width lower band and dedicated resistance strip.
+- Addon version **0.67.2**.
 
 ## 0.67.1 — Move Character Stats below Backpack
 
