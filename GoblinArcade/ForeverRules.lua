@@ -3,8 +3,8 @@ local _, GA = ...
 GA.ForeverRules = GA.ForeverRules or {}
 local FR = GA.ForeverRules
 
-FR.VERSION = 3
-FR.ID = "FOREVER_CLASSIC_BETA_V3"
+FR.VERSION = 4
+FR.ID = "FOREVER_CLASSIC_BETA_V4"
 FR.STAMINA_HP = 10
 FR.INTELLECT_MANA = 15
 FR.AGILITY_ARMOR = 2
@@ -21,9 +21,9 @@ local CLASS = {
         meleeApPerLevel = 3, meleeApOffset = -20,
         rangedApPerLevel = 1, rangedApOffset = -10,
         critPerAgi = 20, dodgePerAgi = 20,
-        baseDodge = 3, baseParry = 5, baseBlock = 5,
+        baseDodge = 0, baseParry = 5, baseBlock = 5,
         healthPerStaminaFirst20 = 1, healthPerStaminaAfter20 = 10,
-        manaPerIntellect = 15, armorPerAgility = 2, blockValuePerStrength = 0.05,
+        manaPerIntellectFirst20 = 1, manaPerIntellectAfter20 = 15, armorPerAgility = 2, blockValuePerStrength = 0.05,
         defenseSkillPerLevel = 5, weaponSkillPerLevel = 5,
         referenceWeaponBaseDamage = 1.5, referenceWeaponSpeedSeconds = 2.4,
         base = { hp = 20, mana = 0, str = 23, agi = 20, sta = 22, int = 20, spi = 20 },
@@ -134,7 +134,8 @@ local function ClassProfile(classFile)
         baseBlock = tonumber(studio.baseBlock) or fallback.baseBlock or 0,
         healthPerStaminaFirst20 = tonumber(studio.healthPerStaminaFirst20) or fallback.healthPerStaminaFirst20 or 1,
         healthPerStaminaAfter20 = tonumber(studio.healthPerStaminaAfter20) or fallback.healthPerStaminaAfter20 or FR.STAMINA_HP,
-        manaPerIntellect = tonumber(studio.manaPerIntellect) or fallback.manaPerIntellect or FR.INTELLECT_MANA,
+        manaPerIntellectFirst20 = tonumber(studio.manaPerIntellectFirst20) or fallback.manaPerIntellectFirst20 or 1,
+        manaPerIntellectAfter20 = tonumber(studio.manaPerIntellectAfter20) or fallback.manaPerIntellectAfter20 or FR.INTELLECT_MANA,
         armorPerAgility = tonumber(studio.armorPerAgility) or fallback.armorPerAgility or FR.AGILITY_ARMOR,
         blockValuePerStrength = tonumber(studio.blockValuePerStrength) or fallback.blockValuePerStrength or 0,
         defenseSkillPerLevel = tonumber(studio.defenseSkillPerLevel) or fallback.defenseSkillPerLevel or 5,
@@ -216,6 +217,15 @@ function FR:HealthFromStamina(stamina, classFile)
     local profile = ClassProfile(classFile)
     local first = math.max(0, tonumber(profile.healthPerStaminaFirst20) or 1)
     local after = math.max(0, tonumber(profile.healthPerStaminaAfter20) or FR.STAMINA_HP)
+    return math.min(20, value) * first + math.max(0, value - 20) * after
+end
+
+function FR:ManaFromIntellect(intellect, classFile, baseMana)
+    if (tonumber(baseMana) or 0) <= 0 then return 0 end
+    local value = math.max(0, tonumber(intellect) or 0)
+    local profile = ClassProfile(classFile)
+    local first = math.max(0, tonumber(profile.manaPerIntellectFirst20) or 1)
+    local after = math.max(0, tonumber(profile.manaPerIntellectAfter20) or FR.INTELLECT_MANA)
     return math.min(20, value) * first + math.max(0, value - 20) * after
 end
 
@@ -328,7 +338,7 @@ function FR:BuildDerivedStats(level, classFile, gear, raceId)
         maxHealth = scaledMaxHealth,
         health = scaledMaxHealth,
         baseMana = tonumber(row.baseMana) or 0,
-        maxMana = (tonumber(row.baseMana) or 0) + intellect * (profile.manaPerIntellect or FR.INTELLECT_MANA),
+        maxMana = ((tonumber(row.baseMana) or 0) > 0) and ((tonumber(row.baseMana) or 0) + self:ManaFromIntellect(intellect, classFile, row.baseMana)) or 0,
         armor = armor,
         attackPower = attackPower,
         rangedAttackPower = rangedAttackPower,
