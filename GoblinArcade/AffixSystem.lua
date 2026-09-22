@@ -22,7 +22,7 @@ local QUALITY_BUDGET={[0]=0.85,[1]=0.90,[2]=1.00,[3]=1.15,[4]=1.35,[5]=1.60,[6]=
 local SLOT_BUDGET={INVTYPE_HEAD=1.10,INVTYPE_NECK=0.85,INVTYPE_SHOULDER=1,INVTYPE_CHEST=1.18,INVTYPE_ROBE=1.18,INVTYPE_WAIST=0.95,INVTYPE_LEGS=1.15,INVTYPE_FEET=0.95,INVTYPE_WRIST=0.85,INVTYPE_HAND=0.95,INVTYPE_FINGER=0.82,INVTYPE_TRINKET=0.90,INVTYPE_CLOAK=0.88,INVTYPE_WEAPON=1,INVTYPE_WEAPONMAINHAND=1,INVTYPE_WEAPONOFFHAND=0.90,INVTYPE_2HWEAPON=1.18,INVTYPE_RANGED=1,INVTYPE_RANGEDRIGHT=1,INVTYPE_SHIELD=1.10,INVTYPE_HOLDABLE=0.90}
 local function Round(v)return math.floor((tonumber(v)or 0)+0.5)end
 local function Round1(v)return math.floor((tonumber(v)or 0)*10+0.5)/10 end
-local function Set(v)local t={},string.upper(tostring(v or "ANY"));if t=="" or t=="ANY" then return {ANY=true} end local r={} for x in string.gmatch(t,"[^,%s]+") do r[x]=true end return r end
+local function Set(v)local t=string.upper(tostring(v or "ANY"));if t=="" or t=="ANY" then return {ANY=true} end local r={} for x in string.gmatch(t,"[^,%s]+") do r[x]=true end return r end
 local function Allows(v,w)local s=Set(v);return s.ANY or s[string.upper(tostring(w or ""))]==true end
 local function MaxTier(q)q=math.max(0,math.floor(tonumber(q)or 1));if q<=2 then return 1 elseif q==3 then return 2 elseif q==4 then return 3 end return 4 end
 function AS:GetAffixCount(q)q=math.max(0,math.floor(tonumber(q)or 1));if q<=1 then return 0 elseif q==2 then return 1 end return 2 end
