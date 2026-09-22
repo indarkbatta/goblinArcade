@@ -12,7 +12,7 @@ end
 function GA:GetDifficultyDefinition(id)
     local key = string.upper(tostring(id or "NORMAL"))
     if key == "EASY" then return { id = "EASY", hpMultiplier = 0.90, damageMultiplier = 0.85, scoreMultiplier = 0.90 } end
-    if key == "HARD" then return { id = "HARD", hpMultiplier = 1.20, damageMultiplier = 1.20, scoreMultiplier = 1.20 } end
+    if key == "HARD" then return { id = "HARD", hpMultiplier = 2.00, damageMultiplier = 2.00, scoreMultiplier = 1.20 } end
     return { id = "NORMAL", hpMultiplier = 1, damageMultiplier = 1, scoreMultiplier = 1 }
 end
 
@@ -85,7 +85,7 @@ assert(offenseEnemy.maxHp > baseEnemy.maxHp)
 studioWarrior.meleeApPerStrength = originalStrengthAp
 
 local originalStaminaHp = studioWarrior.healthPerStaminaAfter20
-studioWarrior.healthPerStaminaAfter20 = originalStaminaHp + 5
+studioWarrior.healthPerStaminaAfter20 = originalStaminaHp + 250
 local durabilityEnemy = EG:CreateEnemy({ archetype = "kobold", rank = "normal", playerLevel = 1, floor = 1, classId = "warrior", gearPressure = gearPressure, difficulty = "NORMAL" })
 assert(durabilityEnemy.damageMax > baseEnemy.damageMax or durabilityEnemy.damageMin > baseEnemy.damageMin)
 studioWarrior.healthPerStaminaAfter20 = originalStaminaHp
