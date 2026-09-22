@@ -2,7 +2,7 @@
 ## Title: GoblinArcade
 ## Notes: Tiny games for the downtime between adventures.
 ## Author: indarkbatta
-## Version: 0.71.0
+## Version: 0.71.1
 ## X-Category: Miscellaneous
 ## SavedVariables: GoblinArcadeDB
 
