@@ -20,7 +20,7 @@ GA.StudioData = {
 
 local chunk = assert(loadfile("GoblinArcade/DungeonGenerator.lua"))
 chunk("GoblinArcade", GA)
-assert(GA.DungeonGenerator.VERSION == 17, "Unexpected DungeonGenerator version")
+assert(GA.DungeonGenerator.VERSION == 18, "Unexpected DungeonGenerator version")
 
 local floorThree
 local totalRandomEvents = 0

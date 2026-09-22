@@ -54,6 +54,7 @@ for floor = 1, 9 do
     assert(map.wallTexture == (selectedA.wallTexture or ""), "Wall texture did not follow ecosystem")
     assert(map.wallAutotileTexture == (selectedA.wallAutotileTexture or ""), "Wall autotile texture did not follow ecosystem")
     assert(type(map.wallTorches) == "table", "Wall torch placement table missing")
+    assert((map.wallTorchCount or 0) >= 1, "Expected at least one spaced wall torch on generated floor")
     assert(map.wallTorchCount == #(function()
         local result = {}
         for _, torch in pairs(map.wallTorches or {}) do result[#result + 1] = torch end
