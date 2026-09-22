@@ -3,10 +3,23 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-22  
-Current addon version: **0.66.0**  
+Current addon version: **0.66.1**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
+
+## 0.66.1 — Smooth light surface + torch light orbs
+
+- Reworked the 0.66.0 dynamic-light presentation to remove the visibly square tile-to-tile transitions.
+- The LOS/light calculations still happen on dungeon cells, but the renderer now builds a padded light field and reconstructs the visible result from **shared corner samples**. Four additive corner gradients per tile form a bilinear light surface, so neighboring floor cells meet continuously instead of changing brightness in 96×96 blocks.
+- Corner smoothing only averages samples with the same wall/floor state. This keeps floor-to-floor gradients soft while retaining a deliberate visual break at wall boundaries; the underlying LOS and closed-door blocking rules remain authoritative.
+- Visible cells now use a consistent ecosystem ambient-darkness layer; the interpolated light surface restores illumination above it. Explored-memory and unseen-cell darkness behavior is unchanged.
+- Added `Media/FX/soft_corner.png`, a 64×64 bilinear corner-weight texture used by the four-way interpolation.
+- Wall torches now have a distinct **bright emissive light orb** centered on the fixture in addition to the larger soft halo and torch sprite. Both orb and halo inherit deterministic flicker.
+- Player light uses the same smoothed light surface as torch light, removing the previous square transition around the character.
+- Existing Blob47 wall geometry, contact shadows, procedural torch placement, enemy drop shadows and LOS rules remain unchanged.
+- Expanded the self-hosted renderer audit to require the smooth-light pipeline, torch orb, new FX asset and removal of the old single per-tile tint overlay.
+- Addon version **0.66.1**.
 
 ## 0.66.0 — Dynamic dungeon lighting, wall torches and creature shadows
 

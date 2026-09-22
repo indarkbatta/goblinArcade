@@ -47,7 +47,9 @@ local WALL_CONTACT_SHADOW_MEMORY_ALPHA = 0.30
 
 local LIGHTING_UPDATE_INTERVAL = 0.12
 local SOFT_RADIAL_TEXTURE = "Interface\\AddOns\\GoblinArcade\\Media\\FX\\soft_radial"
+local SOFT_CORNER_TEXTURE = "Interface\\AddOns\\GoblinArcade\\Media\\FX\\soft_corner"
 local WALL_TORCH_TEXTURE = "Interface\\AddOns\\GoblinArcade\\Media\\FX\\wall_torch"
+local LIGHT_SURFACE_MAX_ALPHA = 0.38
 
 local DUNGEON_LIGHTING_PRESETS = {
     ORC_CRYPT = {
@@ -583,6 +585,118 @@ local function GetDungeonLightingAt(worldX, worldY, now)
     end
 
     return ClampUnit(combined), ClampUnit(tintR), ClampUnit(tintG), ClampUnit(tintB), math.min(0.30, tintWeight)
+end
+
+
+local function BuildDungeonLightField(cameraX, cameraY, now)
+    local field = {}
+
+    -- One-cell padding gives every visible cell four shared corner samples.
+    -- The expensive LOS calculation stays on cell centers; the renderer then
+    -- interpolates those results instead of assigning one alpha to a whole tile.
+    for worldY = cameraY - 1, cameraY + VIEWPORT_HEIGHT do
+        for worldX = cameraX - 1, cameraX + VIEWPORT_WIDTH do
+            if worldX >= 1 and worldX <= GRID_WIDTH
+                and worldY >= 1 and worldY <= GRID_HEIGHT
+                and GA:IsDungeonCellVisible(worldX, worldY) then
+
+                local level, tintR, tintG, tintB =
+                    GetDungeonLightingAt(worldX, worldY, now)
+
+                field[CellKey(worldX, worldY)] = {
+                    level = level,
+                    r = tintR,
+                    g = tintG,
+                    b = tintB,
+                    wall = IsDungeonWall(worldX, worldY),
+                }
+            end
+        end
+    end
+
+    return field
+end
+
+local function GetSmoothedLightCorner(field, vertexX, vertexY, wallState)
+    local coordinates = {
+        { vertexX - 1, vertexY - 1 },
+        { vertexX, vertexY - 1 },
+        { vertexX - 1, vertexY },
+        { vertexX, vertexY },
+    }
+    local levelTotal = 0
+    local sampleCount = 0
+    local colorWeight = 0
+    local rTotal, gTotal, bTotal = 0, 0, 0
+
+    for _, coordinate in ipairs(coordinates) do
+        local sample = field[CellKey(coordinate[1], coordinate[2])]
+        if sample and sample.wall == wallState then
+            local level = ClampUnit(tonumber(sample.level) or 0)
+            levelTotal = levelTotal + level
+            sampleCount = sampleCount + 1
+
+            if level > 0 then
+                colorWeight = colorWeight + level
+                rTotal = rTotal + ((tonumber(sample.r) or 1) * level)
+                gTotal = gTotal + ((tonumber(sample.g) or 1) * level)
+                bTotal = bTotal + ((tonumber(sample.b) or 1) * level)
+            end
+        end
+    end
+
+    if sampleCount == 0 then
+        return 0, 1, 1, 1
+    end
+
+    local level = ClampUnit(levelTotal / sampleCount)
+    if colorWeight <= 0 then
+        return level, 1, 1, 1
+    end
+
+    return level,
+        ClampUnit(rTotal / colorWeight),
+        ClampUnit(gTotal / colorWeight),
+        ClampUnit(bTotal / colorWeight)
+end
+
+local function ApplySmoothCellLight(entry, field, worldX, worldY, wallState, lighting)
+    if not entry or not entry.lightCornerOverlays then
+        return
+    end
+
+    local vertices = {
+        { worldX, worldY },
+        { worldX + 1, worldY },
+        { worldX + 1, worldY + 1 },
+        { worldX, worldY + 1 },
+    }
+
+    for index, overlay in ipairs(entry.lightCornerOverlays) do
+        local vertex = vertices[index]
+        local level, tintR, tintG, tintB =
+            GetSmoothedLightCorner(field, vertex[1], vertex[2], wallState)
+
+        local alpha = math.min(
+            LIGHT_SURFACE_MAX_ALPHA,
+            level * (lighting.lightLift or 0.85) * LIGHT_SURFACE_MAX_ALPHA
+        )
+
+        if alpha > 0.003 then
+            -- Keep the main light surface near-neutral. Torch identity comes
+            -- from the warm tint plus the local orb/halo, avoiding orange wash.
+            overlay:SetVertexColor(
+                0.60 + (tintR * 0.40),
+                0.60 + (tintG * 0.40),
+                0.60 + (tintB * 0.40),
+                1
+            )
+            overlay:SetAlpha(alpha)
+            overlay:Show()
+        else
+            overlay:Hide()
+        end
+    end
 end
 
 local function IsWithinRadius(fromX, fromY, toX, toY, radius)
@@ -1868,6 +1982,30 @@ local function CreateWallContactShadowTextures(cell)
 end
 
 
+
+local LIGHT_CORNER_TEXCOORDS = {
+    { 0, 1, 0, 1 }, -- north-west
+    { 1, 0, 0, 1 }, -- north-east
+    { 1, 0, 1, 0 }, -- south-east
+    { 0, 1, 1, 0 }, -- south-west
+}
+
+local function CreateLightCornerOverlays(cell)
+    local overlays = {}
+
+    for index, coords in ipairs(LIGHT_CORNER_TEXCOORDS) do
+        local overlay = cell:CreateTexture(nil, "OVERLAY", nil, -1)
+        overlay:SetAllPoints(cell)
+        overlay:SetTexture(SOFT_CORNER_TEXTURE)
+        overlay:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
+        overlay:SetBlendMode("ADD")
+        overlay:Hide()
+        overlays[index] = overlay
+    end
+
+    return overlays
+end
+
 local function AnchorWallTorchTexture(texture, cell, facing)
     if not texture or not cell then return end
 
@@ -1940,17 +2078,19 @@ local function CreateGrid(parent)
             darknessOverlay:SetBlendMode("BLEND")
             darknessOverlay:Hide()
 
-            local lightTintOverlay = cell:CreateTexture(nil, "OVERLAY", nil, -1)
-            lightTintOverlay:SetAllPoints(cell)
-            lightTintOverlay:SetTexture("Interface\\Buttons\\WHITE8X8")
-            lightTintOverlay:SetBlendMode("ADD")
-            lightTintOverlay:Hide()
+            local lightCornerOverlays = CreateLightCornerOverlays(cell)
 
             local torchGlow = lightingLayer:CreateTexture(nil, "ARTWORK", nil, 0)
             torchGlow:SetSize(164, 164)
             torchGlow:SetTexture(SOFT_RADIAL_TEXTURE)
             torchGlow:SetBlendMode("ADD")
             torchGlow:Hide()
+
+            local torchOrb = spriteLayer:CreateTexture(nil, "ARTWORK", nil, 0)
+            torchOrb:SetSize(38, 38)
+            torchOrb:SetTexture(SOFT_RADIAL_TEXTURE)
+            torchOrb:SetBlendMode("ADD")
+            torchOrb:Hide()
 
             local torchIcon = spriteLayer:CreateTexture(nil, "ARTWORK", nil, 1)
             torchIcon:SetSize(32, 48)
@@ -2017,8 +2157,9 @@ local function CreateGrid(parent)
                 wallContactShadows = wallContactShadows,
                 terrainTexture = terrainTexture,
                 darknessOverlay = darknessOverlay,
-                lightTintOverlay = lightTintOverlay,
+                lightCornerOverlays = lightCornerOverlays,
                 torchGlow = torchGlow,
+                torchOrb = torchOrb,
                 torchIcon = torchIcon,
                 marker = marker,
                 lootIcon = lootIcon,
@@ -7679,6 +7820,7 @@ function GA:UpdateDungeonLightingAnimation()
     local lighting = GetActiveDungeonLightingStyle()
     local cameraX = self.DungeonCameraX or 1
     local cameraY = self.DungeonCameraY or 1
+    local lightField = BuildDungeonLightField(cameraX, cameraY, now)
 
     for viewY = 1, VIEWPORT_HEIGHT do
         for viewX = 1, VIEWPORT_WIDTH do
@@ -7688,6 +7830,7 @@ function GA:UpdateDungeonLightingAnimation()
                 local worldY = cameraY + viewY - 1
                 local visible = self:IsDungeonCellVisible(worldX, worldY)
                 local explored = self:IsDungeonCellExplored(worldX, worldY)
+                local wall = IsDungeonWall(worldX, worldY)
 
                 if entry.darknessOverlay then
                     if not explored then
@@ -7697,35 +7840,33 @@ function GA:UpdateDungeonLightingAnimation()
                         entry.darknessOverlay:SetAlpha(lighting.memoryDarkness)
                         entry.darknessOverlay:Show()
                     else
-                        local lightLevel, tintR, tintG, tintB, tintAlpha =
-                            GetDungeonLightingAt(worldX, worldY, now)
-                        local darkness = lighting.ambientDarkness
-                            * (1 - ((lighting.lightLift or 0.85) * lightLevel))
-                        darkness = math.max(0.06, math.min(0.90, darkness))
-
-                        entry.darknessOverlay:SetAlpha(darkness)
+                        -- Visible cells share one ambient darkness level. Light is
+                        -- restored with four bilinear corner gradients, eliminating
+                        -- the old tile-by-tile alpha staircase.
+                        entry.darknessOverlay:SetAlpha(lighting.ambientDarkness)
                         entry.darknessOverlay:Show()
-
-                        if entry.lightTintOverlay then
-                            if tintAlpha > 0.004 then
-                                entry.lightTintOverlay:SetVertexColor(tintR, tintG, tintB, 1)
-                                entry.lightTintOverlay:SetAlpha(tintAlpha)
-                                entry.lightTintOverlay:Show()
-                            else
-                                entry.lightTintOverlay:Hide()
-                            end
-                        end
+                        ApplySmoothCellLight(
+                            entry,
+                            lightField,
+                            worldX,
+                            worldY,
+                            wall,
+                            lighting
+                        )
                     end
                 end
 
-                if not visible and entry.lightTintOverlay then
-                    entry.lightTintOverlay:Hide()
+                if not visible and entry.lightCornerOverlays then
+                    for _, overlay in ipairs(entry.lightCornerOverlays) do
+                        overlay:Hide()
+                    end
                 end
 
                 local torch = GetDungeonTorchAt(worldX, worldY)
                 if torch then
                     local flicker = GetTorchFlickerScale(torch, now)
                     local strengthScale = math.max(0.5, tonumber(torch.strengthScale) or 1)
+                    local color = lighting.torchColor or { 1, 0.45, 0.12 }
 
                     if entry.torchIcon and explored then
                         entry.torchIcon:SetAlpha(
@@ -7737,18 +7878,35 @@ function GA:UpdateDungeonLightingAnimation()
 
                     if entry.torchGlow then
                         if visible then
-                            local color = lighting.torchColor or { 1, 0.45, 0.12 }
                             entry.torchGlow:SetVertexColor(color[1], color[2], color[3], 1)
                             entry.torchGlow:SetAlpha(
-                                math.max(0.10, math.min(0.30, 0.21 * flicker * strengthScale))
+                                math.max(0.09, math.min(0.25, 0.18 * flicker * strengthScale))
                             )
                             entry.torchGlow:Show()
                         else
                             entry.torchGlow:Hide()
                         end
                     end
+
+                    if entry.torchOrb then
+                        if visible then
+                            entry.torchOrb:SetVertexColor(
+                                1,
+                                math.min(1, 0.68 + ((color[2] or 0.45) * 0.20)),
+                                math.min(1, 0.34 + ((color[3] or 0.12) * 0.25)),
+                                1
+                            )
+                            entry.torchOrb:SetAlpha(
+                                math.max(0.62, math.min(0.94, 0.80 * flicker * strengthScale))
+                            )
+                            entry.torchOrb:Show()
+                        else
+                            entry.torchOrb:Hide()
+                        end
+                    end
                 else
                     if entry.torchGlow then entry.torchGlow:Hide() end
+                    if entry.torchOrb then entry.torchOrb:Hide() end
                     if entry.torchIcon then entry.torchIcon:Hide() end
                 end
             end
@@ -7808,12 +7966,17 @@ function GA:RenderDungeonGrid()
                     entry.darknessOverlay:Hide()
                     entry.darknessOverlay:SetAlpha(1)
                 end
-                if entry.lightTintOverlay then
-                    entry.lightTintOverlay:Hide()
-                    entry.lightTintOverlay:SetAlpha(1)
+                if entry.lightCornerOverlays then
+                    for _, overlay in ipairs(entry.lightCornerOverlays) do
+                        overlay:Hide()
+                        overlay:SetAlpha(1)
+                    end
                 end
                 if entry.torchGlow then
                     entry.torchGlow:Hide()
+                end
+                if entry.torchOrb then
+                    entry.torchOrb:Hide()
                 end
                 if entry.torchIcon then
                     entry.torchIcon:Hide()
@@ -7926,6 +8089,10 @@ function GA:RenderDungeonGrid()
                     if entry.torchGlow then
                         AnchorWallTorchTexture(entry.torchGlow, entry.frame, wallTorch.facing)
                         if visible then entry.torchGlow:Show() end
+                    end
+                    if entry.torchOrb then
+                        AnchorWallTorchTexture(entry.torchOrb, entry.frame, wallTorch.facing)
+                        if visible then entry.torchOrb:Show() end
                     end
                     if entry.torchIcon then
                         AnchorWallTorchTexture(entry.torchIcon, entry.frame, wallTorch.facing)
