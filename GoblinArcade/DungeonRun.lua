@@ -46,9 +46,9 @@ local WALL_CONTACT_SHADOW_PASSES = {
 local WALL_CONTACT_SHADOW_MEMORY_ALPHA = 0.30
 
 local LIGHTING_UPDATE_INTERVAL = 0.12
-local SOFT_RADIAL_TEXTURE = "Interface\\AddOns\\GoblinArcade\\Media\\FX\\soft_radial"
-local SOFT_CORNER_TEXTURE = "Interface\\AddOns\\GoblinArcade\\Media\\FX\\soft_corner"
-local WALL_TORCH_TEXTURE = "Interface\\AddOns\\GoblinArcade\\Media\\FX\\wall_torch"
+local SOFT_RADIAL_TEXTURE = "Interface\\AddOns\\GoblinArcade\\Media\\FX\\soft_radial.png"
+local SOFT_CORNER_TEXTURE = "Interface\\AddOns\\GoblinArcade\\Media\\FX\\soft_corner.png"
+local WALL_TORCH_TEXTURE = "Interface\\AddOns\\GoblinArcade\\Media\\FX\\wall_torch.png"
 local LIGHT_SURFACE_MAX_ALPHA = 0.38
 
 local DUNGEON_LIGHTING_PRESETS = {

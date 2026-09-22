@@ -3,10 +3,21 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-22  
-Current addon version: **0.66.1**  
+Current addon version: **0.66.2**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
+
+## 0.66.2 — Fix invisible lighting FX assets
+
+- Fixed the reason the 0.66.1 light sources could be completely invisible in WoW: all three new FX assets are PNG files, but their runtime texture constants omitted the `.png` extension.
+- Runtime paths are now explicit:
+  - `Media/FX/soft_radial.png`
+  - `Media/FX/soft_corner.png`
+  - `Media/FX/wall_torch.png`
+- This restores the bilinear corner light surface, wall-torch halo/orb, torch sprite and the radial enemy ground shadow, all of which depend on those FX textures.
+- Expanded the self-hosted ecosystem tile audit so the FX files must be PNGs and the runtime constants must contain the explicit `.png` paths. This prevents the same silent asset-resolution regression from returning.
+- Addon version **0.66.2**.
 
 ## 0.66.1 — Smooth light surface + torch light orbs
 

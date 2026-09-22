@@ -37,6 +37,7 @@ fx_assets = {
 }
 for label, (path, expected_size) in fx_assets.items():
     assert path.exists(), f"Missing {label}: {path}"
+    assert path.suffix.lower() == ".png", f"{label} must use an explicit .png asset"
     header = path.read_bytes()[:24]
     assert header[:8] == b"\x89PNG\r\n\x1a\n", f"{label} must be PNG"
     asset_width, asset_height = struct.unpack(">II", header[16:24])
@@ -112,9 +113,9 @@ for token in (
     "torchOrb",
     "torchIcon",
     "enemyShadow",
-    "SOFT_RADIAL_TEXTURE",
-    "SOFT_CORNER_TEXTURE",
-    "WALL_TORCH_TEXTURE",
+    'SOFT_RADIAL_TEXTURE = "Interface\\\\AddOns\\\\GoblinArcade\\\\Media\\\\FX\\\\soft_radial.png"',
+    'SOFT_CORNER_TEXTURE = "Interface\\\\AddOns\\\\GoblinArcade\\\\Media\\\\FX\\\\soft_corner.png"',
+    'WALL_TORCH_TEXTURE = "Interface\\\\AddOns\\\\GoblinArcade\\\\Media\\\\FX\\\\wall_torch.png"',
     "self:UpdateDungeonLightingAnimation()",
     'cell:CreateTexture(nil, "BACKGROUND", nil, 7)',
     'cell:CreateTexture(nil, "BORDER", nil, 7)',
@@ -131,4 +132,4 @@ for match in re.finditer(r'CreateTexture\([^\n]*?,\s*"[^"]+"\s*,\s*nil\s*,\s*(-?
     assert -8 <= sublevel <= 7, f"Invalid CreateTexture sublevel {sublevel}: WoW requires -8..7"
 
 assert 'for (const textureKey of ["floorTexture", "wallTexture", "wallAutotileTexture"])' in api
-print("Ecosystem tile audit OK: Orc floor, Blob47 walls, contact shadow, bilinear LOS lighting, torch orb/halo, enemy drop shadow and FX assets verified.")
+print("Ecosystem tile audit OK: Orc floor, Blob47 walls, contact shadow, bilinear LOS lighting, explicit PNG FX paths, torch orb/halo and enemy drop shadow verified.")
