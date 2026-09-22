@@ -7,11 +7,22 @@ function GA:ScaleCombatValue(value, preservePositive)
     return math.max(1, scaled)
 end
 
+local studioChunk = assert(loadfile("GoblinArcade/Data/StudioData.lua"))
+studioChunk("GoblinArcade", GA)
 local chunk = assert(loadfile("GoblinArcade/ForeverRules.lua"))
 chunk("GoblinArcade", GA)
 local FR = assert(GA.ForeverRules)
-assert(FR.VERSION == 1)
-assert(FR.ID == "FOREVER_CLASSIC_BETA")
+assert(FR.VERSION == 2)
+assert(FR.ID == "FOREVER_CLASSIC_BETA_V2")
+local level1 = FR:GetClassLevelStats("WARRIOR", 1)
+local level20 = FR:GetClassLevelStats("WARRIOR", 20)
+local level60 = FR:GetClassLevelStats("WARRIOR", 60)
+assert(level1.baseHealth == 20 and level1.strength == 23 and level1.stamina == 22)
+assert(level20.baseHealth == 199 and level20.strength == 47 and level20.stamina == 43)
+assert(level60.baseHealth == 1689 and level60.strength == 120 and level60.stamina == 110)
+assert(FR:HealthFromStamina(22) == 40)
+local reference1 = FR:GetReferencePlayerCombatProfile("WARRIOR", 1)
+assert(reference1.attackPower == 29 and reference1.rawMaxHealth == 60 and reference1.maxHealth == 6)
 
 local warrior = FR:BuildDerivedStats(20, "WARRIOR", {
     strength = 10, agility = 5, stamina = 8, armor = 300,
@@ -21,7 +32,8 @@ local warrior = FR:BuildDerivedStats(20, "WARRIOR", {
 })
 assert(warrior.strength > 10)
 assert(warrior.attackPower > 0)
-assert(warrior.health == 8, "8 gear stamina should add 8 scaled HP")
+assert(warrior.maxHealth == 53, "Level 20 Warrior with +8 STA should resolve to 529 raw / 53 arcade HP")
+assert(warrior.rawMaxHealth == 529)
 assert(warrior.maxMana == warrior.intellect * 15)
 assert(warrior.armor >= 300)
 assert(warrior.hit == 2)
@@ -54,4 +66,4 @@ assert(FR:CalculateRageFromSwing({ weaponSpeedSeconds = 2.4, handedness = "One-H
 assert(FR:CalculateRageFromSwing({ weaponSpeedSeconds = 3.2, handedness = "Two-Handed" }, { kind = "HIT" }) >= 14)
 assert(FR:CalculateRageFromSwing({ weaponSpeedSeconds = 3.2, handedness = "Two-Handed" }, { kind = "MISS" }) == 0)
 
-print("Forever rules audit OK: primary stats, AP, armor, attack tables, block value and normalized Rage verified.")
+print("Forever rules audit OK: Classic class rows, stamina HP, AP, armor, attack tables, block value and normalized Rage verified.")
