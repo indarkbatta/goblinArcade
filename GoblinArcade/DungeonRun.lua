@@ -6262,7 +6262,7 @@ function GA:GrantRunExperience(amount)
         local hpGain = math.max(0, afterMaxHealth - beforeMaxHealth)
         -- Level-up healing is deliberately limited to the stat-derived maximum-HP
         -- increase. This preserves the hero's absolute missing HP and avoids a
-        -- second hpPerLevel progression or an unintended full heal.
+        -- second fixed-HP progression or an unintended full heal.
         if hpGain > 0 then
             run.playerHealth = math.min(afterMaxHealth, beforeHealth + hpGain)
             self:UpdateRunHealth()
