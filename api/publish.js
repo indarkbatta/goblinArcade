@@ -33,10 +33,10 @@ function assertStudioData(data) {
   const lootTableIds = new Set(data.lootTables.map(x => String(x.id || "")));
   const itemIds = new Set(data.items.map(x => String(x.id || "")));
   const classIds = new Set(data.classes.map(x => String(x.id || "")));
-  if (Number(data.schemaVersion) !== 17) throw new Error("Studio schemaVersion must be 17.");
-  if (String(data.studioVersion || "") !== "1.16.0") throw new Error("Studio version must be 1.16.0.");
+  if (Number(data.schemaVersion) !== 18) throw new Error("Studio schemaVersion must be 18.");
+  if (String(data.studioVersion || "") !== "1.17.0") throw new Error("Studio version must be 1.17.0.");
   for (const cls of data.classes) {
-    const nums = ["resourceMax","resourcePerLevel","basicAttackResourceGain","baseHealth","baseMana","baseStrength","baseAgility","baseStamina","baseIntellect","baseSpirit","meleeApPerLevel","meleeApPerStrength","meleeApPerAgility","meleeApOffset","rangedApPerLevel","rangedApPerAgility","rangedApOffset","critAgiPerPercent","dodgeAgiPerPercent","baseDodge","baseParry","baseBlock","healthPerStaminaFirst20","healthPerStaminaAfter20","manaPerIntellect","armorPerAgility","blockValuePerStrength","defenseSkillPerLevel","weaponSkillPerLevel","referenceWeaponBaseDamage","referenceWeaponSpeedSeconds"];
+    const nums = ["resourceMax","resourcePerLevel","basicAttackResourceGain","baseHealth","baseMana","baseStrength","baseAgility","baseStamina","baseIntellect","baseSpirit","meleeApPerLevel","meleeApPerStrength","meleeApPerAgility","meleeApOffset","rangedApPerLevel","rangedApPerAgility","rangedApOffset","critAgiPerPercent","dodgeAgiPerPercent","baseDodge","baseParry","baseBlock","healthPerStaminaFirst20","healthPerStaminaAfter20","manaPerIntellectFirst20","manaPerIntellectAfter20","armorPerAgility","blockValuePerStrength","defenseSkillPerLevel","weaponSkillPerLevel","referenceWeaponBaseDamage","referenceWeaponSpeedSeconds"];
     for (const key of nums) {
       if (cls[key] !== undefined && cls[key] !== "" && !Number.isFinite(Number(cls[key]))) throw new Error("Class " + cls.id + " has invalid " + key + ".");
     }
@@ -58,7 +58,7 @@ function assertStudioData(data) {
         if (cols.slice(1).some(x => x < 0)) throw new Error("Class " + cls.id + " Level Stat Table cannot contain negative stats.");
       }
     }
-    for (const key of ["resourceMax","resourcePerLevel","basicAttackResourceGain","baseHealth","baseMana","baseStrength","baseAgility","baseStamina","baseIntellect","baseSpirit","meleeApPerLevel","meleeApPerStrength","meleeApPerAgility","rangedApPerLevel","rangedApPerAgility","baseDodge","baseParry","baseBlock","healthPerStaminaFirst20","healthPerStaminaAfter20","manaPerIntellect","armorPerAgility","blockValuePerStrength","defenseSkillPerLevel","weaponSkillPerLevel","referenceWeaponBaseDamage","referenceWeaponSpeedSeconds"]) {
+    for (const key of ["resourceMax","resourcePerLevel","basicAttackResourceGain","baseHealth","baseMana","baseStrength","baseAgility","baseStamina","baseIntellect","baseSpirit","meleeApPerLevel","meleeApPerStrength","meleeApPerAgility","rangedApPerLevel","rangedApPerAgility","baseDodge","baseParry","baseBlock","healthPerStaminaFirst20","healthPerStaminaAfter20","manaPerIntellectFirst20","manaPerIntellectAfter20","armorPerAgility","blockValuePerStrength","defenseSkillPerLevel","weaponSkillPerLevel","referenceWeaponBaseDamage","referenceWeaponSpeedSeconds"]) {
       if (cls[key] !== undefined && cls[key] !== "" && Number(cls[key]) < 0) throw new Error("Class " + cls.id + " has negative " + key + ".");
     }
     if (cls.critAgiPerPercent !== undefined && Number(cls.critAgiPerPercent) <= 0) throw new Error("Class " + cls.id + " critAgiPerPercent must be > 0.");
