@@ -16,8 +16,8 @@ studio = (root / "index.html").read_bytes()
 studio_mirror = (root / "studio" / "index.html").read_bytes()
 addon_mirror = (root / "GoblinArcade" / "index.html").read_bytes()
 
-assert data["schemaVersion"] == 16
-assert data["studioVersion"] == "1.15.0"
+assert data["schemaVersion"] == 17
+assert data["studioVersion"] == "1.16.0"
 warrior = next(x for x in data["classes"] if x["id"] == "warrior")
 assert warrior["resource"] == "RAGE"
 assert warrior["resourceMax"] == 100
