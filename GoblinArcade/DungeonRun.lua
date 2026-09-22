@@ -6251,13 +6251,22 @@ function GA:GrantRunExperience(amount)
 
         local growth = run.classGrowth or GetClassRunGrowth(run.classId)
         local beforeMaxHealth = math.max(1, tonumber(run.playerMaxHealth) or 1)
+        local beforeHealth = math.max(0, tonumber(run.playerHealth) or beforeMaxHealth)
         local resourceGain = math.max(0, tonumber(growth.resourcePerLevel) or 0)
 
         if resourceGain > 0 then
             run.resourceMax = math.max(0, (run.resourceMax or 0) + resourceGain)
         end
         if self.RecalculateRunGearStats then self:RecalculateRunGearStats() end
-        local hpGain = math.max(0, (tonumber(run.playerMaxHealth) or beforeMaxHealth) - beforeMaxHealth)
+        local afterMaxHealth = math.max(1, tonumber(run.playerMaxHealth) or beforeMaxHealth)
+        local hpGain = math.max(0, afterMaxHealth - beforeMaxHealth)
+        -- Level-up healing is deliberately limited to the stat-derived maximum-HP
+        -- increase. This preserves the hero's absolute missing HP and avoids a
+        -- second hpPerLevel progression or an unintended full heal.
+        if hpGain > 0 then
+            run.playerHealth = math.min(afterMaxHealth, beforeHealth + hpGain)
+            self:UpdateRunHealth()
+        end
         self:UpdateRunResource()
 
         self:AddCombatLog(string.format("LEVEL UP! %d -> %d", previousLevel, run.runLevel), "system")
@@ -8173,7 +8182,7 @@ function GA:BeginDungeonRun()
         and self:GetDifficultyDefinition(difficulty)
         or { id = difficulty, label = difficulty, hpMultiplier = 1, damageMultiplier = 1, scoreMultiplier = 1 }
     local classReference = self.ForeverRules and self.ForeverRules.GetReferencePlayerCombatProfile
-        and self.ForeverRules:GetReferencePlayerCombatProfile(classId, level)
+        and self.ForeverRules:GetReferencePlayerCombatProfile(classId, level, selected.raceId)
         or nil
     local maxHealth = classReference and classReference.maxHealth
         or math.max(1, tonumber(selected.maxHealth) or 1)
