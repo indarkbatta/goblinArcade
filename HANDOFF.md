@@ -3,10 +3,18 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-22  
-Current addon version: **0.71.0**  
+Current addon version: **0.71.1**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
+
+## 0.71.1 — Classic dodge and mana correctness patch
+
+- Corrected the Warrior class-base Dodge value from 3% to **0%**. The Classic/Vanilla baseline adds Warrior Dodge from Agility; CMaNGOS/VMaNGOS player stat logic uses no additional Warrior class-base Dodge.
+- Replaced the oversimplified `INT × 15` mana rule with the Classic split: first 20 Intellect = **1 Mana each**, Intellect above 20 = **15 Mana each**.
+- Classes with zero class base Mana now remain at **0 Max Mana**, so the Rage-based Warrior no longer receives an unused hidden mana pool from Intellect.
+- Class Editor now exposes `manaPerIntellectFirst20` and `manaPerIntellectAfter20` separately. Studio schema is **18**, Studio version **1.17.0**, draft key **v32**.
+- ForeverRules is ruleset **V4**; static/runtime audits cover the corrected Warrior Dodge and mana behavior. Addon version **0.71.1**.
 
 ## 0.71.0 — Race-aware Classic stat source of truth
 
