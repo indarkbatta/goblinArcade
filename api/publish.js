@@ -33,8 +33,10 @@ function assertStudioData(data) {
   const lootTableIds = new Set(data.lootTables.map(x => String(x.id || "")));
   const itemIds = new Set(data.items.map(x => String(x.id || "")));
   const classIds = new Set(data.classes.map(x => String(x.id || "")));
+  if (Number(data.schemaVersion) !== 17) throw new Error("Studio schemaVersion must be 17.");
+  if (String(data.studioVersion || "") !== "1.16.0") throw new Error("Studio version must be 1.16.0.");
   for (const cls of data.classes) {
-    const nums = ["resourceMax","resourcePerLevel","basicAttackResourceGain","baseHealth","baseMana","baseStrength","baseAgility","baseStamina","baseIntellect","baseSpirit","meleeApPerLevel","meleeApPerStrength","meleeApPerAgility","meleeApOffset","rangedApPerLevel","rangedApPerAgility","rangedApOffset","critAgiPerPercent","dodgeAgiPerPercent","baseDodge","baseParry","baseBlock"];
+    const nums = ["resourceMax","resourcePerLevel","basicAttackResourceGain","baseHealth","baseMana","baseStrength","baseAgility","baseStamina","baseIntellect","baseSpirit","meleeApPerLevel","meleeApPerStrength","meleeApPerAgility","meleeApOffset","rangedApPerLevel","rangedApPerAgility","rangedApOffset","critAgiPerPercent","dodgeAgiPerPercent","baseDodge","baseParry","baseBlock","healthPerStaminaFirst20","healthPerStaminaAfter20","manaPerIntellect","armorPerAgility","blockValuePerStrength","defenseSkillPerLevel","weaponSkillPerLevel","referenceWeaponBaseDamage","referenceWeaponSpeedSeconds"];
     for (const key of nums) {
       if (cls[key] !== undefined && cls[key] !== "" && !Number.isFinite(Number(cls[key]))) throw new Error("Class " + cls.id + " has invalid " + key + ".");
     }
@@ -50,6 +52,32 @@ function assertStudioData(data) {
         seen.add(level);
       }
       if (!seen.has(1)) throw new Error("Class " + cls.id + " Level Stat Table must include Level 1.");
+      for (const raw of table.split(/\r?\n/)) {
+        if (!raw.trim()) continue;
+        const cols = raw.split(",").map(x => Number(x.trim()));
+        if (cols.slice(1).some(x => x < 0)) throw new Error("Class " + cls.id + " Level Stat Table cannot contain negative stats.");
+      }
+    }
+    for (const key of ["resourceMax","resourcePerLevel","basicAttackResourceGain","baseHealth","baseMana","baseStrength","baseAgility","baseStamina","baseIntellect","baseSpirit","meleeApPerLevel","meleeApPerStrength","meleeApPerAgility","rangedApPerLevel","rangedApPerAgility","baseDodge","baseParry","baseBlock","healthPerStaminaFirst20","healthPerStaminaAfter20","manaPerIntellect","armorPerAgility","blockValuePerStrength","defenseSkillPerLevel","weaponSkillPerLevel","referenceWeaponBaseDamage","referenceWeaponSpeedSeconds"]) {
+      if (cls[key] !== undefined && cls[key] !== "" && Number(cls[key]) < 0) throw new Error("Class " + cls.id + " has negative " + key + ".");
+    }
+    if (cls.critAgiPerPercent !== undefined && Number(cls.critAgiPerPercent) <= 0) throw new Error("Class " + cls.id + " critAgiPerPercent must be > 0.");
+    if (cls.dodgeAgiPerPercent !== undefined && Number(cls.dodgeAgiPerPercent) <= 0) throw new Error("Class " + cls.id + " dodgeAgiPerPercent must be > 0.");
+  }
+
+  const raceModels = new Set(["CLASSIC_STARTING_OFFSET","UNVERIFIED_NEUTRAL"]);
+  for (const race of data.races) {
+    const offsets = ["strengthOffset","agilityOffset","staminaOffset","intellectOffset","spiritOffset"];
+    for (const key of offsets) {
+      if (!Number.isFinite(Number(race[key])) || Math.floor(Number(race[key])) !== Number(race[key]) || Math.abs(Number(race[key])) > 20) {
+        throw new Error("Race " + race.id + " has invalid " + key + " (integer -20..20 required).");
+      }
+    }
+    const model = String(race.statOffsetModel || "");
+    if (!raceModels.has(model)) throw new Error("Race " + race.id + " has invalid statOffsetModel.");
+    if (!String(race.statOffsetSource || "").trim()) throw new Error("Race " + race.id + " requires statOffsetSource provenance.");
+    if (model === "UNVERIFIED_NEUTRAL" && offsets.some(key => Number(race[key]) !== 0)) {
+      throw new Error("Race " + race.id + " is UNVERIFIED_NEUTRAL but has non-zero offsets.");
     }
   }
 
