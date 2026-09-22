@@ -299,9 +299,9 @@ function EG:CreateEnemy(options)
     local reference = GA.ForeverRules and GA.ForeverRules.GetReferencePlayerCombatProfile
         and GA.ForeverRules:GetReferencePlayerCombatProfile(classId, effectiveLevel)
         or nil
-    local referenceDamage = reference and reference.rawReferenceDamage or (5 + effectiveLevel * 0.90)
+    local referenceDamage = math.max(1, reference and reference.rawReferenceDamage or 1)
     local baseHp = referenceDamage * 3.25
-    local referencePlayerHealth = reference and reference.rawMaxHealth or (100 + effectiveLevel * 20)
+    local referencePlayerHealth = math.max(1, reference and reference.rawMaxHealth or 1)
     local averageDamage = referencePlayerHealth * 0.040
 
     local rawMaxHp = math.max(1, Round(
