@@ -3,9 +3,68 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-22  
-Current addon version: **0.70.0**  
+Current addon version: **0.71.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
+
+
+## 0.71.0 — Race-aware Classic stat source of truth
+
+### Research result and provenance
+
+- **Forever-specific evidence:** the public WoW Forever stat guide describes the game as using the WoW Classic primary-stat model with Forever-specific changes, including Warrior Strength/Agility relationships and race-dependent starting attributes. Public Forever race documentation also confirms the current Warrior-compatible Classic races plus the two Skyborne variants.
+- **Classic-compatible baseline:** the exact Warrior Level 1-60 class table remains the Studio-authored Vanilla/Classic progression table. The melee AP rule is `3 × Level + 2 × STR - 20`; ranged AP is `Level + AGI - 10`. The runtime uses the Classic old-world Stamina health split (first 20 STA at 1 HP each, later STA at 10 HP each), 2 Armor/AGI, 15 Mana/INT, 1 Block Value per 20 STR, and Level × 5 Defense/Weapon Skill.
+- **Race correctness:** Classic starting primary attributes are not represented as a fake class-only fact. Human Warrior is the canonical class-table baseline and the Race Editor now applies editable starting offsets to STR/AGI/STA/INT/SPI:
+  - Human `0/0/0/0/0`
+  - Dwarf `+5/-4/+1/-1/-1`
+  - Night Elf `-4/+4/0/0/0`
+  - Gnome `-5/+2/0/+4/0`
+  - Orc `+3/-3/+1/-3/+2`
+  - Undead `-1/-2/0/-2/+5`
+  - Tauren `+5/-4/+1/-4/+2`
+  - Troll `+1/+2/0/-4/+1`
+- **Skyborne limitation:** no reliable public numeric starting-stat offsets were found for Skyborne High Order or Skyborne Windshaper. They therefore use explicit zero offsets with `UNVERIFIED_NEUTRAL` provenance. This is a GoblinArcade fallback, **not** claimed WoW Forever data.
+- Research references used for this implementation: WoW Forever / Warcraft Tavern **Stats & Attributes Guide**; Classic/Vanilla primary-stat data and formulas cross-checked against CMaNGOS Classic `StatSystem.cpp`, VMaNGOS `player_levelstats` corrections, and Classic Warrior starting-attribute references.
+
+### Data model / Studio
+
+- Studio schema **17**, Studio **1.16.0**, browser draft key **v31**.
+- Class Editor is now visibly grouped into Identity/Availability, Resource, Level-1 Class Baseline, Exact Level Progression, Derived Stat Rules, Enemy Reference Profile and Notes.
+- Warrior's additional editable mechanics are now data-authored instead of being active hardcoded class logic:
+  - HP per Stamina for first 20 / after 20
+  - Mana per Intellect
+  - Armor per Agility
+  - Block Value per Strength
+  - Defense Skill per level
+  - Weapon Skill per level
+  - reference weapon base damage / speed for enemy-scaling baseline
+  - Rage cap remains the class `resourceMax` (100)
+- Race Editor now exposes five starting-stat offsets plus `statOffsetModel` and `statOffsetSource` provenance.
+- Publish validation requires schema/version correctness, valid class progression values, bounded integer race offsets, provenance text, and enforces zero offsets for `UNVERIFIED_NEUTRAL` races.
+- All three Studio HTML mirrors remain required to be byte-identical.
+
+### Runtime
+
+- `ForeverRules.lua` is ruleset **V3**. `GA.StudioData.classes` is the active class source of truth and `GA.StudioData.races` is the active race-offset source.
+- Main entry points are `GetClassProfile(classId)`, `GetRaceProfile(raceId)`, `GetClassLevelStats(classId, level, raceId?)`, `GetBasePrimaryStats(classId, level, raceId?)`, `BuildDerivedStats(..., raceId?)` and `GetReferencePlayerCombatProfile(..., raceId?)`.
+- Generated heroes now receive their race-adjusted Level-1 HP/stats at creation and at run start. Character Sheet recalculation keeps using the selected race at every run level.
+- Level-up no longer has an independent HP-per-level track. It recalculates the new class/race row plus derived stats. The only level-up heal is exactly the stat-derived max-HP increase, preserving absolute missing HP rather than fully healing or applying a second progression.
+- Rage cap is read from the class record instead of being reset to a separate hardcoded 100 inside Character Sheet recalculation.
+
+### Enemy scaling / balance
+
+- Enemy HP remains anchored to the canonical class reference offense: class level row -> AP -> reference weapon swing -> desired HP envelope, then archetype/rank/floor/gear/difficulty modifiers.
+- Enemy damage remains anchored to canonical class reference durability: class base HP + Stamina-derived HP -> incoming-pressure fraction, then archetype/rank/floor/gear/difficulty modifiers.
+- The enemy reference intentionally uses the **race-neutral class baseline** so choosing a stronger/weaker race does not silently rescale the dungeon against that same racial benefit. Editing Warrior class STR/STA/progression still moves enemy HP/damage consistently.
+- Removed the last legacy independent fallbacks `5 + level × 0.90` and `100 + level × 20` from EnemyGenerator.
+- `tools/balance_audit.py` now reads the same Studio-authored Stamina-health and reference-weapon coefficients as runtime.
+
+### Automated coverage
+
+- Static audit validates exact Warrior L1/L5/L10/L20/L60 rows, all eight Classic race offsets, explicit neutral Skyborne handling, editor/publish hooks, mirror identity, race-aware runtime call sites and absence of the old enemy proxies.
+- Executable Lua audit validates L1/L5/L10 Human Warrior snapshots, Orc L1 stats/AP/HP, derived Armor/Defense/Weapon Skill, editable class coefficient reaction, editable exact-table reaction, editable race-offset reaction, enemy HP response to offense changes, enemy damage response to durability changes, and rank/difficulty multipliers.
+- EASY/NORMAL/HARD full-run balance simulations continue to use the same canonical Warrior class source via `tools/balance_audit.py`.
+
 
 
 ## 0.70.0 — Classic/Forever class-level stat progression
