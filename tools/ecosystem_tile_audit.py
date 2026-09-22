@@ -12,7 +12,7 @@ studio = (root / "index.html").read_text(encoding="utf-8")
 api = (root / "api" / "publish.js").read_text(encoding="utf-8")
 
 assert data.get("schemaVersion") == 18
-assert data.get("studioVersion") == "1.17.0"
+assert data.get("studioVersion") == "1.18.0"
 
 for eco in data.get("ecosystems", []):
     for key in ("floorTexture", "wallTexture", "wallAutotileTexture"):

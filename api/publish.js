@@ -34,7 +34,7 @@ function assertStudioData(data) {
   const itemIds = new Set(data.items.map(x => String(x.id || "")));
   const classIds = new Set(data.classes.map(x => String(x.id || "")));
   if (Number(data.schemaVersion) !== 18) throw new Error("Studio schemaVersion must be 18.");
-  if (String(data.studioVersion || "") !== "1.17.0") throw new Error("Studio version must be 1.17.0.");
+  if (String(data.studioVersion || "") !== "1.18.0") throw new Error("Studio version must be 1.18.0.");
   for (const cls of data.classes) {
     const nums = ["resourceMax","resourcePerLevel","basicAttackResourceGain","baseHealth","baseMana","baseStrength","baseAgility","baseStamina","baseIntellect","baseSpirit","meleeApPerLevel","meleeApPerStrength","meleeApPerAgility","meleeApOffset","rangedApPerLevel","rangedApPerAgility","rangedApOffset","critAgiPerPercent","dodgeAgiPerPercent","baseDodge","baseParry","baseBlock","healthPerStaminaFirst20","healthPerStaminaAfter20","manaPerIntellectFirst20","manaPerIntellectAfter20","armorPerAgility","blockValuePerStrength","defenseSkillPerLevel","weaponSkillPerLevel","referenceWeaponBaseDamage","referenceWeaponSpeedSeconds"];
     for (const key of nums) {

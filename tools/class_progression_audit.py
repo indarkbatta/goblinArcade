@@ -13,7 +13,7 @@ for raw in warrior["levelStatTable"].splitlines():
     rows[cols[0]] = cols
 
 assert data["schemaVersion"] == 18
-assert data["studioVersion"] == "1.17.0"
+assert data["studioVersion"] == "1.18.0"
 assert len(rows) == 60 and set(rows) == set(range(1, 61))
 assert rows[1] == [1,20,0,23,20,22,20,20]
 assert rows[5] == [5,56,0,28,23,26,20,21]
