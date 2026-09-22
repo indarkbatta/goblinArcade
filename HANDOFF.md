@@ -3,10 +3,23 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-22  
-Current addon version: **0.69.0**  
+Current addon version: **0.70.0**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
+
+## 0.70.0 — Classic/Forever class-level stat progression
+
+- Replaced the old linear primary-stat approximation with Studio-authored per-level class progression.
+- Class Editor now exposes Level-1 Base HP/Mana, STR/AGI/STA/INT/SPI, melee/ranged AP coefficients, agility-per-crit/dodge, base Dodge/Parry/Block, and an exact Level 1-60 Stat Table.
+- Warrior is populated with the Classic class table. Key rows: L1 = 20 BaseHP / 23 STR / 20 AGI / 22 STA / 20 INT / 20 SPI; L20 = 199 / 47 / 35 / 43 / 22 / 26; L60 = 1689 / 120 / 80 / 110 / 30 / 45.
+- Warrior AP is data-authored as melee AP = 3*Level + 2*STR - 20 and ranged AP = Level + AGI - 10.
+- Stamina health follows Classic old-world behavior: first 20 STA = 1 HP each, later STA = 10 HP each.
+- Run HP and Character Sheet stats now derive from the exact current-level class row plus equipment. Fixed HP-per-level growth is removed.
+- EnemyGenerator v13 anchors enemy HP to reference player swing damage and enemy damage to reference player max HP from the same class-level curve, before existing archetype/rank/floor/gear/difficulty multipliers.
+- Balance QA uses the same Warrior class curve and AP/HP rules as runtime.
+- Studio schema 16, Studio 1.15.0, draft v30. Addon version 0.70.0.
+- Added static and executable class progression audits.
 
 ## 0.69.0 — Generated-only GoblinArcade characters
 

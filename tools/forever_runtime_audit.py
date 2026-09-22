@@ -16,8 +16,8 @@ studio = (root / "index.html").read_bytes()
 studio_mirror = (root / "studio" / "index.html").read_bytes()
 addon_mirror = (root / "GoblinArcade" / "index.html").read_bytes()
 
-assert data["schemaVersion"] == 15
-assert data["studioVersion"] == "1.14.0"
+assert data["schemaVersion"] == 16
+assert data["studioVersion"] == "1.15.0"
 warrior = next(x for x in data["classes"] if x["id"] == "warrior")
 assert warrior["resource"] == "RAGE"
 assert warrior["resourceMax"] == 100
@@ -49,6 +49,8 @@ assert "run.resourceMax = 100" in sheet
 for token in ("strength", "agility", "stamina", "hit", "expertise", "defense", "blockValue", "weaponSkill"):
     assert token in database, f"ItemDatabase missing {token}"
 assert "BuildEnemyCombatStats" in enemy
+assert "GetReferencePlayerCombatProfile" in (root / "GoblinArcade" / "ForeverRules.lua").read_text(encoding="utf-8")
+assert "reference.rawReferenceDamage" in enemy and "reference.rawMaxHealth" in enemy
 assert "WeaponGenerator.lua" not in toc and "ItemGenerator.lua" not in toc
 assert 'characterRosterMode = "generated_only_v1"' in roster
 assert 'level = 1' in roster and 'startingLevel = 1' in roster

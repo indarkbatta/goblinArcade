@@ -33,6 +33,26 @@ function assertStudioData(data) {
   const lootTableIds = new Set(data.lootTables.map(x => String(x.id || "")));
   const itemIds = new Set(data.items.map(x => String(x.id || "")));
   const classIds = new Set(data.classes.map(x => String(x.id || "")));
+  for (const cls of data.classes) {
+    const nums = ["resourceMax","resourcePerLevel","basicAttackResourceGain","baseHealth","baseMana","baseStrength","baseAgility","baseStamina","baseIntellect","baseSpirit","meleeApPerLevel","meleeApPerStrength","meleeApPerAgility","meleeApOffset","rangedApPerLevel","rangedApPerAgility","rangedApOffset","critAgiPerPercent","dodgeAgiPerPercent","baseDodge","baseParry","baseBlock"];
+    for (const key of nums) {
+      if (cls[key] !== undefined && cls[key] !== "" && !Number.isFinite(Number(cls[key]))) throw new Error("Class " + cls.id + " has invalid " + key + ".");
+    }
+    const table = String(cls.levelStatTable || "").trim();
+    if (table) {
+      const seen = new Set();
+      for (const raw of table.split(/\r?\n/)) {
+        if (!raw.trim()) continue;
+        const cols = raw.split(",").map(x => x.trim());
+        if (cols.length !== 8 || cols.some(x => !Number.isFinite(Number(x)))) throw new Error("Class " + cls.id + " has an invalid Level Stat Table row: " + raw);
+        const level = Number(cols[0]);
+        if (level < 1 || level > 60 || Math.floor(level) !== level || seen.has(level)) throw new Error("Class " + cls.id + " has invalid/duplicate level " + level + ".");
+        seen.add(level);
+      }
+      if (!seen.has(1)) throw new Error("Class " + cls.id + " Level Stat Table must include Level 1.");
+    }
+  }
+
   const affixStats = new Set(["attackPower","hit","crit","expertise","weaponSkill","armor","defense","dodge","parry","block","blockValue","spellPower","healingPower","mp5","arcaneResistance","fireResistance","frostResistance","natureResistance","shadowResistance"]);
   const affixFamilies = new Set(["OFFENSE","DEFENSE","MAGIC","RESISTANCE","UTILITY"]);
   for (const [kind, records] of [["Prefix", data.prefixes], ["Suffix", data.suffixes]]) for (const affix of records) {

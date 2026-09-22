@@ -328,13 +328,10 @@ function GA:RecalculateRunGearStats()
     local oldMaxHealth = math.max(1, run.playerMaxHealth or run.baseMaxHealth or 1)
     local oldHealth = math.max(0, run.playerHealth or oldMaxHealth)
     local healthRatio = math.min(1, oldHealth / oldMaxHealth)
-    local baseMaxHealth = run.rulesBaseHealth
-        or run.baseMaxHealth
-        or (run.snapshot and run.snapshot.maxHealth)
-        or oldMaxHealth
-    run.rulesBaseHealth = math.max(1, baseMaxHealth)
-    run.baseMaxHealth = run.rulesBaseHealth
-    run.playerMaxHealth = math.max(1, math.floor(run.rulesBaseHealth + (tonumber(stats.health) or 0) + 0.5))
+    local derivedMaxHealth = math.max(1, math.floor(tonumber(stats.maxHealth) or tonumber(stats.health) or oldMaxHealth))
+    run.rulesBaseHealth = derivedMaxHealth
+    run.baseMaxHealth = derivedMaxHealth
+    run.playerMaxHealth = derivedMaxHealth
     run.playerHealth = math.max(0, math.floor(run.playerMaxHealth * healthRatio + 0.5))
 
     if string.upper(tostring(run.resourceType or "")) == "RAGE" then

@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 r=Path(__file__).resolve().parents[1]
 d=json.loads((r/"studio-data.json").read_text(encoding="utf-8")); a=(r/"GoblinArcade"/"AffixSystem.lua").read_text(encoding="utf-8"); db=(r/"GoblinArcade"/"ItemDatabase.lua").read_text(encoding="utf-8"); s=(r/"index.html").read_text(encoding="utf-8")
-assert d["schemaVersion"]==15 and d["studioVersion"]=="1.14.0" and len(d["prefixes"])>=8 and len(d["suffixes"])>=8
+assert d["schemaVersion"]==16 and d["studioVersion"]=="1.15.0" and len(d["prefixes"])>=8 and len(d["suffixes"])>=8
 valid={"attackPower","hit","crit","expertise","weaponSkill","armor","defense","dodge","parry","block","blockValue","spellPower","healingPower","mp5","arcaneResistance","fireResistance","frostResistance","natureResistance","shadowResistance"}
 for k in ("prefixes","suffixes"):
  ids=set()

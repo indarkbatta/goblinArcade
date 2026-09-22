@@ -26,6 +26,8 @@ on:
       - "tools/affix_runtime_audit.lua"
       - "tools/generated_character_audit.py"
       - "tools/generated_character_runtime_audit.lua"
+      - "tools/class_progression_audit.py"
+      - "tools/class_progression_runtime_audit.lua"
       - "tools/event_runtime_audit.lua"
       - "tools/event_logic_audit.lua"
       - ".github/workflows/balance-audit.yml"
@@ -159,7 +161,8 @@ jobs:
             "tools/ecosystem_runtime_audit.lua",
             "tools/forever_rules_audit.lua",
             "tools/affix_runtime_audit.lua",
-            "tools/generated_character_runtime_audit.lua"
+            "tools/generated_character_runtime_audit.lua",
+            "tools/class_progression_runtime_audit.lua"
           )) {
             & $luaparse -q -f $audit
             if ($LASTEXITCODE -ne 0) { throw "Lua syntax validation failed: $audit" }
@@ -178,7 +181,8 @@ jobs:
             "tools/autotile_builder_audit.py",
             "tools/forever_runtime_audit.py",
             "tools/affix_system_audit.py",
-            "tools/generated_character_audit.py"
+            "tools/generated_character_audit.py",
+            "tools/class_progression_audit.py"
           )) {
             & python $audit
             if ($LASTEXITCODE -ne 0) { throw "Python audit failed: $audit" }

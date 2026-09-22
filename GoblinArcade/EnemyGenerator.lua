@@ -3,7 +3,7 @@ local _, GA = ...
 GA.EnemyGenerator = GA.EnemyGenerator or {}
 local EG = GA.EnemyGenerator
 
-EG.VERSION = 12
+EG.VERSION = 13
 
 local GEAR_SLOTS = {
     "head",
@@ -287,22 +287,21 @@ function EG:CreateEnemy(options)
         or self:CalculateGearPressure(playerLevel, options.equipment or {})
 
     local effectiveLevel = self:GetEffectiveLevel(playerLevel, floor, rankKey)
+    local classId = options.classId or "warrior"
     local levelPressure = GetLevelPressure(playerLevel)
     local floorPressure = GetFloorPressure(floor)
     local difficulty = GA.GetDifficultyDefinition
         and GA:GetDifficultyDefinition(options.difficulty)
         or { id = "NORMAL", hpMultiplier = 1, damageMultiplier = 1, scoreMultiplier = 1 }
 
-    -- Balance v2: HP is intentionally a little chunkier so late-floor
-    -- Veterans/Elites survive long enough for Warrior control/defense tools
-    -- to matter without turning early normals into damage sponges.
-    local referenceDamage = 5 + effectiveLevel * 0.90
+    -- Balance v3: both enemy durability and outgoing damage are anchored
+    -- to the same class-level curve that drives generated GoblinArcade heroes.
+    local reference = GA.ForeverRules and GA.ForeverRules.GetReferencePlayerCombatProfile
+        and GA.ForeverRules:GetReferencePlayerCombatProfile(classId, effectiveLevel)
+        or nil
+    local referenceDamage = reference and reference.rawReferenceDamage or (5 + effectiveLevel * 0.90)
     local baseHp = referenceDamage * 3.25
-
-    -- Damage remains deterministic before the final bounded hit roll. The
-    -- steeper floor pressure makes Floors 7-9 meaningfully dangerous while
-    -- keeping Floors 1-2 readable for fresh Arcade heroes.
-    local referencePlayerHealth = 100 + effectiveLevel * 20
+    local referencePlayerHealth = reference and reference.rawMaxHealth or (100 + effectiveLevel * 20)
     local averageDamage = referencePlayerHealth * 0.040
 
     local rawMaxHp = math.max(1, Round(
@@ -340,6 +339,9 @@ function EG:CreateEnemy(options)
         name = archetype.name,
         level = effectiveLevel,
         playerLevel = playerLevel,
+        referenceClassId = classId,
+        referencePlayerHealth = referencePlayerHealth,
+        referencePlayerDamage = referenceDamage,
         floor = floor,
         difficulty = difficulty.id or "NORMAL",
         difficultyHpMultiplier = tonumber(difficulty.hpMultiplier) or 1,

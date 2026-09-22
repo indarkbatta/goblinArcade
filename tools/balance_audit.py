@@ -219,8 +219,54 @@ class Audit:
         self._active_ecosystem_id: str | None = None
         self.progression = next(x for x in self.data["progression"] if x["id"] == "run_xp")
         self.warrior = next(x for x in self.data["classes"] if x["id"] == "warrior")
+        self.warrior_level_stats = self.parse_level_stat_table(self.warrior.get("levelStatTable", ""))
         self.xp_curve = [int(x.strip()) for x in str(self.progression["xpCurve"]).split(",") if x.strip()]
         self._loot_cache: dict[tuple[str, int], list[dict[str, Any]]] = {}
+
+    @staticmethod
+    def parse_level_stat_table(text: str) -> dict[int, dict[str, float]]:
+        rows: dict[int, dict[str, float]] = {}
+        for raw in str(text or "").splitlines():
+            if not raw.strip():
+                continue
+            parts = [float(x.strip()) for x in raw.split(",")]
+            if len(parts) != 8:
+                continue
+            level = int(parts[0])
+            rows[level] = {
+                "base_hp": parts[1], "base_mana": parts[2],
+                "strength": parts[3], "agility": parts[4], "stamina": parts[5],
+                "intellect": parts[6], "spirit": parts[7],
+            }
+        return rows
+
+    @staticmethod
+    def stamina_health(stamina: float) -> float:
+        return min(20.0, stamina) + max(0.0, stamina - 20.0) * 10.0
+
+    def warrior_reference(self, level: int) -> dict[str, float]:
+        level = max(1, min(60, int(level)))
+        row = self.warrior_level_stats.get(level)
+        if not row:
+            row = {
+                "base_hp": float(self.warrior.get("baseHealth", 20) or 20),
+                "base_mana": float(self.warrior.get("baseMana", 0) or 0),
+                "strength": float(self.warrior.get("baseStrength", 23) or 23),
+                "agility": float(self.warrior.get("baseAgility", 20) or 20),
+                "stamina": float(self.warrior.get("baseStamina", 22) or 22),
+                "intellect": float(self.warrior.get("baseIntellect", 20) or 20),
+                "spirit": float(self.warrior.get("baseSpirit", 20) or 20),
+            }
+        ap = max(
+            0.0,
+            level * float(self.warrior.get("meleeApPerLevel", 3) or 0)
+            + row["strength"] * float(self.warrior.get("meleeApPerStrength", 2) or 0)
+            + row["agility"] * float(self.warrior.get("meleeApPerAgility", 0) or 0)
+            + float(self.warrior.get("meleeApOffset", -20) or 0),
+        )
+        raw_hp = max(1.0, row["base_hp"] + self.stamina_health(row["stamina"]))
+        raw_damage = max(1.0, 1.5 + (ap / 14.0) * 2.4)
+        return {"raw_hp": raw_hp, "attack_power": ap, "raw_damage": raw_damage, **row}
 
     def select_ecosystem(self) -> str | None:
         if not self.ecosystems:
@@ -266,9 +312,10 @@ class Audit:
         floor_hp = 1 + self.floor_hp_slope * (floor - 1)
         floor_damage = 1 + 0.05 * (floor - 1)
 
-        reference_damage = 5 + effective * 0.90
+        reference = self.warrior_reference(effective)
+        reference_damage = reference["raw_damage"]
         base_hp = reference_damage * self.enemy_hp_factor
-        reference_player_hp = 100 + effective * 20
+        reference_player_hp = reference["raw_hp"]
         average_damage = reference_player_hp * self.enemy_damage_fraction
 
         raw_hp = round_lua(
@@ -426,7 +473,9 @@ class Audit:
         )
 
     def initial_player(self, profile: str) -> Player:
-        player = Player(profile=profile)
+        reference = self.warrior_reference(1)
+        base_hp = scale_combat(reference["raw_hp"])
+        player = Player(profile=profile, base_hp=base_hp, max_hp=base_hp, hp=base_hp)
         player.gear["mainhand"] = self.starter_weapon()
         self.recalculate(player)
         return player
@@ -491,6 +540,10 @@ class Audit:
 
     def recalculate(self, player: Player) -> None:
         stats = Stats()
+        reference = self.warrior_reference(player.level)
+        stats.attack_power = round_lua(reference["attack_power"])
+        stats.crit = float(reference.get("agility", 0)) / max(1.0, float(self.warrior.get("critAgiPerPercent", 20) or 20))
+        stats.dodge = float(self.warrior.get("baseDodge", 3) or 0) + float(reference.get("agility", 0)) / max(1.0, float(self.warrior.get("dodgeAgiPerPercent", 20) or 20))
         for item in player.gear.values():
             if not item:
                 continue
@@ -507,6 +560,7 @@ class Audit:
         old_max = max(1, player.max_hp)
         ratio = min(1.0, max(0.0, player.hp / old_max))
         player.stats = stats
+        player.base_hp = scale_combat(reference["raw_hp"])
         player.max_hp = max(1, player.base_hp + stats.health)
         player.hp = max(0, round_lua(player.max_hp * ratio))
 
@@ -559,11 +613,11 @@ class Audit:
             player.xp -= need
             player.level += 1
             player.levels_gained += 1
-            hp_gain = int(self.warrior.get("hpPerLevel", 0) or 0)
-            player.base_hp += hp_gain
-            player.max_hp += hp_gain
-            player.hp += hp_gain
+            old_max = max(1, player.max_hp)
+            old_hp = player.hp
             self.equip_pending(player)
+            self.recalculate(player)
+            player.hp = min(player.max_hp, old_hp + max(0, player.max_hp - old_max))
 
     @staticmethod
     def ap_bonus(attack_power: int, speed: str) -> int:

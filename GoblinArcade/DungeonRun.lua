@@ -1036,7 +1036,7 @@ local function BuildRoomEnemyCandidates(floorMap)
     return candidates
 end
 
-local function CreateFloorEnemies(enemyGenerator, playerLevel, floor, gearPressure, archetypePlan, rankPlan, floorMap, difficulty)
+local function CreateFloorEnemies(enemyGenerator, playerLevel, floor, gearPressure, archetypePlan, rankPlan, floorMap, difficulty, classId)
     local candidates = BuildRoomEnemyCandidates(floorMap)
 
     if not candidates or #candidates == 0 then
@@ -1071,6 +1071,7 @@ local function CreateFloorEnemies(enemyGenerator, playerLevel, floor, gearPressu
             floor = floor,
             gearPressure = gearPressure,
             difficulty = difficulty,
+            classId = classId,
         })
 
         enemy.uid = "enemy-" .. tostring(nextIndex)
@@ -1505,7 +1506,6 @@ local function GetClassRunGrowth(classId)
             return {
                 resourceType = string.upper(tostring(class.resource or "NONE")),
                 baseResourceMax = math.max(0, tonumber(class.resourceMax) or 0),
-                hpPerLevel = math.max(0, tonumber(class.hpPerLevel) or 0),
                 resourcePerLevel = math.max(0, tonumber(class.resourcePerLevel) or 0),
                 basicAttackResourceGain = math.max(0, tonumber(class.basicAttackResourceGain) or 0),
             }
@@ -1515,7 +1515,6 @@ local function GetClassRunGrowth(classId)
     return {
         resourceType = "NONE",
         baseResourceMax = 0,
-        hpPerLevel = 0,
         resourcePerLevel = 0,
         basicAttackResourceGain = 0,
     }
@@ -1869,7 +1868,7 @@ local function GetEnemyDisplayName(enemy)
     return name
 end
 
-local function GenerateFloorSetup(floorGenerator, enemyGenerator, playerLevel, floorNumber, gearPressure, floorMap, difficulty)
+local function GenerateFloorSetup(floorGenerator, enemyGenerator, playerLevel, floorNumber, gearPressure, floorMap, difficulty, classId)
     local walkableTiles = CountWalkableTiles()
     local densityProfile = floorGenerator:RollDensityProfile()
     local enemyCount, baseEnemyCount = floorGenerator:CalculateEnemyCount(
@@ -1896,7 +1895,8 @@ local function GenerateFloorSetup(floorGenerator, enemyGenerator, playerLevel, f
         archetypePlan,
         rankPlan,
         floorMap,
-        difficulty
+        difficulty,
+        classId
     )
 
     local actualRankCounts = CountEnemyRanks(floorEnemies)
@@ -6250,25 +6250,21 @@ function GA:GrantRunExperience(amount)
         run.unlockedAbilities = nextAbilities
 
         local growth = run.classGrowth or GetClassRunGrowth(run.classId)
-        local hpGain = math.max(0, tonumber(growth.hpPerLevel) or 0)
+        local beforeMaxHealth = math.max(1, tonumber(run.playerMaxHealth) or 1)
         local resourceGain = math.max(0, tonumber(growth.resourcePerLevel) or 0)
-
-        if hpGain > 0 then
-            run.baseMaxHealth = math.max(1, (run.baseMaxHealth or run.playerMaxHealth or 1) + hpGain)
-            run.playerMaxHealth = math.max(1, (run.playerMaxHealth or 1) + hpGain)
-            run.playerHealth = math.min(run.playerMaxHealth, math.max(0, (run.playerHealth or 0) + hpGain))
-        end
 
         if resourceGain > 0 then
             run.resourceMax = math.max(0, (run.resourceMax or 0) + resourceGain)
         end
+        if self.RecalculateRunGearStats then self:RecalculateRunGearStats() end
+        local hpGain = math.max(0, (tonumber(run.playerMaxHealth) or beforeMaxHealth) - beforeMaxHealth)
         self:UpdateRunResource()
 
         self:AddCombatLog(string.format("LEVEL UP! %d -> %d", previousLevel, run.runLevel), "system")
         if hpGain > 0 or resourceGain > 0 then
             local growthParts = {}
             if hpGain > 0 then
-                growthParts[#growthParts + 1] = string.format("+%d HP", hpGain)
+                growthParts[#growthParts + 1] = string.format("+%d HP from class progression", hpGain)
             end
             if resourceGain > 0 then
                 growthParts[#growthParts + 1] = string.format(
@@ -8176,7 +8172,11 @@ function GA:BeginDungeonRun()
     local difficultyDefinition = self.GetDifficultyDefinition
         and self:GetDifficultyDefinition(difficulty)
         or { id = difficulty, label = difficulty, hpMultiplier = 1, damageMultiplier = 1, scoreMultiplier = 1 }
-    local maxHealth = self:ScaleCombatValue(selected.maxHealth or 0)
+    local classReference = self.ForeverRules and self.ForeverRules.GetReferencePlayerCombatProfile
+        and self.ForeverRules:GetReferencePlayerCombatProfile(classId, level)
+        or nil
+    local maxHealth = classReference and classReference.maxHealth
+        or math.max(1, tonumber(selected.maxHealth) or 1)
     local floor = 1
 
     if not self.EnemyGenerator or not self.FloorGenerator or not self.DungeonGenerator then
@@ -8223,7 +8223,8 @@ function GA:BeginDungeonRun()
         floor,
         gearPressure,
         floorMap,
-        difficulty
+        difficulty,
+        classId
     )
 
     local walkableTiles = floorSetup.walkableTiles
@@ -8863,7 +8864,8 @@ function GA:ApplyDungeonFloor(floorNumber, entryDirection)
             floorNumber,
             run.gearPressure or {},
             floorMap,
-            run.difficulty or (run.snapshot and run.snapshot.difficulty) or "NORMAL"
+            run.difficulty or (run.snapshot and run.snapshot.difficulty) or "NORMAL",
+            run.classId
         )
 
         run.floor = floorNumber

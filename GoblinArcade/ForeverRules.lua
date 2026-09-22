@@ -3,8 +3,8 @@ local _, GA = ...
 GA.ForeverRules = GA.ForeverRules or {}
 local FR = GA.ForeverRules
 
-FR.VERSION = 1
-FR.ID = "FOREVER_CLASSIC_BETA"
+FR.VERSION = 2
+FR.ID = "FOREVER_CLASSIC_BETA_V2"
 FR.STAMINA_HP = 10
 FR.INTELLECT_MANA = 15
 FR.AGILITY_ARMOR = 2
@@ -16,24 +16,15 @@ FR.MELEE_CRIT_MULTIPLIER = 2.0
 FR.CRUSHING_MULTIPLIER = 1.5
 
 local CLASS = {
-    WARRIOR = { strAP = 2, agiAP = 0, rangedAgiAP = 1, critPerAgi = 20, dodgePerAgi = 20, baseDodge = 3, baseParry = 5, baseBlock = 5, blockFromStrength = true,
-        base = { str = 23, agi = 20, sta = 22, int = 10, spi = 15 }, growth = { str = 1.7, agi = 1.0, sta = 1.5, int = 0.2, spi = 0.7 } },
-    PALADIN = { strAP = 2, agiAP = 0, rangedAgiAP = 0, critPerAgi = 20, dodgePerAgi = 20, baseDodge = 3, baseParry = 5, baseBlock = 5, blockFromStrength = true,
-        base = { str = 22, agi = 17, sta = 22, int = 17, spi = 20 }, growth = { str = 1.5, agi = 0.7, sta = 1.4, int = 0.8, spi = 0.9 } },
-    HUNTER = { strAP = 1, agiAP = 1, rangedAgiAP = 2, critPerAgi = 53, dodgePerAgi = 26, baseDodge = 5, baseParry = 5, baseBlock = 0,
-        base = { str = 17, agi = 23, sta = 20, int = 19, spi = 20 }, growth = { str = 0.6, agi = 1.7, sta = 1.2, int = 0.8, spi = 0.8 } },
-    ROGUE = { strAP = 1, agiAP = 1, rangedAgiAP = 1, critPerAgi = 29, dodgePerAgi = 14.5, baseDodge = 5, baseParry = 5, baseBlock = 0,
-        base = { str = 18, agi = 26, sta = 20, int = 10, spi = 15 }, growth = { str = 0.8, agi = 2.0, sta = 1.1, int = 0.2, spi = 0.5 } },
-    PRIEST = { strAP = 1, agiAP = 0, rangedAgiAP = 0, critPerAgi = 20, dodgePerAgi = 20, baseDodge = 3, baseParry = 0, baseBlock = 0,
-        base = { str = 14, agi = 15, sta = 18, int = 24, spi = 25 }, growth = { str = 0.2, agi = 0.3, sta = 0.8, int = 1.8, spi = 1.8 } },
-    SHAMAN = { strAP = 2, agiAP = 0, rangedAgiAP = 0, critPerAgi = 20, dodgePerAgi = 20, baseDodge = 3, baseParry = 5, baseBlock = 5, blockFromStrength = true,
-        base = { str = 21, agi = 17, sta = 21, int = 20, spi = 22 }, growth = { str = 1.1, agi = 0.7, sta = 1.2, int = 1.1, spi = 1.1 } },
-    MAGE = { strAP = 1, agiAP = 0, rangedAgiAP = 0, critPerAgi = 20, dodgePerAgi = 20, baseDodge = 3, baseParry = 0, baseBlock = 0,
-        base = { str = 12, agi = 14, sta = 16, int = 27, spi = 24 }, growth = { str = 0.2, agi = 0.3, sta = 0.7, int = 2.0, spi = 1.5 } },
-    WARLOCK = { strAP = 1, agiAP = 0, rangedAgiAP = 0, critPerAgi = 20, dodgePerAgi = 20, baseDodge = 3, baseParry = 0, baseBlock = 0,
-        base = { str = 13, agi = 14, sta = 20, int = 25, spi = 22 }, growth = { str = 0.2, agi = 0.3, sta = 1.1, int = 1.8, spi = 1.3 } },
-    DRUID = { strAP = 2, agiAP = 1, rangedAgiAP = 0, critPerAgi = 20, dodgePerAgi = 20, baseDodge = 3, baseParry = 0, baseBlock = 0,
-        base = { str = 20, agi = 18, sta = 21, int = 22, spi = 24 }, growth = { str = 1.0, agi = 1.0, sta = 1.2, int = 1.2, spi = 1.2 } },
+    WARRIOR = {
+        strAP = 2, agiAP = 0, rangedAgiAP = 1,
+        meleeApPerLevel = 3, meleeApOffset = -20,
+        rangedApPerLevel = 1, rangedApOffset = -10,
+        critPerAgi = 20, dodgePerAgi = 20,
+        baseDodge = 3, baseParry = 5, baseBlock = 5, blockFromStrength = true,
+        base = { hp = 20, mana = 0, str = 23, agi = 20, sta = 22, int = 20, spi = 20 },
+        growth = { hp = 28.29, mana = 0, str = 1.65, agi = 1.02, sta = 1.49, int = 0.17, spi = 0.42 },
+    },
 }
 
 local function Clamp(value, minimum, maximum)
@@ -47,8 +38,81 @@ local function Round(value)
     return math.floor((tonumber(value) or 0) + 0.5)
 end
 
+local LEVEL_TABLE_CACHE = {}
+
+local function GetStudioClass(classFile)
+    local wanted = string.lower(tostring(classFile or "warrior"))
+    for _, record in ipairs(GA.StudioData and GA.StudioData.classes or {}) do
+        if string.lower(tostring(record.id or "")) == wanted then
+            return record
+        end
+    end
+    return nil
+end
+
+local function ParseLevelTable(record)
+    if not record then return nil end
+    local cacheKey = tostring(record.id or "")
+    local source = tostring(record.levelStatTable or "")
+    local cached = LEVEL_TABLE_CACHE[cacheKey]
+    if cached and cached.source == source then return cached.rows end
+
+    local rows = {}
+    for line in string.gmatch(source .. "\n", "([^\n]*)\n") do
+        if string.match(line, "%S") then
+            local values = {}
+            for token in string.gmatch(line, "[^,]+") do
+                values[#values + 1] = tonumber((token:gsub("^%s*(.-)%s*$", "%1")))
+            end
+            if #values == 8 and values[1] then
+                local lvl = math.max(1, math.floor(values[1]))
+                rows[lvl] = {
+                    level = lvl,
+                    baseHealth = values[2] or 0,
+                    baseMana = values[3] or 0,
+                    strength = values[4] or 0,
+                    agility = values[5] or 0,
+                    stamina = values[6] or 0,
+                    intellect = values[7] or 0,
+                    spirit = values[8] or 0,
+                }
+            end
+        end
+    end
+    LEVEL_TABLE_CACHE[cacheKey] = { source = source, rows = rows }
+    return rows
+end
+
 local function ClassProfile(classFile)
-    return CLASS[string.upper(tostring(classFile or "WARRIOR"))] or CLASS.WARRIOR
+    local fallback = CLASS[string.upper(tostring(classFile or "WARRIOR"))] or CLASS.WARRIOR
+    local studio = GetStudioClass(classFile)
+    if not studio then return fallback end
+    return {
+        strAP = tonumber(studio.meleeApPerStrength) or fallback.strAP or 1,
+        agiAP = tonumber(studio.meleeApPerAgility) or fallback.agiAP or 0,
+        rangedAgiAP = tonumber(studio.rangedApPerAgility) or fallback.rangedAgiAP or 0,
+        meleeApPerLevel = tonumber(studio.meleeApPerLevel) or fallback.meleeApPerLevel or 0,
+        meleeApOffset = tonumber(studio.meleeApOffset) or fallback.meleeApOffset or 0,
+        rangedApPerLevel = tonumber(studio.rangedApPerLevel) or fallback.rangedApPerLevel or 0,
+        rangedApOffset = tonumber(studio.rangedApOffset) or fallback.rangedApOffset or 0,
+        critPerAgi = tonumber(studio.critAgiPerPercent) or fallback.critPerAgi or 20,
+        dodgePerAgi = tonumber(studio.dodgeAgiPerPercent) or fallback.dodgePerAgi or 20,
+        baseDodge = tonumber(studio.baseDodge) or fallback.baseDodge or 0,
+        baseParry = tonumber(studio.baseParry) or fallback.baseParry or 0,
+        baseBlock = tonumber(studio.baseBlock) or fallback.baseBlock or 0,
+        blockFromStrength = fallback.blockFromStrength,
+        base = {
+            hp = tonumber(studio.baseHealth) or fallback.base.hp or 1,
+            mana = tonumber(studio.baseMana) or fallback.base.mana or 0,
+            str = tonumber(studio.baseStrength) or fallback.base.str or 0,
+            agi = tonumber(studio.baseAgility) or fallback.base.agi or 0,
+            sta = tonumber(studio.baseStamina) or fallback.base.sta or 0,
+            int = tonumber(studio.baseIntellect) or fallback.base.int or 0,
+            spi = tonumber(studio.baseSpirit) or fallback.base.spi or 0,
+        },
+        growth = fallback.growth or {},
+        studio = studio,
+    }
 end
 
 function FR:GetWeaponSpeedSeconds(weapon)
@@ -60,16 +124,66 @@ function FR:GetWeaponSpeedSeconds(weapon)
     return tonumber(speeds[key]) or 2.4
 end
 
-function FR:GetBasePrimaryStats(classFile, level)
+function FR:GetClassLevelStats(classFile, level)
     local profile = ClassProfile(classFile)
     local lvl = math.max(1, math.floor(tonumber(level) or 1))
+    local rows = ParseLevelTable(profile.studio)
+    if rows and rows[lvl] then
+        local row = rows[lvl]
+        return {
+            level = lvl, baseHealth = row.baseHealth, baseMana = row.baseMana,
+            strength = row.strength, agility = row.agility, stamina = row.stamina,
+            intellect = row.intellect, spirit = row.spirit,
+        }
+    end
+
     local steps = lvl - 1
+    local growth = profile.growth or {}
     return {
-        strength = Round(profile.base.str + profile.growth.str * steps),
-        agility = Round(profile.base.agi + profile.growth.agi * steps),
-        stamina = Round(profile.base.sta + profile.growth.sta * steps),
-        intellect = Round(profile.base.int + profile.growth.int * steps),
-        spirit = Round(profile.base.spi + profile.growth.spi * steps),
+        level = lvl,
+        baseHealth = Round((profile.base.hp or 1) + (growth.hp or 0) * steps),
+        baseMana = Round((profile.base.mana or 0) + (growth.mana or 0) * steps),
+        strength = Round(profile.base.str + (growth.str or 0) * steps),
+        agility = Round(profile.base.agi + (growth.agi or 0) * steps),
+        stamina = Round(profile.base.sta + (growth.sta or 0) * steps),
+        intellect = Round(profile.base.int + (growth.int or 0) * steps),
+        spirit = Round(profile.base.spi + (growth.spi or 0) * steps),
+    }
+end
+
+function FR:GetBasePrimaryStats(classFile, level)
+    local row = self:GetClassLevelStats(classFile, level)
+    return {
+        strength = row.strength, agility = row.agility, stamina = row.stamina,
+        intellect = row.intellect, spirit = row.spirit,
+    }
+end
+
+function FR:HealthFromStamina(stamina)
+    local value = math.max(0, tonumber(stamina) or 0)
+    return math.min(20, value) + math.max(0, value - 20) * FR.STAMINA_HP
+end
+
+function FR:GetReferencePlayerCombatProfile(classFile, level)
+    local lvl = math.max(1, math.floor(tonumber(level) or 1))
+    local profile = ClassProfile(classFile)
+    local row = self:GetClassLevelStats(classFile, lvl)
+    local attackPower = math.max(0,
+        lvl * (profile.meleeApPerLevel or 0)
+        + row.strength * (profile.strAP or 1)
+        + row.agility * (profile.agiAP or 0)
+        + (profile.meleeApOffset or 0)
+    )
+    local rawMaxHealth = math.max(1, row.baseHealth + self:HealthFromStamina(row.stamina))
+    local rawReferenceDamage = math.max(1, 1.5 + (attackPower / FR.AP_PER_DPS) * 2.4)
+    return {
+        level = lvl,
+        attackPower = attackPower,
+        rawMaxHealth = rawMaxHealth,
+        maxHealth = GA.ScaleCombatValue and GA:ScaleCombatValue(rawMaxHealth) or math.max(1, Round(rawMaxHealth / 10)),
+        rawReferenceDamage = rawReferenceDamage,
+        referenceDamage = GA.ScaleCombatValue and GA:ScaleCombatValue(rawReferenceDamage) or math.max(1, Round(rawReferenceDamage / 10)),
+        stats = row,
     }
 end
 
@@ -100,22 +214,27 @@ end
 function FR:BuildDerivedStats(level, classFile, gear)
     gear = gear or {}
     local profile = ClassProfile(classFile)
-    local base = self:GetBasePrimaryStats(classFile, level)
+    local row = self:GetClassLevelStats(classFile, level)
+    local lvl = math.max(1, math.floor(tonumber(level) or 1))
 
-    local strength = base.strength + math.max(0, tonumber(gear.strength) or 0)
-    local agility = base.agility + math.max(0, tonumber(gear.agility) or 0)
-    local stamina = base.stamina + math.max(0, tonumber(gear.stamina) or 0)
-    local intellect = base.intellect + math.max(0, tonumber(gear.intellect) or 0)
-    local spirit = base.spirit + math.max(0, tonumber(gear.spirit) or 0)
+    local strength = row.strength + math.max(0, tonumber(gear.strength) or 0)
+    local agility = row.agility + math.max(0, tonumber(gear.agility) or 0)
+    local stamina = row.stamina + math.max(0, tonumber(gear.stamina) or 0)
+    local intellect = row.intellect + math.max(0, tonumber(gear.intellect) or 0)
+    local spirit = row.spirit + math.max(0, tonumber(gear.spirit) or 0)
 
     local attackPower = math.max(0,
         (tonumber(gear.attackPower) or 0)
+        + lvl * (profile.meleeApPerLevel or 0)
         + strength * (profile.strAP or 1)
         + agility * (profile.agiAP or 0)
+        + (profile.meleeApOffset or 0)
     )
     local rangedAttackPower = math.max(0,
         (tonumber(gear.rangedAttackPower) or 0)
+        + lvl * (profile.rangedApPerLevel or 0)
         + agility * (profile.rangedAgiAP or 0)
+        + (profile.rangedApOffset or 0)
     )
     local armor = math.max(0, (tonumber(gear.armor) or 0) + agility * FR.AGILITY_ARMOR)
     local crit = math.max(0, (tonumber(gear.crit) or 0) + agility / math.max(1, profile.critPerAgi or 20))
@@ -128,13 +247,15 @@ function FR:BuildDerivedStats(level, classFile, gear)
         blockValue = blockValue + strength / 20
     end
 
-    local gearStamina = math.max(0, tonumber(gear.stamina) or 0)
-    local staminaHealthRaw = gearStamina * FR.STAMINA_HP
-    local staminaHealth = GA.ScaleCombatValue and GA:ScaleCombatValue(staminaHealthRaw, false) or Round(staminaHealthRaw / 10)
+    local rawMaxHealth = math.max(1,
+        (tonumber(row.baseHealth) or 1)
+        + self:HealthFromStamina(stamina)
+        + math.max(0, tonumber(gear.directHealth) or 0)
+    )
+    local scaledMaxHealth = GA.ScaleCombatValue and GA:ScaleCombatValue(rawMaxHealth) or math.max(1, Round(rawMaxHealth / 10))
     local healingPower = math.max(0, tonumber(gear.healingPower) or 0)
     local spellPower = math.max(0, tonumber(gear.spellPower) or 0) + healingPower / 3
 
-    local lvl = math.max(1, math.floor(tonumber(level) or 1))
     return {
         ruleset = FR.ID,
         strength = strength,
@@ -142,8 +263,12 @@ function FR:BuildDerivedStats(level, classFile, gear)
         stamina = stamina,
         intellect = intellect,
         spirit = spirit,
-        health = math.max(0, tonumber(gear.directHealth) or 0) + staminaHealth,
-        maxMana = intellect * FR.INTELLECT_MANA,
+        baseHealth = tonumber(row.baseHealth) or 1,
+        rawMaxHealth = rawMaxHealth,
+        maxHealth = scaledMaxHealth,
+        health = scaledMaxHealth,
+        baseMana = tonumber(row.baseMana) or 0,
+        maxMana = (tonumber(row.baseMana) or 0) + intellect * FR.INTELLECT_MANA,
         armor = armor,
         attackPower = attackPower,
         rangedAttackPower = rangedAttackPower,
