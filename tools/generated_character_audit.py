@@ -8,8 +8,8 @@ sheet = (root / "GoblinArcade" / "CharacterSheet.lua").read_text(encoding="utf-8
 toc = (root / "GoblinArcade" / "GoblinArcade.toc").read_text(encoding="utf-8")
 core = (root / "GoblinArcade" / "Core.lua").read_text(encoding="utf-8")
 
-assert 'GA.version = "0.71.1"' in core
-assert "## Version: 0.71.1" in toc
+assert 'GA.version = "0.71.2"' in core
+assert "## Version: 0.71.2" in toc
 assert "WeaponGenerator.lua" not in toc
 assert "ItemGenerator.lua" not in toc
 
@@ -63,4 +63,20 @@ assert "GENERATED CHARACTERS ONLY" in run
 assert "WoW characters, levels, stats and equipment are not imported." in run
 assert "local level = math.max(1, math.floor(tonumber(selected.level) or 1))" in run
 
-print("Generated character audit OK: only GoblinArcade heroes can enter runs; WoW character/gear conversion is disconnected; new heroes start at Level 1.")
+# Regression: deleting the final hero must restore the full pre-selection state,
+# not leave Hardcore memorial/loadout data from the deleted character visible.
+for token in (
+    "self.PendingDeleteArcadeKey = nil",
+    "self.PendingAbandonSavedKey = nil",
+    'self.DungeonSelectedStatusTitle:SetText("HERO STATUS")',
+    "self.DungeonSelectedWeaponCard.gaItem = nil",
+    "self.DungeonSelectedWeaponCard.gaWeapon = nil",
+    'self.DungeonSelectedWeaponName:SetText("")',
+    'self.DungeonSelectedWeaponType:SetText("")',
+    'self.DungeonSelectedWeaponStats:SetText("")',
+    'self.DungeonSelectedWeaponPower:SetText("")',
+    'self.DungeonSelectedWeaponTrait:SetText("")',
+):
+    assert token in run, f"Empty selected-hero reset missing: {token}"
+
+print("Generated character audit OK: only GoblinArcade heroes can enter runs; WoW character/gear conversion is disconnected; new heroes start at Level 1; deleting the last hero restores an empty loadout/status panel.")

@@ -4924,6 +4924,52 @@ function GA:RefreshDungeonCharacterSelection()
         end
         if self.DungeonDeleteHeroButton then self.DungeonDeleteHeroButton:Hide() end
         if self.DungeonAbandonSavedRunButton then self.DungeonAbandonSavedRunButton:Hide() end
+
+        -- Return the whole Selected Hero panel to the same neutral state it has
+        -- before any hero has ever been selected. Without this reset, deleting
+        -- the last hero leaves the previous hero's loadout/status text visible.
+        self.PendingDeleteArcadeKey = nil
+        self.PendingAbandonSavedKey = nil
+
+        for _, button in ipairs(self.DungeonSelectedDifficultyButtons or {}) do
+            button:SetEnabled(false)
+            button:SetBackdropColor(0.040, 0.035, 0.028, 1)
+            button:SetBackdropBorderColor(
+                COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 1
+            )
+            button.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+        end
+
+        if self.DungeonSelectedStatusTitle then
+            self.DungeonSelectedStatusTitle:SetText("HERO STATUS")
+            self.DungeonSelectedStatusTitle:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
+        end
+        if self.DungeonSelectedStatusPanel then
+            self.DungeonSelectedStatusPanel:SetBackdropBorderColor(
+                COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 1
+            )
+        end
+
+        if self.DungeonSelectedWeaponCard then
+            self.DungeonSelectedWeaponCard.gaItem = nil
+            self.DungeonSelectedWeaponCard.gaWeapon = nil
+            self.DungeonSelectedWeaponCard:SetBackdropBorderColor(
+                COLORS.goldDim[1], COLORS.goldDim[2], COLORS.goldDim[3], 1
+            )
+        end
+        if self.DungeonSelectedWeaponIcon then
+            self.DungeonSelectedWeaponIcon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+            self.DungeonSelectedWeaponIcon:SetAlpha(1)
+        end
+        if self.DungeonSelectedWeaponName then
+            self.DungeonSelectedWeaponName:SetText("")
+            self.DungeonSelectedWeaponName:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+        end
+        if self.DungeonSelectedWeaponItemLevel then self.DungeonSelectedWeaponItemLevel:SetText("") end
+        if self.DungeonSelectedWeaponType then self.DungeonSelectedWeaponType:SetText("") end
+        if self.DungeonSelectedWeaponStats then self.DungeonSelectedWeaponStats:SetText("") end
+        if self.DungeonSelectedWeaponPower then self.DungeonSelectedWeaponPower:SetText("") end
+        if self.DungeonSelectedWeaponTrait then self.DungeonSelectedWeaponTrait:SetText("") end
         return
     end
 

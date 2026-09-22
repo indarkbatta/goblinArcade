@@ -3,10 +3,17 @@
 > **Maintenance rule:** Keep this file updated with every meaningful development change. Any change to version, UI, controls, combat, gear conversion, inventory, dungeon systems, deployment behavior, known issues, or next-step priorities must be reflected here in the same development cycle.
 
 Last updated: 2026-09-22  
-Current addon version: **0.71.1**  
+Current addon version: **0.71.2**  
 Repository: `indarkbatta/goblinArcade`  
 Default branch: `main`
 
+
+## 0.71.2 — empty-state reset after hero deletion
+
+- Fixed the Selected Hero screen after deleting the final generated hero. The **RUN LOADOUT** card no longer keeps stale weapon or Hardcore memorial text from the deleted character.
+- The no-selection path now clears the weapon card payload/text, resets **HERO STATUS**, clears pending delete/abandon confirmations, neutralizes and disables difficulty buttons, and restores the normal empty pre-selection presentation.
+- Added a generated-character regression audit for the full no-selection loadout/status reset.
+- No Studio schema/data change. Addon version **0.71.2**.
 
 ## 0.71.1 — Classic dodge and mana correctness patch
 
