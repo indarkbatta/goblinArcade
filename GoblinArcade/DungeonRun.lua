@@ -146,18 +146,69 @@ local ENEMY_VISUALS = {
     },
 }
 
+local MONSTER_ATLAS_COLUMNS = 3
+local MONSTER_ATLAS_FRAME_SIZE = 128
+
+local function ResolveMonsterTexturePath(texturePath)
+    local resolved = tostring(texturePath or ""):gsub("/", "\\")
+    if resolved == "" or string.find(resolved, "^https?://") then return nil end
+    if not string.find(resolved, "^Interface\\") then
+        resolved = "Interface\\AddOns\\GoblinArcade\\" .. resolved
+    end
+    return resolved
+end
+
+local function GetMonsterAtlasTexCoord(row, rowCount, column)
+    row = math.max(0, math.floor(tonumber(row) or 0))
+    rowCount = math.max(1, math.floor(tonumber(rowCount) or 1))
+    column = math.max(0, math.min(MONSTER_ATLAS_COLUMNS - 1, math.floor(tonumber(column) or 0)))
+    local atlasWidth = MONSTER_ATLAS_COLUMNS * MONSTER_ATLAS_FRAME_SIZE
+    local atlasHeight = rowCount * MONSTER_ATLAS_FRAME_SIZE
+    local left = (column * MONSTER_ATLAS_FRAME_SIZE + 0.5) / atlasWidth
+    local right = ((column + 1) * MONSTER_ATLAS_FRAME_SIZE - 0.5) / atlasWidth
+    local top = (row * MONSTER_ATLAS_FRAME_SIZE + 0.5) / atlasHeight
+    local bottom = ((row + 1) * MONSTER_ATLAS_FRAME_SIZE - 0.5) / atlasHeight
+    return { left, right, top, bottom }
+end
+
 local function ResolveEnemyVisual(archetype)
+    local record
+    for _, candidate in ipairs(GA.StudioData and GA.StudioData.enemies or {}) do
+        if candidate.id == archetype then
+            record = candidate
+            break
+        end
+    end
+
+    if record and string.upper(tostring(record.spriteMode or "")) == "ATLAS" then
+        local row = math.floor(tonumber(record.spriteAtlasRow) or -1)
+        local rows = math.floor(tonumber(record.spriteAtlasRows) or 0)
+        local texturePath = ResolveMonsterTexturePath(record.spriteAtlas)
+        if texturePath and row >= 0 and rows > row then
+            local stateTexCoords = {
+                idle = GetMonsterAtlasTexCoord(row, rows, 0),
+                attack = GetMonsterAtlasTexCoord(row, rows, 1),
+                dead = GetMonsterAtlasTexCoord(row, rows, 2),
+            }
+            return {
+                gridTexture = texturePath,
+                portraitIcon = texturePath,
+                gridTexCoord = stateTexCoords.idle,
+                portraitTexCoord = stateTexCoords.idle,
+                spriteStateTexCoords = stateTexCoords,
+                atlas = true,
+            }
+        end
+    end
+
     local hardcoded = ENEMY_VISUALS[archetype]
     if hardcoded then
         return hardcoded
     end
 
-    for _, record in ipairs(GA.StudioData and GA.StudioData.enemies or {}) do
-        if record.id == archetype and record.sprite and record.sprite ~= "" then
-            local texturePath = tostring(record.sprite):gsub("/", "\\")
-            if not string.find(texturePath, "^Interface\\") then
-                texturePath = "Interface\\AddOns\\GoblinArcade\\" .. texturePath
-            end
+    if record and record.sprite and record.sprite ~= "" then
+        local texturePath = ResolveMonsterTexturePath(record.sprite)
+        if texturePath then
             return {
                 gridTexture = texturePath,
                 portraitIcon = texturePath,
@@ -168,6 +219,20 @@ local function ResolveEnemyVisual(archetype)
     end
 
     return ENEMY_VISUALS.kobold
+end
+
+local function GetEnemyStateTexCoord(enemy, fallback)
+    local stateCoords = enemy and enemy.spriteStateTexCoords
+    if stateCoords then
+        if enemy.alive == false then
+            return stateCoords.dead or stateCoords.idle or fallback
+        end
+        if enemy.intent == "ATTACKING" or enemy.intent == "SKILL" then
+            return stateCoords.attack or stateCoords.idle or fallback
+        end
+        return stateCoords.idle or fallback
+    end
+    return fallback
 end
 
 local RUN_ABILITY_IDS = {
@@ -1081,6 +1146,8 @@ local function CreateFloorEnemies(enemyGenerator, playerLevel, floor, gearPressu
         enemy.portraitIcon = visual.portraitIcon
         enemy.gridTexCoord = visual.gridTexCoord
         enemy.portraitTexCoord = visual.portraitTexCoord
+        enemy.spriteStateTexCoords = visual.spriteStateTexCoords
+        enemy.spriteAtlas = visual.atlas == true
         enemy.intent = "IDLE"
         enemy.roomIndex = candidate.roomIndex
         enemy.roomRole = candidate.roomRole
@@ -5326,7 +5393,7 @@ function GA:RefreshEnemyCombatCard()
             if self.DungeonEnemyPortrait then
                 self.DungeonEnemyPortrait:SetTexture(enemy.portraitIcon or KOBOLD_PORTRAIT_ICON)
 
-                local portraitCoords = enemy.portraitTexCoord
+                local portraitCoords = GetEnemyStateTexCoord(enemy, enemy.portraitTexCoord)
                 if portraitCoords then
                     self.DungeonEnemyPortrait:SetTexCoord(
                         portraitCoords[1],
@@ -6560,6 +6627,7 @@ function GA:HandleEnemyDefeat(enemy)
 
     enemy.alive = false
     enemy.hp = 0
+    enemy.defeatedTurn = run.turns or 0
     if run.activeEnemyId == enemy.uid then
         run.activeEnemyId = nil
     end
@@ -8059,7 +8127,11 @@ function GA:RenderDungeonGrid()
     -- Creatures are not remembered through fog. Every living enemy renders
     -- only while its world cell is currently visible.
     for _, enemy in ipairs(run and run.enemies or {}) do
-        if enemy.alive ~= false and self:IsDungeonCellVisible(enemy.x, enemy.y) then
+        local showCorpse = enemy.alive == false
+            and enemy.spriteStateTexCoords
+            and enemy.defeatedTurn ~= nil
+            and enemy.defeatedTurn == (run.turns or 0)
+        if (enemy.alive ~= false or showCorpse) and self:IsDungeonCellVisible(enemy.x, enemy.y) then
             local enemyViewX = enemy.x - cameraX + 1
             local enemyViewY = enemy.y - cameraY + 1
 
@@ -8068,11 +8140,15 @@ function GA:RenderDungeonGrid()
 
                 local enemyCell = self.DungeonGrid.cells[CellKey(enemyViewX, enemyViewY)]
                 if enemyCell and enemyCell.enemyIcon then
-                    enemyCell.frame:SetBackdropBorderColor(COLORS.red[1], COLORS.red[2], COLORS.red[3], 1)
+                    if enemy.alive ~= false then
+                        enemyCell.frame:SetBackdropBorderColor(COLORS.red[1], COLORS.red[2], COLORS.red[3], 1)
+                    else
+                        enemyCell.frame:SetBackdropBorderColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3], 1)
+                    end
                     enemyCell.marker:SetText("")
                     enemyCell.enemyIcon:SetTexture(enemy.texture or KOBOLD_TEXTURE)
 
-                    local coords = enemy.gridTexCoord
+                    local coords = GetEnemyStateTexCoord(enemy, enemy.gridTexCoord)
                     if coords then
                         enemyCell.enemyIcon:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
                     else
@@ -8080,11 +8156,11 @@ function GA:RenderDungeonGrid()
                     end
 
                     if enemyCell.enemyShadow then
-                        enemyCell.enemyShadow:Show()
+                        if enemy.alive ~= false then enemyCell.enemyShadow:Show() else enemyCell.enemyShadow:Hide() end
                     end
                     enemyCell.enemyIcon:Show()
 
-                    if enemyCell.enemyHealthBackdrop and enemyCell.enemyHealthBar then
+                    if enemyCell.enemyHealthBackdrop and enemyCell.enemyHealthBar and enemy.alive ~= false then
                         local maxHp = math.max(1, tonumber(enemy.maxHp) or 1)
                         local currentHp = math.max(0, math.min(maxHp, tonumber(enemy.hp) or maxHp))
                         enemyCell.enemyHealthBar:SetMinMaxValues(0, maxHp)

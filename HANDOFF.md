@@ -9,6 +9,17 @@ Default branch: `main`
 
 
 
+## Monster atlas binding — Enemy editor + runtime
+
+- The **Enemies** editor now supports `Sprite Source = SINGLE | ATLAS`. Existing records transparently migrate to `SINGLE`; no existing monster art is broken.
+- In `ATLAS` mode the editor exposes **Atlas PNG Path**, **Atlas Family**, **Atlas Monster**, **Atlas Row**, and **Atlas Row Count**. `Atlas Monster` is populated from the current browser-local **Monster Sprite Studio** family.
+- Selecting an Atlas Monster (or pressing **BIND MATCHING ID**) automatically writes the monster row and total row count. The default runtime path is `Media/Monsters/Atlases/<family>_monster_states.png`.
+- Row metadata stays synchronized when rows are added/deleted in Monster Sprite Studio and when a bound monster ID is renamed.
+- Publish validation rejects remote atlas URLs and invalid row metadata.
+- `DungeonRun.lua` now resolves atlas-backed enemies before legacy hardcoded/single-file fallbacks. The 384px-wide atlas is interpreted as fixed columns **Idle / Attack / Dead**, with 0.5 texel UV insets.
+- Grid sprites and the enemy combat portrait use the current state: normal states use **Idle**, `ATTACKING` / `SKILL` use **Attack**, and a defeated atlas-backed enemy shows its **Dead** frame for the defeat turn before disappearing.
+- Added `tools/monster_atlas_binding_audit.py` and wired it into the self-hosted Windows audit workflow.
+- Studio schema/version remain **18 / 1.18.0** because the atlas fields are additive and optional; old published data remains compatible.
 ## Studio 1.18.0 — grouped navigation + Monster Sprite Studio
 
 - Reorganized the formerly flat Studio navigation into collapsible editor groups: **Characters & Combat**, **Monsters & AI**, **Items & Loot**, **Dungeon**, **Events**, plus **Art & Asset Tools**.

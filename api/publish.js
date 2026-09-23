@@ -245,6 +245,19 @@ function assertStudioData(data) {
     for (const skillId of (Array.isArray(enemy.skillIds) ? enemy.skillIds : [])) {
       if (!monsterSkillIds.has(String(skillId))) throw new Error("Enemy " + enemy.id + " references unknown Monster Skill: " + skillId);
     }
+    const spriteMode = String(enemy.spriteMode || (enemy.spriteAtlas ? "ATLAS" : "SINGLE")).toUpperCase();
+    if (!["SINGLE", "ATLAS"].includes(spriteMode)) throw new Error("Enemy " + enemy.id + " has invalid Sprite Source.");
+    if (spriteMode === "ATLAS") {
+      const atlasPath = String(enemy.spriteAtlas || "").trim();
+      const atlasMonsterId = String(enemy.spriteAtlasMonsterId || "").trim();
+      const row = Number(enemy.spriteAtlasRow);
+      const rows = Number(enemy.spriteAtlasRows);
+      if (!atlasPath || /^https?:\/\//i.test(atlasPath)) throw new Error("Enemy " + enemy.id + " needs an addon-local atlas PNG path.");
+      if (!atlasMonsterId) throw new Error("Enemy " + enemy.id + " needs an Atlas Monster binding.");
+      if (!Number.isInteger(row) || row < 0 || !Number.isInteger(rows) || rows < 1 || row >= rows) {
+        throw new Error("Enemy " + enemy.id + " has invalid atlas row metadata.");
+      }
+    }
   }
 }
 
