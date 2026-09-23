@@ -745,7 +745,13 @@
         "orc_raider_hooked_chop",
         "orc_raider_throwing_axe",
         "orc_raider_blood_fury"
-      ]
+      ],
+      "spriteMode": "ATLAS",
+      "spriteAtlas": "Media/Monsters/Atlases/orc_monster_states.png",
+      "spriteAtlasFamily": "orc",
+      "spriteAtlasMonsterId": "orc_raider",
+      "spriteAtlasRow": 0,
+      "spriteAtlasRows": 2
     },
     {
       "id": "orc_berserker",
@@ -763,7 +769,13 @@
         "orc_berserker_rending_hack",
         "orc_berserker_reckless_smash",
         "orc_berserker_frenzy"
-      ]
+      ],
+      "spriteMode": "ATLAS",
+      "spriteAtlas": "Media/Monsters/Atlases/orc_monster_states.png",
+      "spriteAtlasFamily": "orc",
+      "spriteAtlasMonsterId": "orc_berserker",
+      "spriteAtlasRow": 1,
+      "spriteAtlasRows": 2
     },
     {
       "id": "orc_bonebreaker",

@@ -11,6 +11,7 @@ on:
       - "studio/index.html"
       - "GoblinArcade/index.html"
       - "GoblinArcade/Media/Tiles/**"
+      - "GoblinArcade/Media/Monsters/Atlases/**"
       - "api/publish.js"
       - "api/publish-atlas.js"
       - "tools/balance_audit.py"
@@ -24,6 +25,7 @@ on:
       - "tools/monster_sprite_studio_audit.py"
       - "tools/monster_atlas_binding_audit.py"
       - "tools/monster_atlas_publish_audit.py"
+      - "tools/monster_atlas_editor_audit.py"
       - "tools/forever_rules_audit.lua"
       - "tools/forever_runtime_audit.py"
       - "tools/affix_system_audit.py"
@@ -186,6 +188,7 @@ jobs:
             "tools/monster_sprite_studio_audit.py",
             "tools/monster_atlas_binding_audit.py",
             "tools/monster_atlas_publish_audit.py",
+            "tools/monster_atlas_editor_audit.py",
             "tools/forever_runtime_audit.py",
             "tools/affix_system_audit.py",
             "tools/generated_character_audit.py",

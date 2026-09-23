@@ -9,6 +9,16 @@ Default branch: `main`
 
 
 
+## Published monster atlas integration — Enemy editor + first live Orc bindings
+
+- The first real published atlas is now live: `orc_monster_states.png` contains **orc_raider row 0** and **orc_berserker row 1**, with Idle / Attack / Dead columns.
+- Canonical `studio-data.json` and generated `StudioData.lua` now bind those two Enemy records to `Media/Monsters/Atlases/orc_monster_states.png`; their legacy single-PNG `sprite` values remain as fallback data.
+- Enemy Editor atlas card now renders the **actual published PNG** as three cropped Idle / Attack / Dead previews, rather than relying only on browser-local IndexedDB source art.
+- Added **SYNC PUBLISHED FAMILY**. It loads `/GoblinArcade/Media/Monsters/Atlases/<family>_monster_states.json`, finds matching Enemy IDs, and synchronizes atlas path/family/monster/row/row-count for the entire family.
+- Atlas Family / Row / Row Count are read-only generated metadata in the editor. The binding card shows `ATLAS READY`, `ATLAS INCOMPLETE`, or `SINGLE SPRITE` state.
+- Monster atlas asset changes now trigger the self-hosted balance audit through `GoblinArcade/Media/Monsters/Atlases/**`.
+- Added `tools/monster_atlas_editor_audit.py`, which verifies HTML mirror identity, published-preview/sync hooks, the live Orc manifest, canonical JSON bindings and generated Lua bindings.
+- Studio schema/version remain **18 / 1.18.0**; these are additive editor/runtime-content changes.
 ## Monster Sprite Studio — direct GitHub atlas publish
 
 - Added **PUBLISH ATLAS TO WOW** to Monster Sprite Studio. It renders the current deterministic PNG atlas in-browser and publishes it directly to GitHub through protected `/api/publish-atlas`.
