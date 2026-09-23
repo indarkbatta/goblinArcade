@@ -9,6 +9,15 @@ Default branch: `main`
 
 
 
+## Monster Sprite Studio — direct GitHub atlas publish
+
+- Added **PUBLISH ATLAS TO WOW** to Monster Sprite Studio. It renders the current deterministic PNG atlas in-browser and publishes it directly to GitHub through protected `/api/publish-atlas`.
+- The endpoint reuses the existing `GITHUB_TOKEN` and `STUDIO_PUBLISH_KEY`; the GitHub token never reaches the browser.
+- A successful publish commits both `GoblinArcade/Media/Monsters/Atlases/<family>_monster_states.png` and the matching manifest JSON in one Git commit, then the existing push deployment can copy the asset into WoW.
+- Runtime path returned to Studio is `Media/Monsters/Atlases/<family>_monster_states.png`, and matching local Enemy atlas bindings are synchronized to that path.
+- GitHub publish is blocked if any Idle / Attack / Dead source image is missing. Local PNG/WebP export remains available for work-in-progress art.
+- Server validation verifies PNG signature/IHDR, exact 384 px width, height as a positive multiple of 128, max 64 rows / 3 MiB, manifest dimensions, fixed Idle/Attack/Dead columns, unique monster IDs and sequential row mapping.
+- Added `tools/monster_atlas_publish_audit.py`; the CI also runs `node --check` on both Vercel publish functions.
 ## Monster atlas binding — Enemy editor + runtime
 
 - The **Enemies** editor now supports `Sprite Source = SINGLE | ATLAS`. Existing records transparently migrate to `SINGLE`; no existing monster art is broken.

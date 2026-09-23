@@ -12,6 +12,7 @@ on:
       - "GoblinArcade/index.html"
       - "GoblinArcade/Media/Tiles/**"
       - "api/publish.js"
+      - "api/publish-atlas.js"
       - "tools/balance_audit.py"
       - "tools/event_audit.py"
       - "tools/orc_content_audit.py"
@@ -22,6 +23,7 @@ on:
       - "tools/autotile_builder_audit.py"
       - "tools/monster_sprite_studio_audit.py"
       - "tools/monster_atlas_binding_audit.py"
+      - "tools/monster_atlas_publish_audit.py"
       - "tools/forever_rules_audit.lua"
       - "tools/forever_runtime_audit.py"
       - "tools/affix_system_audit.py"
@@ -183,6 +185,7 @@ jobs:
             "tools/autotile_builder_audit.py",
             "tools/monster_sprite_studio_audit.py",
             "tools/monster_atlas_binding_audit.py",
+            "tools/monster_atlas_publish_audit.py",
             "tools/forever_runtime_audit.py",
             "tools/affix_system_audit.py",
             "tools/generated_character_audit.py",
@@ -221,6 +224,11 @@ jobs:
 
           & node --check $scriptPath
           if ($LASTEXITCODE -ne 0) { throw "Studio JavaScript syntax validation failed." }
+
+          foreach ($apiScript in @("api/publish.js", "api/publish-atlas.js")) {
+            & node --check $apiScript
+            if ($LASTEXITCODE -ne 0) { throw "API JavaScript syntax validation failed: $apiScript" }
+          }
 
       - name: Validate authored content
         shell: powershell

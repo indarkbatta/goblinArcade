@@ -172,7 +172,8 @@
       <div class="monster-export">
         <button id="monsterExportManifest" type="button" class="btn">MANIFEST JSON</button>
         <button id="monsterExportWebp" type="button" class="btn">ATLAS WEBP</button>
-        <button id="monsterExportPng" type="button" class="btn primary">ATLAS PNG</button>
+        <button id="monsterExportPng" type="button" class="btn">ATLAS PNG</button>
+        <button id="monsterPublishAtlas" type="button" class="btn primary">PUBLISH ATLAS TO WOW</button>
       </div>
     </div>
   </div>
@@ -504,6 +505,30 @@ function monsterManifest(){
 async function monsterExportAtlas(type){
   const canvas=await monsterBuildAtlas(),family=monsterSlug(monsterLoadProject().family),isWebp=type==="image/webp",ok=await monsterDownloadCanvas(canvas,family+"_monster_states."+(isWebp?"webp":"png"),type,isWebp?.95:undefined);if(ok)monsterStatus("Exported <b>"+canvas.width+" × "+canvas.height+"</b> "+(isWebp?"WebP preview atlas":"PNG game atlas")+".")
 }
+function monsterCanvasBlob(canvas,type,quality){return new Promise(function(resolve,reject){canvas.toBlob(function(blob){if(blob)resolve(blob);else reject(new Error("Browser could not encode "+type+"."))},type,quality)})}
+function monsterBlobDataUrl(blob){return new Promise(function(resolve,reject){const reader=new FileReader;reader.onload=function(){resolve(String(reader.result||""))};reader.onerror=function(){reject(reader.error||new Error("Could not read encoded atlas."))};reader.readAsDataURL(blob)})}
+async function monsterPublishAtlasToWow(){
+  const p=monsterLoadProject(),family=monsterSlug(p.family),missing=[];
+  for(const entry of p.entries)for(const stateName of MONSTER_STATES)if(!entry.states[stateName].sourceName)missing.push((entry.name||entry.id)+" / "+stateName.toUpperCase());
+  if(missing.length){monsterStatus("Publish blocked: missing source art for <b>"+missing.slice(0,4).map(esc).join(", ")+"</b>"+(missing.length>4?" and "+(missing.length-4)+" more.":"."));return}
+  let key=sessionStorage.getItem(PUBLISH_KEY)||"";if(!key){key=prompt("Studio publish key");if(!key)return;sessionStorage.setItem(PUBLISH_KEY,key)}
+  const button=document.getElementById("monsterPublishAtlas");button.disabled=true;monsterStatus("Rendering and publishing <b>"+esc(family)+"</b> atlas to GitHub...");
+  try{
+    await monsterEnsureAllImages();const unavailable=[];
+    for(const entry of p.entries)for(const stateName of MONSTER_STATES)if(!monsterImages.get(monsterImageKey(entry,stateName)))unavailable.push((entry.name||entry.id)+" / "+stateName.toUpperCase());
+    if(unavailable.length)throw new Error("Stored source image missing for "+unavailable.slice(0,3).join(", ")+(unavailable.length>3?" and more":"")+". Re-upload it before publishing.");
+    const canvas=await monsterBuildAtlas(),blob=await monsterCanvasBlob(canvas,"image/png"),dataUrl=await monsterBlobDataUrl(blob),base64=dataUrl.slice(dataUrl.indexOf(",")+1),manifest=monsterManifest();
+    const response=await fetch("/api/publish-atlas",{method:"POST",headers:{"Content-Type":"application/json","X-Studio-Key":key},body:JSON.stringify({family:family,pngBase64:base64,manifest:manifest})});
+    const body=await response.json().catch(function(){return{error:"Invalid server response."}});
+    if(response.status===401)sessionStorage.removeItem(PUBLISH_KEY);
+    if(!response.ok)throw new Error(body.error||("HTTP "+response.status));
+    const runtimePath=body.runtimePath||manifest.suggestedRuntimePng;
+    for(const enemy of state.enemies||[]){if(String(enemy.spriteMode||"").toUpperCase()==="ATLAS"&&enemy.spriteAtlasFamily===family)enemy.spriteAtlas=runtimePath}
+    if(monsterSyncEnemyAtlasBindings()){}persist("Atlas published and bindings synchronized.");
+    monsterStatus("Published <b>"+esc(runtimePath)+"</b> · GitHub <b>"+esc(body.shortSha||"")+"</b> · WoW deploy started.")
+  }catch(err){monsterStatus("Atlas publish failed: <b>"+esc(err.message||String(err))+"</b>")}
+  finally{button.disabled=false}
+}
 async function monsterDownloadCurrent(){const entry=monsterCurrentEntry();if(!entry)return;await monsterEnsureImage(entry,monsterSelectedState);const frame=monsterRenderFrame(entry,monsterSelectedState);await monsterDownloadCanvas(frame,monsterSlug(entry.id)+"_"+monsterSelectedState+".png","image/png");monsterStatus("Exported current <b>128 × 128 PNG</b> frame.")}
 function monsterDownloadManifest(){download(monsterSlug(monsterLoadProject().family)+"_monster_states.json",JSON.stringify(monsterManifest(),null,2),"application/json");monsterStatus("Manifest exported with pixel rectangles and normalized UV coordinates.")}
 function monsterCopyFx(){
@@ -521,7 +546,7 @@ function monsterStudioBind(){
   document.querySelectorAll("#monsterStateTabs button").forEach(function(b){b.onclick=async function(){monsterSelectedState=b.dataset.state;const entry=monsterCurrentEntry();if(entry)await monsterEnsureImage(entry,monsterSelectedState);monsterSyncControls();monsterRenderPreview()}});
   document.getElementById("monsterSourceInput").onchange=async function(){const file=this.files&&this.files[0];this.value="";if(file)await monsterSetSource(file)};
   document.getElementById("monsterAutoFit").onclick=monsterAutoFitCurrent;document.getElementById("monsterCopyFx").onclick=monsterCopyFx;document.getElementById("monsterDownloadFrame").onclick=monsterDownloadCurrent;
-  document.getElementById("monsterExportPng").onclick=function(){monsterExportAtlas("image/png")};document.getElementById("monsterExportWebp").onclick=function(){monsterExportAtlas("image/webp")};document.getElementById("monsterExportManifest").onclick=monsterDownloadManifest;
+  document.getElementById("monsterExportPng").onclick=function(){monsterExportAtlas("image/png")};document.getElementById("monsterExportWebp").onclick=function(){monsterExportAtlas("image/webp")};document.getElementById("monsterExportManifest").onclick=monsterDownloadManifest;document.getElementById("monsterPublishAtlas").onclick=monsterPublishAtlasToWow;
   document.getElementById("monsterEntryId").oninput=function(){const e=monsterCurrentEntry();if(!e)return;const oldId=e.id;e.id=this.value;const p=monsterLoadProject(),family=monsterSlug(p.family);let renamed=false;for(const record of state.enemies||[]){if(String(record.spriteMode||"").toUpperCase()==="ATLAS"&&record.spriteAtlasFamily===family&&record.spriteAtlasMonsterId===oldId){record.spriteAtlasMonsterId=e.id;renamed=true}}monsterSaveProject();const synced=monsterSyncEnemyAtlasBindings();if(renamed||synced)persist("Atlas binding renamed and synchronized.");monsterRenderList()};
   document.getElementById("monsterEntryName").oninput=function(){const e=monsterCurrentEntry();if(!e)return;e.name=this.value;monsterSaveProject();monsterRenderList()};
   monsterBindRange("monsterScale","zoom");document.getElementById("monsterScale").oninput=function(){const st=monsterCurrentState();if(!st)return;st.zoom=Number(this.value)/100;monsterSaveProject();monsterSyncControls();monsterRenderPreview()};
