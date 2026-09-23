@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "family": "orc",
+  "frameWidth": 128,
+  "frameHeight": 128,
+  "atlasWidth": 384,
+  "atlasHeight": 256,
+  "columns": [
+    "idle",
+    "attack",
+    "dead"
+  ],
+  "layout": "rows=monsters, columns=states",
+  "suggestedRuntimePng": "Media/Monsters/Atlases/orc_monster_states.png",
+  "monsters": [
+    {
+      "id": "orc_raider",
+      "name": "Orc Raider",
+      "row": 0,
+      "states": {
+        "idle": {
+          "x": 0,
+          "y": 0,
+          "width": 128,
+          "height": 128,
+          "u0": 0,
+          "v0": 0,
+          "u1": 0.3333333333333333,
+          "v1": 0.5,
+          "sourceLoaded": true
+        },
+        "attack": {
+          "x": 128,
+          "y": 0,
+          "width": 128,
+          "height": 128,
+          "u0": 0.3333333333333333,
+          "v0": 0,
+          "u1": 0.6666666666666666,
+          "v1": 0.5,
+          "sourceLoaded": true
+        },
+        "dead": {
+          "x": 256,
+          "y": 0,
+          "width": 128,
+          "height": 128,
+          "u0": 0.6666666666666666,
+          "v0": 0,
+          "u1": 1,
+          "v1": 0.5,
+          "sourceLoaded": true
+        }
+      }
+    },
+    {
+      "id": "orc_berserker",
+      "name": "Orc Berserker",
+      "row": 1,
+      "states": {
+        "idle": {
+          "x": 0,
+          "y": 128,
+          "width": 128,
+          "height": 128,
+          "u0": 0,
+          "v0": 0.5,
+          "u1": 0.3333333333333333,
+          "v1": 1,
+          "sourceLoaded": true
+        },
+        "attack": {
+          "x": 128,
+          "y": 128,
+          "width": 128,
+          "height": 128,
+          "u0": 0.3333333333333333,
+          "v0": 0.5,
+          "u1": 0.6666666666666666,
+          "v1": 1,
+          "sourceLoaded": true
+        },
+        "dead": {
+          "x": 256,
+          "y": 128,
+          "width": 128,
+          "height": 128,
+          "u0": 0.6666666666666666,
+          "v0": 0.5,
+          "u1": 1,
+          "v1": 1,
+          "sourceLoaded": true
+        }
+      }
+    }
+  ]
+}
